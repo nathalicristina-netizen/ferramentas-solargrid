@@ -456,10 +456,10 @@ var ALL_LOCAIS=["ARS", "AST", "Alex Alves", "Assistência Têcnica", "BNF", "Bel
 var tools=RAW.map(function(t,i){
   return{_id:i,_mod:false,hist:[],
     patrimonio:t.patrimonio||'',ferramenta:t.ferramenta||'',
-    marca:t.marca||'',modelo:t.modelo||'',serie:t.serie||'',
+    marca:t.marca||'',modelo:t.modelo||'',serie:(t.serie||'').toString().replace(/\.0$/,''),
     status:t.status||'OK',local:t.local||'',siglaLocal:t.siglaLocal||'',
     cidade:t.cidade||'',estado:t.estado||'',responsavel:t.responsavel||'',
-    setor:t.setor||'',valor:t.valor||'',certCal:t.certCal||'',
+    setor:t.setor||'',valor:t.valor||'',certCal:(t.certCal||'').toString().replace(/\.0$/,''),
     laboratorio:t.laboratorio||'',dataCal:t.dataCal||'',
     diasProxCal:t.diasProxCal||'-',obs:t.obs||'',lastConfirm:null};
 });
@@ -616,6 +616,9 @@ async function dbLoad(){
         tools.unshift(t);
       }
       Object.keys(map).forEach(function(k){if(row[k]!==null&&row[k]!==undefined)t[map[k]]=row[k];});
+      // strip .0 from serie and certCal
+      if(t.serie)t.serie=t.serie.toString().replace(/\.0$/,'');
+      if(t.certCal)t.certCal=t.certCal.toString().replace(/\.0$/,'');
       t._mod=true;
     });
     var r2=await sb.from('historico').select('*').order('created_at',{ascending:false});
