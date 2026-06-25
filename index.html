@@ -1337,6 +1337,13 @@ function importXLSX(e){
       });
 
       saveTols();page=1;renderAll();
+      // sync all imported tools to Supabase
+      if(sb){
+        imported.forEach(function(imp){
+          var t=tools.find(function(x){return x.patrimonio===imp.patrimonio;});
+          if(t)dbSaveTool(t);
+        });
+      }
       showToast('Importado: '+updated+' atualizadas, '+added+' novas.',true);
     }catch(err){
       showToast('Erro ao ler arquivo: '+err.message,false);
