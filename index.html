@@ -334,7 +334,6 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
             <option value="">Todos locais</option>
           </select>
           <div style="height:28px;width:1.5px;background:var(--bd);border-radius:2px"></div>
-          <span id="valLbl" style="font-size:11px;color:var(--nv);font-weight:700;white-space:nowrap"></span>
           <button id="epBtn" class="btn-or" onclick="exportPDF()" style="display:none;font-size:11px;padding:6px 11px">📄 PDF</button>
           <label class="btn-nv" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px" title="Importar Excel (aba Controle)">
             📥 Importar Excel
@@ -899,10 +898,7 @@ function renderTable(){
   if(page>pages)page=pages;
   var slice=list.slice((page-1)*PG,page*PG);
   document.getElementById('cntLbl').textContent=tot+' ferramenta'+(tot!==1?'s':'');
-  // valor total
-  var valTotal=list.reduce(function(s,t){return s+(parseFloat(t.valor)||0);},0);
-  var vl=document.getElementById('valLbl');
-  if(vl)vl.textContent=valTotal>0?'∑ R$ '+valTotal.toLocaleString('pt-BR',{minimumFractionDigits:2}):'';
+
   var epBtn=document.getElementById('epBtn');
   if(epBtn)epBtn.style.display=AF!=='todos'?'inline-flex':'none';
   var rows='';
@@ -1262,7 +1258,7 @@ function importXLSX(e){
   var reader=new FileReader();
   reader.onload=function(ev){
     try{
-      var wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+      var wb=XLSX.read(ev.target.result,{type:'array',cellDates:false,raw:false,dateNF:'yyyy-mm-dd'});
       var ws=wb.Sheets['Controle'];
       if(!ws){showToast('Aba "Controle" não encontrada no arquivo!',false);return;}
       var rows=XLSX.utils.sheet_to_json(ws,{raw:false,dateNF:'yyyy-mm-dd'});
@@ -1281,10 +1277,23 @@ function importXLSX(e){
           var s=String(v).trim();
           // already YYYY-MM-DD
           if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.substring(0,10);
-          // DD/MM/YYYY
-          var m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-          if(m)return m[3]+'-'+m[2]+'-'+m[1];
-          return s;
+          // SheetJS date serial number
+          if(/^\d{5}$/.test(s)){
+            var d=XLSX.SSF.parse_date_code(parseInt(s));
+            if(d)return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0');
+          }
+          // MM/DD/YYYY (Excel US format from SheetJS raw:false)
+          var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+          if(m){
+            var month=parseInt(m[1]),day=parseInt(m[2]),year=parseInt(m[3]);
+            // if month > 12 it's actually DD/MM/YYYY
+            if(month>12)return year+'-'+String(day).padStart(2,'0')+'-'+String(month).padStart(2,'0');
+            return year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+          }
+          // try generic parse
+          var dt=new Date(s);
+          if(!isNaN(dt))return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+          return'';
         }catch(e){return'';}
       }
 
