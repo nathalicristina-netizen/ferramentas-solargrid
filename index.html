@@ -297,6 +297,8 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
     </div>
     <div class="nav-tabs">
       <button class="nav-tab on" onclick="showTab('tabFerr',this)">🔧 Ferramentas</button>
+      <button class="nav-tab" onclick="showTab('tabDash',this)">📊 Dashboard</button>
+      <button class="nav-tab" onclick="showTab('tabCert',this)">📜 Certificados</button>
       <button class="nav-tab" onclick="showTab('tabTerm',this)">📄 Termo de Transferência</button>
       <button class="nav-tab" onclick="showTab('tabUsers',this)">👥 Usuários</button>
     </div>
@@ -452,6 +454,33 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         <button class="btn-or" onclick="openAddUser()" style="font-size:12px;padding:7px 16px">+ Novo usuário</button>
       </div>
       <div id="userList"></div>
+    </div>
+  </div>
+
+  <!-- TAB DASHBOARD -->
+  <div id="tabDash" class="tab-content">
+    <div style="padding:16px">
+      <iframe title="Dashboard SolarGrid" width="100%" height="720" src="https://app.powerbi.com/view?r=eyJrIjoiNzI1YjVkMDctOTkxMi00ODFjLThjMzQtMWJhMGRkODI0MDBjIiwidCI6ImZjNGNmNzlkLTgwYTctNDJlOC1iYWI3LWI4ODUyNzVmN2ZjMSJ9" frameborder="0" allowFullScreen="true" style="border-radius:10px;border:1px solid var(--bd)"></iframe>
+    </div>
+  </div>
+
+  <!-- TAB CERTIFICADOS -->
+  <div id="tabCert" class="tab-content">
+    <div style="max-width:900px;margin:0 auto;padding:20px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <h2 style="font-size:17px;font-weight:700;color:var(--nv)">📜 Certificados de Calibração</h2>
+          <p style="font-size:12px;color:var(--tx3);margin-top:3px">Anexe e consulte os certificados das ferramentas</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="srch" style="min-width:200px">
+            <span class="srch-ico">🔍</span>
+            <input type="text" placeholder="Buscar patrimônio ou ferramenta…" oninput="searchCerts(this.value)"/>
+          </div>
+          <button class="btn-or" onclick="openAddCert()" style="font-size:12px;padding:7px 16px;white-space:nowrap">+ Novo certificado</button>
+        </div>
+      </div>
+      <div id="certList"></div>
     </div>
   </div>
 
@@ -1040,12 +1069,100 @@ function delUser(i){
   showToast('Usuário removido',true);
 }
 
+// ===== CERTIFICADOS DE CALIBRAÇÃO =====
+var certs = JSON.parse(localStorage.getItem('sg_certs')||'[]');
+var certSearchTerm = '';
+function saveCerts(){
+  try{localStorage.setItem('sg_certs',JSON.stringify(certs));}
+  catch(e){showToast('Arquivo muito grande para salvar. Tente um PDF menor.',false);}
+}
+
+function searchCerts(v){certSearchTerm=v.toLowerCase().trim();renderCerts();}
+
+function renderCerts(){
+  var el=document.getElementById('certList');if(!el)return;
+  var list=certs;
+  if(certSearchTerm){
+    list=certs.filter(function(c){
+      return c.patrimonio.toLowerCase().includes(certSearchTerm)||c.ferramenta.toLowerCase().includes(certSearchTerm);
+    });
+  }
+  if(!list.length){
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3);font-size:13px">'+
+      (certs.length?'Nenhum certificado encontrado para essa busca.':'Nenhum certificado cadastrado ainda.<br>Clique em <b>+ Novo certificado</b> para começar.')+
+      '</div>';
+    return;
+  }
+  var cards=list.map(function(c){
+    var idx=certs.indexOf(c);
+    return '<div style="display:flex;align-items:center;gap:12px;background:var(--bg2);border:1.5px solid var(--bd);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s" onclick="openCertFile('+idx+')" onmouseover="this.style.borderColor=\'var(--or)\'" onmouseout="this.style.borderColor=\'var(--bd)\'">'+
+      '<div style="font-size:24px">📄</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-weight:700;color:var(--nv);font-size:13px;font-family:monospace">'+c.patrimonio+'</div>'+
+        '<div style="font-size:12.5px;color:var(--tx2)">'+c.ferramenta+'</div>'+
+        '<div style="font-size:10.5px;color:var(--tx3);margin-top:1px">'+(c.fileName||'certificado.pdf')+'</div>'+
+      '</div>'+
+      '<button onclick="event.stopPropagation();delCert('+idx+')" class="bs rd" style="font-size:11px;padding:5px 9px">✕</button>'+
+    '</div>';
+  }).join('');
+  el.innerHTML=cards;
+}
+
+function openCertFile(idx){
+  var c=certs[idx];if(!c)return;
+  var win=window.open();
+  win.document.write('<iframe src="'+c.fileData+'" style="width:100%;height:100vh;border:none"></iframe>');
+  win.document.title=c.fileName||'Certificado';
+}
+
+function openAddCert(){
+  var h='<div class="mh"><div><div class="mtt">📜 Novo Certificado</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
+  h+='<div class="mf-row"><div class="mf"><label>Patrimônio</label><input id="ccPat" placeholder="Ex: OEM0036" style="font-family:monospace" oninput="fillCertFromTool(this.value)"/></div><div class="mf"><label>Nome da ferramenta</label><input id="ccNome" placeholder="Ex: Micro-ohmímetro"/></div></div>';
+  h+='<div class="mf"><label>Arquivo do certificado (PDF)</label><input id="ccFile" type="file" accept="application/pdf"/></div>';
+  h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button><button class="b-sv" onclick="saveNewCert()">Salvar</button></div>';
+  document.getElementById('mbody').innerHTML=h;
+  document.getElementById('mo').style.display='flex';
+  document.getElementById('ccPat').focus();
+}
+
+function fillCertFromTool(pat){
+  if(!pat||pat.length<2)return;
+  var t=tools.find(function(x){return x.patrimonio.toLowerCase()===pat.toLowerCase();});
+  if(t){var nm=document.getElementById('ccNome');if(nm&&!nm.value)nm.value=t.ferramenta;}
+}
+
+function saveNewCert(){
+  var pat=document.getElementById('ccPat').value.trim();
+  var nome=document.getElementById('ccNome').value.trim();
+  var fileInput=document.getElementById('ccFile');
+  var file=fileInput.files[0];
+  if(!pat){showToast('Informe o patrimônio',false);return;}
+  if(!nome){showToast('Informe o nome da ferramenta',false);return;}
+  if(!file){showToast('Selecione o arquivo do certificado',false);return;}
+  if(file.type!=='application/pdf'){showToast('O arquivo deve ser um PDF',false);return;}
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    certs.unshift({patrimonio:pat,ferramenta:nome,fileName:file.name,fileData:ev.target.result});
+    saveCerts();closeM();renderCerts();
+    showToast('Certificado anexado com sucesso!',true);
+  };
+  reader.readAsDataURL(file);
+}
+
+function delCert(idx){
+  var c=certs[idx];
+  if(!confirm('Excluir certificado de "'+c.ferramenta+'" ('+c.patrimonio+')?'))return;
+  certs.splice(idx,1);saveCerts();renderCerts();
+  showToast('Certificado removido',true);
+}
+
 function showTab(id,btn){
   document.querySelectorAll('.tab-content').forEach(function(e){e.classList.remove('on');});
   document.querySelectorAll('.nav-tab').forEach(function(b){b.classList.remove('on');});
   var el=document.getElementById(id);if(el)el.classList.add('on');
   btn.classList.add('on');saveSession();
   if(id==='tabUsers')renderUsers();
+  if(id==='tabCert')renderCerts();
 }
 
 // ── CONFIRMAÇÃO ──
