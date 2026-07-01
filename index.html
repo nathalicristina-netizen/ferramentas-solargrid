@@ -975,7 +975,7 @@ function renderPag(tot,cur,pages){
   ['pTop','pBot'].forEach(function(id){var e=document.getElementById(id);if(e){e.innerHTML=o;e.style.display='flex';}});
 }
 function goPg(p){page=p;renderTable();}
-function renderAll(){renderMetrics();renderTable();populateLocalFlt();}
+function renderAll(){renderMetrics();renderTable();populateLocalFlt();renderUsers();renderCerts();}
 function setF(btn,f){document.querySelectorAll('.ft').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');AF=f;page=1;renderTable();}
 function setFMc(f){AF=f;page=1;document.querySelectorAll('.ft').forEach(function(b){var t=b.getAttribute('data-f');b.classList.toggle('on',t===f);});renderTable();}
 function doSrch(v){ST=v.toLowerCase();page=1;renderTable();}
