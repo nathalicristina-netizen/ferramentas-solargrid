@@ -710,10 +710,13 @@ function doLogin(){
   if(!name||name.split(' ').filter(Boolean).length<2){err.style.display='block';err.textContent='Informe nome e sobrenome.';return;}
   if(!email||!email.includes('@')){err.style.display='block';err.textContent='Informe um e-mail válido.';return;}
   if(!setor){err.style.display='block';err.textContent='Informe seu setor.';return;}
+  // validate against registered users
+  var match=users.find(function(u){return u.email.toLowerCase()===email.toLowerCase();});
+  if(!match){err.style.display='block';err.textContent='Acesso não autorizado. Solicite o cadastro ao administrador.';return;}
   err.style.display='none';
   var parts=name.split(' ').filter(Boolean);
   var initials=(parts[0][0]+(parts[parts.length-1][0])).toUpperCase();
-  CU={name:name,email:email,setor:setor,initials:initials,role:'comum'};
+  CU={name:match.nome,email:match.email,setor:match.setor,initials:initials,role:match.nivel||'Comum'};
   saveSession();showApp();renderAll();dbLoad();
 }
 function doLogout(){
