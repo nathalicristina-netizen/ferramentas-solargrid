@@ -1591,7 +1591,7 @@ function importXLSX(e){
           Object.assign(existing,imp,preserve);
           updated++;
         } else {
-          imp._id=Date.now()+Math.random();
+          imp._id=Date.now()+added;
           imp.hist=[];imp.lastConfirm=null;imp._mod=true;
           tools.unshift(imp);
           added++;
