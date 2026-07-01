@@ -995,9 +995,13 @@ async function saveUserSB(u){
   if(!sb)return;
   try{
     var row={nome:u.nome,email:u.email,setor:u.setor,nivel:u.nivel||'Comum'};
-    if(u.sbId)row.id=u.sbId;
-    var r=await sb.from('usuários').upsert(row,{onConflict:'email'});
-    if(r.data&&r.data[0]&&!u.sbId){u.sbId=r.data[0].id;saveUsers();}
+    if(u.sbId){
+      await sb.from('usuários').update(row).eq('id',u.sbId);
+    } else {
+      var r=await sb.from('usuários').insert(row).select();
+      if(r.data&&r.data[0])u.sbId=r.data[0].id;
+      saveUsers();
+    }
   }catch(e){console.warn('saveUserSB:',e);}
 }
 async function delUserSB(u){
