@@ -662,6 +662,7 @@ async function dbSaveHist(id,msg,user){
 async function dbDelHist(id){if(!sb)return;try{await sb.from('historico').delete().eq('ferramenta_id',id);}catch(e){}}
 async function dbLoad(){
   if(!sb){renderAll();return;}
+  await loadUsersSB();
   showBanner('connecting','Conectando…');
   try{
     var r=await sb.from('ferramentas').select('*');
@@ -987,7 +988,36 @@ function sortBy(c){if(sortCol===c)sortDir*=-1;else{sortCol=c;sortDir=1;}renderTa
 // ── NAVBAR ──
 // ===== USUÁRIOS =====
 var users = JSON.parse(localStorage.getItem('sg_users')||'[]');
-function saveUsers(){try{localStorage.setItem('sg_users',JSON.stringify(users));}catch(e){}}
+function saveUsers(){
+  try{localStorage.setItem('sg_users',JSON.stringify(users));}catch(e){}
+}
+async function saveUserSB(u){
+  if(!sb)return;
+  try{
+    var row={nome:u.nome,email:u.email,setor:u.setor,nivel:u.nivel||'Comum'};
+    if(u.sbId)row.id=u.sbId;
+    var r=await sb.from('usuarios').upsert(row,{onConflict:'email'});
+    if(r.data&&r.data[0]&&!u.sbId){u.sbId=r.data[0].id;saveUsers();}
+  }catch(e){console.warn('saveUserSB:',e);}
+}
+async function delUserSB(u){
+  if(!sb||!u.sbId)return;
+  try{await sb.from('usuarios').delete().eq('id',u.sbId);}catch(e){}
+}
+async function loadUsersSB(){
+  if(!sb)return;
+  try{
+    var r=await sb.from('usuarios').select('*');
+    if(r.data&&r.data.length){
+      r.data.forEach(function(row){
+        var ex=users.find(function(u){return u.email.toLowerCase()===row.email.toLowerCase();});
+        if(!ex){users.push({nome:row.nome,email:row.email,setor:row.setor,nivel:row.nivel||'Comum',sbId:row.id});}
+        else{ex.sbId=row.id;ex.nivel=row.nivel||ex.nivel;ex.setor=row.setor||ex.setor;}
+      });
+      saveUsers();
+    }
+  }catch(e){console.warn('loadUsersSB:',e);}
+}
 
 function renderUsers(){
   var el=document.getElementById('userList');if(!el)return;
@@ -1042,8 +1072,9 @@ function saveNewUser(){
   if(!setor){showToast('Selecione o setor',false);return;}
   if(!nivel){showToast('Selecione o nível de acesso',false);return;}
   if(users.find(function(u){return u.email.toLowerCase()===email.toLowerCase();})){showToast('E-mail já cadastrado',false);return;}
-  users.push({nome:nome,email:email,setor:setor,nivel:nivel});
-  saveUsers();closeM();renderUsers();
+  var nu={nome:nome,email:email,setor:setor,nivel:nivel};
+  users.push(nu);
+  saveUsers();saveUserSB(nu);closeM();renderUsers();
   showToast('Usuário cadastrado com sucesso!',true);
 }
 
@@ -1070,8 +1101,9 @@ function saveEditUser(i){
   if(dup>=0){showToast('E-mail já cadastrado para outro usuário',false);return;}
   var nivel=document.getElementById('uuNivel').value;
   if(!nivel){showToast('Selecione o nível de acesso',false);return;}
-  users[i]={nome:nome,email:email,setor:setor,nivel:nivel};
-  saveUsers();closeM();renderUsers();
+  var sbId=users[i].sbId;
+  users[i]={nome:nome,email:email,setor:setor,nivel:nivel,sbId:sbId};
+  saveUsers();saveUserSB(users[i]);closeM();renderUsers();
   showToast('Usuário atualizado!',true);
 }
 
@@ -1079,7 +1111,7 @@ function delUser(i){
   if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem excluir usuários.',false);return;}
   var u=users[i];
   if(!confirm('Excluir "'+u.nome+'" ('+u.email+')?'))return;
-  users.splice(i,1);saveUsers();renderUsers();
+  delUserSB(users[i]);users.splice(i,1);saveUsers();renderUsers();
   showToast('Usuário removido',true);
 }
 
