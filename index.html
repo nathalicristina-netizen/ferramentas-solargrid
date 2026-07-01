@@ -955,7 +955,7 @@ function renderTable(){
         '<button class="bs ok" onclick="openConf('+t._id+')">📍<\/button>'+
         '<button class="bs gh" onclick="openHist('+t._id+')">Hist.<\/button>'+
         '<button class="bs pr" onclick="openUpd('+t._id+')">Editar<\/button>'+
-        '<button class="bs rd" onclick="delTool('+t._id+')">✕<\/button>'+
+        (CU&&CU.role==='Admin'?'<button class="bs rd" onclick="delTool('+t._id+')">✕<\/button>':'')+
       '<\/div><\/td>'+
     '<\/tr>';
   });
@@ -1005,7 +1005,7 @@ function renderUsers(){
       '<td><span style="background:'+nivelBg+';color:'+nivelColor+';border:1px solid '+nivelColor+'40;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700">'+(u.nivel||'—')+'</span></td>'+
       '<td style="text-align:right">'+
         '<button class="bs pr" onclick="editUser('+i+')" style="font-size:11px;padding:4px 10px">Editar</button> '+
-        '<button class="bs rd" onclick="delUser('+i+')" style="font-size:11px;padding:4px 8px">✕</button>'+
+        (CU&&CU.role==='Admin'?'<button class="bs rd" onclick="delUser('+i+')" style="font-size:11px;padding:4px 8px">✕</button>':'')+
       '</td>'+
     '</tr>';
   }).join('');
@@ -1076,6 +1076,7 @@ function saveEditUser(i){
 }
 
 function delUser(i){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem excluir usuários.',false);return;}
   var u=users[i];
   if(!confirm('Excluir "'+u.nome+'" ('+u.email+')?'))return;
   users.splice(i,1);saveUsers();renderUsers();
@@ -1244,6 +1245,7 @@ function clearHist(tid){
 
 // ── EDITAR ──
 function delTool(id){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem excluir ferramentas.',false);return;}
   var t=tools.find(function(x){return x._id===id;});
   if(!t)return;
   if(!confirm('Excluir "'+t.ferramenta+'" ('+t.patrimonio+')?\n\nEsta ação não pode ser desfeita.'))return;
