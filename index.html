@@ -1599,44 +1599,38 @@ function importXLSX(e){
       });
 
       saveTols();page=1;renderAll();
-      // sync to Supabase in batches
+      // sync to Supabase in batches of 50 using simple insert
       if(sb){
         showToast('Sincronizando com o banco... aguarde ⏳',true);
-        var toUpdate=[];
-        var toInsert=[];
-        imported.forEach(function(imp){
+        var toSync=imported.map(function(imp){
           var t=tools.find(function(x){return x.patrimonio===imp.patrimonio;});
-          if(!t)return;
-          var row={patrimonio:t.patrimonio,ferramenta:t.ferramenta,
+          if(!t)return null;
+          return {id:t._id,patrimonio:t.patrimonio,ferramenta:t.ferramenta,
             marca:t.marca,modelo:t.modelo,serie:t.serie,status:t.status,local:t.local,
             sigla_local:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,
             setor:t.setor,valor:t.valor,cert_cal:t.certCal,laboratorio:t.laboratorio,
             data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),
             data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),
             obs:t.obs||'',last_confirm:t.lastConfirm||null};
-          if(t._mod&&typeof t._id==='number'&&t._id<1e13){
-            // existing in DB (old numeric id)
-            toUpdate.push(Object.assign({id:t._id},row));
-          } else {
-            toInsert.push(row);
-          }
-        });
+        }).filter(Boolean);
         var batchSize=50;
-        var batches=[];
-        for(var i=0;i<toUpdate.length;i+=batchSize)batches.push({type:'upsert',data:toUpdate.slice(i,i+batchSize)});
-        for(var i=0;i<toInsert.length;i+=batchSize)batches.push({type:'insert',data:toInsert.slice(i,i+batchSize)});
+        var total=Math.ceil(toSync.length/batchSize);
         var done=0;
-        function sendBatch(idx){
-          if(idx>=batches.length){
+        function sendBatch(i){
+          if(i>=toSync.length){
             showToast('✅ Importado e salvo: '+updated+' atualizadas, '+added+' novas.',true);
             return;
           }
-          var b=batches[idx];
-          var p=b.type==='upsert'
-            ?sb.from('ferramentas').upsert(b.data,{onConflict:'patrimonio'})
-            :sb.from('ferramentas').insert(b.data);
-          p.then(function(){done++;showToast('Sincronizando... '+done+'/'+batches.length+' lotes ⏳',true);sendBatch(idx+1);})
-           .catch(function(e){console.warn('batch err:',e);sendBatch(idx+1);});
+          var batch=toSync.slice(i,i+batchSize);
+          sb.from('ferramentas').upsert(batch,{onConflict:'id',ignoreDuplicates:false})
+            .then(function(){done++;showToast('Sincronizando... '+done+'/'+total+' lotes ⏳',true);sendBatch(i+batchSize);})
+            .catch(function(e){
+              // fallback: update each individually
+              batch.forEach(function(row){
+                if(row.id){sb.from('ferramentas').update(row).eq('id',row.id).then(function(){}).catch(function(){});}
+              });
+              done++;sendBatch(i+batchSize);
+            });
         }
         sendBatch(0);
       } else {
