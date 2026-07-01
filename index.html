@@ -1514,12 +1514,28 @@ function importXLSX(e){
       });
 
       saveTols();page=1;renderAll();
-      // sync all imported tools to Supabase
+      // sync to Supabase in batches of 50
       if(sb){
-        imported.forEach(function(imp){
+        var toSync=imported.map(function(imp){
           var t=tools.find(function(x){return x.patrimonio===imp.patrimonio;});
-          if(t)dbSaveTool(t);
-        });
+          if(!t)return null;
+          return {id:t._id,patrimonio:t.patrimonio,ferramenta:t.ferramenta,
+            marca:t.marca,modelo:t.modelo,serie:t.serie,status:t.status,local:t.local,
+            sigla_local:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,
+            setor:t.setor,valor:t.valor,cert_cal:t.certCal,laboratorio:t.laboratorio,
+            data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),
+            data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),
+            obs:t.obs||'',last_confirm:t.lastConfirm||null};
+        }).filter(Boolean);
+        var batchSize=50;
+        function sendBatch(i){
+          if(i>=toSync.length)return;
+          var batch=toSync.slice(i,i+batchSize);
+          sb.from('ferramentas').upsert(batch,{onConflict:'id'}).then(function(){
+            sendBatch(i+batchSize);
+          }).catch(function(e){console.warn('batch err:',e);sendBatch(i+batchSize);});
+        }
+        sendBatch(0);
       }
       showToast('Importado: '+updated+' atualizadas, '+added+' novas.',true);
     }catch(err){
