@@ -996,18 +996,18 @@ async function saveUserSB(u){
   try{
     var row={nome:u.nome,email:u.email,setor:u.setor,nivel:u.nivel||'Comum'};
     if(u.sbId)row.id=u.sbId;
-    var r=await sb.from('usuarios').upsert(row,{onConflict:'email'});
+    var r=await sb.from('usuários').upsert(row,{onConflict:'email'});
     if(r.data&&r.data[0]&&!u.sbId){u.sbId=r.data[0].id;saveUsers();}
   }catch(e){console.warn('saveUserSB:',e);}
 }
 async function delUserSB(u){
   if(!sb||!u.sbId)return;
-  try{await sb.from('usuarios').delete().eq('id',u.sbId);}catch(e){}
+  try{await sb.from('usuários').delete().eq('id',u.sbId);}catch(e){}
 }
 async function loadUsersSB(){
   if(!sb)return;
   try{
-    var r=await sb.from('usuarios').select('*');
+    var r=await sb.from('usuários').select('*');
     if(r.data&&r.data.length){
       r.data.forEach(function(row){
         var ex=users.find(function(u){return u.email.toLowerCase()===row.email.toLowerCase();});
