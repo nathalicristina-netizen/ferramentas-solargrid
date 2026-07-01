@@ -251,22 +251,22 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         <p>Acesse com seu nome, e-mail e setor.</p>
         <div class="lp-f">
           <label>Nome e sobrenome</label>
-          <input id="lN" type="text" placeholder="Ex: João Silva" onkeydown="if(event.key==='Enter')document.getElementById('lEmail').focus()"/>
+          <input id="lN" type="text" placeholder="Ex: João Silva" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('lEmail').focus()"/>
         </div>
         <div class="lp-f">
           <label>E-mail corporativo</label>
-          <input id="lEmail" type="email" placeholder="Ex: joao.silva@solargrid.com.br" onkeydown="if(event.key==='Enter')document.getElementById('lSetor').focus()"/>
+          <input id="lEmail" type="email" placeholder="Ex: joao.silva@solargrid.com.br" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('lSetor').focus()"/>
         </div>
         <div class="lp-f">
           <label>Setor</label>
           <select id="lSetor">
             <option value="">Selecione…</option>
-            <option>OEM</option>
-            <option>EP</option>
-            <option>AMB</option>
-            <option>COM</option>
-            <option>OPE</option>
-            <option>ADM</option>
+            <option>Comissionamento</option>
+            <option>Construção</option>
+            <option>O&amp;M</option>
+            <option>PMO</option>
+            <option>CSC</option>
+            <option>Engenharia do Proprietário</option>
           </select>
         </div>
         <button class="lp-btn" onclick="doLogin()">Entrar →</button>
@@ -330,7 +330,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
           </div>
           <select id="setorFlt" onchange="setSF(this.value)" style="padding:6px 10px;border:1.5px solid var(--bd);border-radius:8px;background:var(--bg2);color:var(--tx2);font-size:12px;font-family:var(--fb);cursor:pointer">
             <option value="">Todos setores</option>
-            <option>OEM</option><option>OPE</option><option>COM</option><option>EP</option><option>AMB</option>
+            <option>Comissionamento</option><option>Construção</option><option>O&amp;M</option><option>PMO</option><option>CSC</option><option>Engenharia do Proprietário</option>
           </select>
           <select id="localFlt" onchange="setLF(this.value)" style="padding:6px 10px;border:1.5px solid var(--bd);border-radius:8px;background:var(--bg2);color:var(--tx2);font-size:12px;font-family:var(--fb);cursor:pointer;max-width:150px">
             <option value="">Todos locais</option>
@@ -993,10 +993,13 @@ function renderUsers(){
     return;
   }
   var rows=users.map(function(u,i){
+    var nivelColor={'Admin':'#1B3A6B','Coordenador':'#15803d','Supervisor':'#c2410c','Comum':'#6B7280'}[u.nivel]||'#6B7280';
+    var nivelBg={'Admin':'#EEF2FF','Coordenador':'#F0FDF4','Supervisor':'#FFF7ED','Comum':'#F9FAFB'}[u.nivel]||'#F9FAFB';
     return '<tr>'+
       '<td style="font-weight:600;color:var(--nv)">'+u.nome+'</td>'+
       '<td style="font-size:12px;color:var(--tx2)">'+u.email+'</td>'+
       '<td><span style="background:var(--bg3);border:1px solid var(--bd);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:600">'+u.setor+'</span></td>'+
+      '<td><span style="background:'+nivelBg+';color:'+nivelColor+';border:1px solid '+nivelColor+'40;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700">'+(u.nivel||'—')+'</span></td>'+
       '<td style="text-align:right">'+
         '<button class="bs pr" onclick="editUser('+i+')" style="font-size:11px;padding:4px 10px">Editar</button> '+
         '<button class="bs rd" onclick="delUser('+i+')" style="font-size:11px;padding:4px 8px">✕</button>'+
@@ -1008,6 +1011,7 @@ function renderUsers(){
       '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Nome</th>'+
       '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">E-mail</th>'+
       '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Setor</th>'+
+      '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Nível</th>'+
       '<th></th>'+
     '</tr></thead>'+
     '<tbody>'+rows+'</tbody></table>';
@@ -1017,7 +1021,8 @@ function openAddUser(){
   var h='<div class="mh"><div><div class="mtt">👤 Novo Usuário</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
   h+='<div class="mf"><label>Nome completo</label><input id="uuNome" placeholder="Ex: João Silva"/></div>';
   h+='<div class="mf"><label>E-mail corporativo</label><input id="uuEmail" type="email" placeholder="joao.silva@solargrid.com.br"/></div>';
-  h+='<div class="mf"><label>Setor</label><select id="uuSetor"><option value="">Selecione…</option><option>OEM</option><option>OPE</option><option>COM</option><option>EP</option><option>AMB</option><option>ADM</option></select></div>';
+  h+='<div class="mf"><label>Setor</label><select id="uuSetor"><option value="">Selecione…</option><option>Comissionamento</option><option>Construção</option><option>O&M</option><option>PMO</option><option>CSC</option><option>Engenharia do Proprietário</option></select></div>';
+  h+='<div class="mf"><label>Nível de acesso</label><select id="uuNivel"><option value="">Selecione…</option><option>Admin</option><option>Coordenador</option><option>Supervisor</option><option>Comum</option></select></div>';
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button><button class="b-sv" onclick="saveNewUser()">Salvar</button></div>';
   document.getElementById('mbody').innerHTML=h;
   document.getElementById('mo').style.display='flex';
@@ -1028,11 +1033,13 @@ function saveNewUser(){
   var nome=document.getElementById('uuNome').value.trim();
   var email=document.getElementById('uuEmail').value.trim();
   var setor=document.getElementById('uuSetor').value;
+  var nivel=document.getElementById('uuNivel').value;
   if(!nome||nome.split(' ').filter(Boolean).length<2){showToast('Informe nome e sobrenome',false);return;}
   if(!email||!email.includes('@')){showToast('Informe um e-mail válido',false);return;}
   if(!setor){showToast('Selecione o setor',false);return;}
+  if(!nivel){showToast('Selecione o nível de acesso',false);return;}
   if(users.find(function(u){return u.email.toLowerCase()===email.toLowerCase();})){showToast('E-mail já cadastrado',false);return;}
-  users.push({nome:nome,email:email,setor:setor});
+  users.push({nome:nome,email:email,setor:setor,nivel:nivel});
   saveUsers();closeM();renderUsers();
   showToast('Usuário cadastrado com sucesso!',true);
 }
@@ -1042,7 +1049,8 @@ function editUser(i){
   var h='<div class="mh"><div><div class="mtt">✏️ Editar Usuário</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
   h+='<div class="mf"><label>Nome completo</label><input id="uuNome" value="'+u.nome+'"/></div>';
   h+='<div class="mf"><label>E-mail corporativo</label><input id="uuEmail" type="email" value="'+u.email+'"/></div>';
-  h+='<div class="mf"><label>Setor</label><select id="uuSetor"><option value="">Selecione…</option><option'+(u.setor==='OEM'?' selected':'')+'>OEM</option><option'+(u.setor==='OPE'?' selected':'')+'>OPE</option><option'+(u.setor==='COM'?' selected':'')+'>COM</option><option'+(u.setor==='EP'?' selected':'')+'>EP</option><option'+(u.setor==='AMB'?' selected':'')+'>AMB</option><option'+(u.setor==='ADM'?' selected':'')+'>ADM</option></select></div>';
+  h+='<div class="mf"><label>Setor</label><select id="uuSetor"><option value="">Selecione…</option><option'+(u.setor==='Comissionamento'?' selected':'')+'>Comissionamento</option><option'+(u.setor==='Construção'?' selected':'')+'>Construção</option><option'+(u.setor==='O&M'?' selected':'')+'>O&M</option><option'+(u.setor==='PMO'?' selected':'')+'>PMO</option><option'+(u.setor==='CSC'?' selected':'')+'>CSC</option><option'+(u.setor==='Engenharia do Proprietário'?' selected':'')+'>Engenharia do Proprietário</option></select></div>';
+  h+='<div class="mf"><label>Nível de acesso</label><select id="uuNivel"><option value="">Selecione…</option><option'+(u.nivel==='Admin'?' selected':'')+'>Admin</option><option'+(u.nivel==='Coordenador'?' selected':'')+'>Coordenador</option><option'+(u.nivel==='Supervisor'?' selected':'')+'>Supervisor</option><option'+(u.nivel==='Comum'?' selected':'')+'>Comum</option></select></div>';
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button><button class="b-sv" onclick="saveEditUser('+i+')">Salvar</button></div>';
   document.getElementById('mbody').innerHTML=h;
   document.getElementById('mo').style.display='flex';
@@ -1057,7 +1065,9 @@ function saveEditUser(i){
   if(!setor){showToast('Selecione o setor',false);return;}
   var dup=users.findIndex(function(u,j){return j!==i&&u.email.toLowerCase()===email.toLowerCase();});
   if(dup>=0){showToast('E-mail já cadastrado para outro usuário',false);return;}
-  users[i]={nome:nome,email:email,setor:setor};
+  var nivel=document.getElementById('uuNivel').value;
+  if(!nivel){showToast('Selecione o nível de acesso',false);return;}
+  users[i]={nome:nome,email:email,setor:setor,nivel:nivel};
   saveUsers();closeM();renderUsers();
   showToast('Usuário atualizado!',true);
 }
@@ -1258,7 +1268,7 @@ function openUpd(id){
   h+='<div class="mf-row"><div class="mf"><label>Status<\/label><select id="uSt">';
   ['OK','Inoperante','Atenção','Furtado','Procurar','Descartado','Reciclagem'].forEach(function(s){h+='<option'+(t.status===s?' selected':'')+'>'+s+'<\/option>';});
   h+='<\/select><\/div><div class="mf"><label>Setor<\/label><select id="uSek">';
-  ['OEM','EP','AMB','COM','OPE'].forEach(function(s){h+='<option'+(t.setor===s?' selected':'')+'>'+s+'<\/option>';});
+  ['Comissionamento','Construção','O&M','PMO','CSC','Engenharia do Proprietário'].forEach(function(s){h+='<option'+(t.setor===s?' selected':'')+'>'+s+'<\/option>';});
   h+='<\/select><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Local (sigla)<\/label><input id="uLoc" value="'+(t.siglaLocal||'')+'" oninput="fillLocalInfo(this.value)"/><\/div><div class="mf"><label>Responsável<\/label><input id="uRes" value="'+(t.responsavel||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Cidade<\/label><input id="uCid" value="'+(t.cidade||'')+'"/><\/div><div class="mf"><label>Estado<\/label><input id="uEst" value="'+(t.estado||'')+'"/><\/div><\/div>';
@@ -1330,7 +1340,7 @@ function openAdd(){
   h+='<div class="mf-row"><div class="mf"><label>Patrimônio<\/label><input id="aP" placeholder="OEM00999"/><\/div><div class="mf"><label>Ferramenta<\/label><input id="aN" placeholder="Ex: Multímetro"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Marca<\/label><input id="aMr"/><\/div><div class="mf"><label>Modelo<\/label><input id="aMd"/><\/div><\/div>';
   h+='<div class="mf"><label>Série<\/label><input id="aSr"/><\/div>';
-  h+='<div class="mf-row"><div class="mf"><label>Status<\/label><select id="aSt"><option>OK<\/option><option>Inoperante<\/option><option>Atenção<\/option><option>Procurar<\/option><option>Furtado<\/option><\/select><\/div><div class="mf"><label>Setor<\/label><select id="aSek"><option>OEM<\/option><option>EP<\/option><option>AMB<\/option><option>COM<\/option><option>OPE<\/option><\/select><\/div><\/div>';
+  h+='<div class="mf-row"><div class="mf"><label>Status<\/label><select id="aSt"><option>OK<\/option><option>Inoperante<\/option><option>Atenção<\/option><option>Procurar<\/option><option>Furtado<\/option><\/select><\/div><div class="mf"><label>Setor<\/label><select id="aSek"><option>Comissionamento<\/option><option>Construção<\/option><option>O&M<\/option><option>PMO<\/option><option>CSC<\/option><option>Engenharia do Proprietário<\/option><\/select><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Sigla Local<\/label><input id="aLoc" placeholder="Ex: CSPA" oninput="fillLocalInfoAdd(this.value)"/><\/div><div class="mf"><label>Responsável<\/label><input id="aRes"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Cidade<\/label><input id="aCid"/><\/div><div class="mf"><label>Estado<\/label><input id="aEst"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Valor (R$)<\/label><input id="aVal" placeholder="0,00" oninput="maskMoney(this)"/><\/div><div class="mf"><label>OBS<\/label><input id="aObs"/><\/div><\/div>';
