@@ -1708,6 +1708,23 @@ function showToast(msg,ok){
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded',function(){
+  // load users from Supabase before login validation
+  if(sb){
+    var loginBtn=document.querySelector('.lp-btn');
+    if(loginBtn){loginBtn.disabled=true;loginBtn.textContent='Carregando…';}
+    sb.from('usuários').select('*').then(function(r){
+      if(r.data&&r.data.length){
+        r.data.forEach(function(row){
+          var ex=users.find(function(u){return u.email.toLowerCase()===row.email.toLowerCase();});
+          if(!ex){users.push({nome:row.nome,email:row.email,setor:row.setor,nivel:row.nivel||'Comum',sbId:row.id});}
+          else{ex.sbId=row.id;}
+        });
+        try{localStorage.setItem('sg_users',JSON.stringify(users));}catch(e){}
+      }
+    }).catch(function(){}).finally(function(){
+      if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='Entrar →';}
+    });
+  }
   if(!loadSession()){/* stay on login */}
   var tUso=document.getElementById('tUso');
   if(tUso)tUso.addEventListener('input',function(){var e=document.getElementById('tUsoP');if(e)e.textContent=this.value||'___';});
