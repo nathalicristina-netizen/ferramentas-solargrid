@@ -301,6 +301,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       <button class="nav-tab" onclick="showTab('tabCert',this)">📜 Certificados</button>
       <button class="nav-tab" onclick="showTab('tabTerm',this)">📄 Termo de Transferência</button>
       <button class="nav-tab" onclick="showTab('tabUsers',this)">👥 Usuários</button>
+      <button class="nav-tab" onclick="showTab('tabHist',this)">📋 Histórico</button>
     </div>
   </div>
 
@@ -481,6 +482,23 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         </div>
       </div>
       <div id="certList"></div>
+    </div>
+  </div>
+
+  <!-- TAB HISTÓRICO GERAL -->
+  <div id="tabHist" class="tab-content">
+    <div style="max-width:960px;margin:0 auto;padding:20px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <h2 style="font-size:17px;font-weight:700;color:var(--nv)">📋 Histórico de Movimentações</h2>
+          <p style="font-size:12px;color:var(--tx3);margin-top:3px">Todas as ações registradas na plataforma em tempo real</p>
+        </div>
+        <div class="srch" style="min-width:220px">
+          <span class="srch-ico">🔍</span>
+          <input type="text" placeholder="Buscar por patrimônio, ferramenta ou usuário…" oninput="searchHistGeral(this.value)"/>
+        </div>
+      </div>
+      <div id="histGeralList"><div style="text-align:center;padding:40px;color:var(--tx3)">Carregando histórico…</div></div>
     </div>
   </div>
 
@@ -1206,6 +1224,71 @@ function delCert(idx){
   showToast('Certificado removido',true);
 }
 
+// ===== HISTÓRICO GERAL =====
+var histGeralData = [];
+var histGeralSearch = '';
+
+function searchHistGeral(v){histGeralSearch=v.toLowerCase().trim();renderHistGeral();}
+
+async function loadHistGeral(){
+  var el=document.getElementById('histGeralList');
+  if(!el)return;
+  if(!sb){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">Sem conexão com o banco.</div>';return;}
+  try{
+    var r=await sb.from('historico').select('*').order('created_at',{ascending:false}).limit(500);
+    if(r.error)throw r.error;
+    histGeralData=r.data||[];
+    renderHistGeral();
+  }catch(e){
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--rd)">Erro ao carregar histórico.</div>';
+  }
+}
+
+function renderHistGeral(){
+  var el=document.getElementById('histGeralList');if(!el)return;
+  var list=histGeralData;
+  if(histGeralSearch){
+    list=histGeralData.filter(function(h){
+      var t=tools.find(function(x){return x._id===h.ferramenta_id;});
+      var pat=t?t.patrimonio:'';
+      var nome=t?t.ferramenta:'';
+      return pat.toLowerCase().includes(histGeralSearch)||
+             nome.toLowerCase().includes(histGeralSearch)||
+             (h.msg||'').toLowerCase().includes(histGeralSearch)||
+             (h.usuario||'').toLowerCase().includes(histGeralSearch);
+    });
+  }
+  if(!list.length){
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">Nenhuma movimentação encontrada.</div>';
+    return;
+  }
+  var rows=list.map(function(h){
+    var t=tools.find(function(x){return x._id===h.ferramenta_id;});
+    var pat=t?'<span style="font-family:monospace;font-size:11px;color:var(--nv);font-weight:700">'+t.patrimonio+'</span>':'<span style="color:var(--tx3);font-size:11px">—</span>';
+    var nome=t?'<span style="font-size:12px;color:var(--tx2)">'+t.ferramenta+'</span>':'';
+    var dt=h.created_at?fmt(h.created_at):'—';
+    var dotColor=h.msg&&h.msg.includes('exclu')?'#dc2626':h.msg&&h.msg.includes('registr')?'#16a34a':'#1B3A6B';
+    return '<tr style="border-bottom:1px solid var(--bd)">'+
+      '<td style="padding:9px 10px;white-space:nowrap;font-size:11px;color:var(--tx3)">'+dt+'</td>'+
+      '<td style="padding:9px 10px">'+pat+'<br>'+nome+'</td>'+
+      '<td style="padding:9px 10px">'+
+        '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dotColor+';margin-right:6px"></span>'+
+        '<span style="font-size:12px">'+h.msg+'</span>'+
+      '</td>'+
+      '<td style="padding:9px 10px;font-size:12px;color:var(--tx3)">'+( h.usuario||'—')+'</td>'+
+    '</tr>';
+  }).join('');
+  el.innerHTML='<table style="width:100%;border-collapse:collapse">'+
+    '<thead><tr style="border-bottom:2px solid var(--bd)">'+
+      '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Data/Hora</th>'+
+      '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Ferramenta</th>'+
+      '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Ação</th>'+
+      '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Usuário</th>'+
+    '</tr></thead>'+
+    '<tbody>'+rows+'</tbody></table>'+
+    '<div style="font-size:11px;color:var(--tx3);text-align:right;margin-top:8px">Exibindo '+list.length+' registro(s)</div>';
+}
+
 function showTab(id,btn){
   document.querySelectorAll('.tab-content').forEach(function(e){e.classList.remove('on');});
   document.querySelectorAll('.nav-tab').forEach(function(b){b.classList.remove('on');});
@@ -1213,6 +1296,7 @@ function showTab(id,btn){
   btn.classList.add('on');saveSession();
   if(id==='tabUsers')renderUsers();
   if(id==='tabCert')renderCerts();
+  if(id==='tabHist')loadHistGeral();
 }
 
 // ── CONFIRMAÇÃO ──
@@ -1285,6 +1369,7 @@ function delTool(id){
   var t=tools.find(function(x){return x._id===id;});
   if(!t)return;
   if(!confirm('Excluir "'+t.ferramenta+'" ('+t.patrimonio+')?\n\nEsta ação não pode ser desfeita.'))return;
+  dbSaveHist(id,'Ferramenta excluída: '+t.ferramenta+' ('+t.patrimonio+')',CU.name);
   tools=tools.filter(function(x){return x._id!==id;});
   saveTols();
   if(sb){try{sb.from('ferramentas').delete().eq('id',id).then(function(){});sb.from('historico').delete().eq('ferramenta_id',id).then(function(){});}catch(e){}}
