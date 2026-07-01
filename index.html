@@ -1511,7 +1511,7 @@ function importXLSX(e){
   var reader=new FileReader();
   reader.onload=function(ev){
     try{
-      var wb=XLSX.read(ev.target.result,{type:'array',cellDates:false,raw:false,dateNF:'yyyy-mm-dd'});
+      var wb=XLSX.read(ev.target.result,{type:'array',cellDates:false,raw:false,dateNF:'yyyy-mm-dd',sheets:'Controle'});
       var ws=wb.Sheets['Controle'];
       if(!ws){showToast('Aba "Controle" não encontrada no arquivo!',false);return;}
       var rows=XLSX.utils.sheet_to_json(ws,{raw:false,dateNF:'yyyy-mm-dd'});
