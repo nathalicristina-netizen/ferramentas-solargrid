@@ -1516,6 +1516,7 @@ function importXLSX(e){
       saveTols();page=1;renderAll();
       // sync to Supabase in batches of 50
       if(sb){
+        showToast('Sincronizando com o banco... aguarde ⏳',true);
         var toSync=imported.map(function(imp){
           var t=tools.find(function(x){return x.patrimonio===imp.patrimonio;});
           if(!t)return null;
@@ -1528,16 +1529,27 @@ function importXLSX(e){
             obs:t.obs||'',last_confirm:t.lastConfirm||null};
         }).filter(Boolean);
         var batchSize=50;
+        var total=Math.ceil(toSync.length/batchSize);
+        var done=0;
         function sendBatch(i){
-          if(i>=toSync.length)return;
+          if(i>=toSync.length){
+            showToast('✅ Importado e salvo: '+updated+' atualizadas, '+added+' novas.',true);
+            return;
+          }
           var batch=toSync.slice(i,i+batchSize);
           sb.from('ferramentas').upsert(batch,{onConflict:'id'}).then(function(){
+            done++;
+            showToast('Sincronizando... '+done+'/'+total+' lotes ⏳',true);
             sendBatch(i+batchSize);
-          }).catch(function(e){console.warn('batch err:',e);sendBatch(i+batchSize);});
+          }).catch(function(e){
+            console.warn('batch err:',e);
+            sendBatch(i+batchSize);
+          });
         }
         sendBatch(0);
+      } else {
+        showToast('Importado: '+updated+' atualizadas, '+added+' novas.',true);
       }
-      showToast('Importado: '+updated+' atualizadas, '+added+' novas.',true);
     }catch(err){
       showToast('Erro ao ler arquivo: '+err.message,false);
     }
