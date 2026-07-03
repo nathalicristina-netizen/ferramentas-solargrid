@@ -119,6 +119,13 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
   border-radius:5px;padding:2px 6px;color:var(--nv);font-weight:600}
 .td-nm{font-weight:600;color:var(--tx1);font-size:13px}
 .td-sub{font-size:9.5px;color:var(--tx3);margin-top:2px}
+.td-wrap{position:relative;display:inline-block;width:100%}
+.td-tip{display:none;position:fixed;z-index:9999;background:var(--bg2);border:1.5px solid var(--bd);border-radius:10px;padding:12px 14px;box-shadow:0 8px 32px rgba(0,0,0,.18);min-width:240px;max-width:300px;pointer-events:none}
+.td-wrap:hover .td-tip{display:block}
+.td-tip-row{display:flex;gap:6px;margin-bottom:5px;font-size:11px;align-items:flex-start}
+.td-tip-lbl{color:var(--tx3);font-size:10px;min-width:80px;padding-top:1px}
+.td-tip-val{color:var(--tx1);font-weight:500;flex:1;word-break:break-word}
+.td-tip-sep{border:none;border-top:1px solid var(--bd);margin:7px 0}
 .ab{display:flex;gap:4px}
 .bs{padding:4px 8px;border-radius:var(--rs);font-size:11px;cursor:pointer;font-family:var(--fb);
   font-weight:500;border:1.5px solid;white-space:nowrap;transition:all .15s}
@@ -532,9 +539,9 @@ var tools=RAW.map(function(t,i){
     marca:t.marca||'',modelo:t.modelo||'',serie:(t.serie||'').toString().replace(/\.0$/,''),
     status:t.status||'OK',local:t.local||'',siglaLocal:t.siglaLocal||'',
     cidade:t.cidade||'',estado:t.estado||'',responsavel:t.responsavel||'',
-    setor:t.setor||'',valor:t.valor||'',certCal:(t.certCal||'').toString().replace(/\.0$/,''),dataManut:t.dataManut||'',diasProxManut:t.diasProxManut||'-',disponibilidade:t.disponibilidade||'Liberada',
+    setor:t.setor||'',valor:t.valor||'',certCal:(t.certCal||'').toString().replace(/\.0$/,''),dataManut:t.dataManut||'',diasProxManut:t.diasProxManut||'-',disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prevCorretiva:t.prevCorretiva||'',cicloConf:t.cicloConf||'quinzenal',
     laboratorio:t.laboratorio||'',dataCal:t.dataCal||'',
-    diasProxCal:t.diasProxCal||'-',obs:t.obs||'',lastConfirm:null};
+    diasProxCal:t.diasProxCal||'-',obs:t.obs||'',cicloConf:t.cicloConf||'quinzenal',lastConfirm:null};
 });
 
 var CU=null, AF='todos', ST='', sortCol=null, sortDir=1, page=1, PG=50, SF='', LF='';
@@ -591,7 +598,7 @@ function calSt(t){
   var d=isNaN(parseFloat(t.diasProxCal))||t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);
   if(isNaN(d))return'sem';if(d<0)return'v';if(d<=60)return'p';return'ok';
 }
-function isQz(t){if(!t.lastConfirm)return false;return(new Date()-new Date(t.lastConfirm.ts))<15*86400000;}
+function isQz(t){if(!t.lastConfirm)return false;var dias={'quinzenal':15,'mensal':30,'semestral':180}[t.cicloConf||'quinzenal']||15;return(new Date()-new Date(t.lastConfirm.ts))<dias*86400000;}
 
 // ── SESSION ──
 function saveSession(){
@@ -611,7 +618,7 @@ function saveTols(){
         lastConfirm:t.lastConfirm,hist:t.hist.slice(0,30),dataCal:t.dataCal,dataManut:t.dataManut,diasProxManut:t.diasProxManut,
         certCal:t.certCal,laboratorio:t.laboratorio,diasProxCal:t.diasProxCal,
         ferramenta:t.ferramenta,marca:t.marca,modelo:t.modelo,serie:t.serie,valor:t.valor,
-        disponibilidade:t.disponibilidade||'Liberada',
+        disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prevCorretiva:t.prevCorretiva||'',cicloConf:t.cicloConf||'quinzenal',
         notaFiscal:t.notaFiscal||'',notaFiscalNome:t.notaFiscalNome||''};
     });
     sessionStorage.setItem('sg_t',JSON.stringify(u));
@@ -626,7 +633,7 @@ function loadTols(){
       if(!t)return;
       var d=u[id];
       ['status','local','siglaLocal','responsavel','cidade','estado','obs',
-       'lastConfirm','dataCal','certCal','laboratorio','diasProxCal','dataManut','diasProxManut','disponibilidade','notaFiscal','notaFiscalNome',
+       'lastConfirm','dataCal','certCal','laboratorio','diasProxCal','dataManut','diasProxManut','disponibilidade','corretiva','prevCorretiva','cicloConf','notaFiscal','notaFiscalNome',
        'ferramenta','marca','modelo','serie','valor'].forEach(function(k){
         if(d[k]!==undefined&&d[k]!==null)t[k]=d[k];
       });
@@ -680,7 +687,7 @@ async function dbSaveTool(t){
     marca:t.marca,modelo:t.modelo,serie:t.serie,status:t.status,local:t.local,
     sigla_local:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,
     setor:t.setor,valor:t.valor,cert_cal:t.certCal,laboratorio:t.laboratorio,
-    data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',obs:t.obs||'',
+    data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',ciclo_conf:t.cicloConf||'quinzenal',obs:t.obs||'',
     last_confirm:t.lastConfirm||null});
 }
 async function dbSaveHist(id,msg,user){
@@ -700,7 +707,7 @@ async function dbLoad(){
       var t=tools.find(function(x){return x._id===row.id||x._id===Number(row.id);});
       var map={status:'status',local:'local',sigla_local:'siglaLocal',responsavel:'responsavel',
         cidade:'cidade',estado:'estado',obs:'obs',last_confirm:'lastConfirm',
-        data_cal:'dataCal',dias_prox_cal:'diasProxCal',cert_cal:'certCal',data_manut:'dataManut',dias_prox_manut:'diasProxManut',disponibilidade:'disponibilidade',
+        data_cal:'dataCal',dias_prox_cal:'diasProxCal',cert_cal:'certCal',data_manut:'dataManut',dias_prox_manut:'diasProxManut',disponibilidade:'disponibilidade',corretiva:'corretiva',prev_corretiva:'prevCorretiva',ciclo_conf:'cicloConf',
         laboratorio:'laboratorio',ferramenta:'ferramenta',patrimonio:'patrimonio',
         marca:'marca',modelo:'modelo',serie:'serie',setor:'setor',valor:'valor'};
       if(!t){
@@ -708,7 +715,7 @@ async function dbLoad(){
         t={_id:row.id,_mod:true,hist:[],
           patrimonio:'',ferramenta:'',marca:'',modelo:'',serie:'',
           status:'OK',local:'',siglaLocal:'',cidade:'',estado:'',responsavel:'',
-          setor:'',valor:'',certCal:'',laboratorio:'',dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',disponibilidade:'Liberada',obs:'',lastConfirm:null};
+          setor:'',valor:'',certCal:'',laboratorio:'',dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',disponibilidade:'Liberada',corretiva:'',prevCorretiva:'',cicloConf:'quinzenal',obs:'',lastConfirm:null};
         tools.unshift(t);
       }
       Object.keys(map).forEach(function(k){if(row[k]!==null&&row[k]!==undefined)t[map[k]]=row[k];});
@@ -972,7 +979,22 @@ function renderTable(){
     var confBadge=isQz(t)?'<span class="badge b-gr" style="font-size:10px">✓ Conf.<\/span>':'<span class="badge b-am" style="font-size:10px">Pendente<\/span>';
     rows+='<tr>'+
       '<td><span class="td-pat">'+t.patrimonio+'<\/span><\/td>'+
-      '<td><div class="td-nm">'+t.ferramenta+'<\/div><div class="td-sub">'+(t.marca?t.marca+(t.modelo?' · '+t.modelo:''):'')+(t.serie&&t.serie!=='-'&&t.serie!=='S/N'&&t.serie!==''?' · <span style="font-family:monospace;font-size:9px">'+t.serie+'<\/span>':'')+'<br>'+(t.setor||'')+'<\/div><\/td>'+
+      (function(){
+        var tip='<div class="td-tip">';
+        if(t.obs)tip+='<div class="td-tip-row"><span class="td-tip-lbl">Observação<\/span><span class="td-tip-val">'+t.obs+'<\/span><\/div>';
+        if(t.corretiva)tip+='<div class="td-tip-row"><span class="td-tip-lbl">Corretiva<\/span><span class="td-tip-val" style="color:#dc2626">⚠ '+t.corretiva+(t.prevCorretiva?' ('+t.prevCorretiva+')':'')+'<\/span><\/div>';
+        if(t.laboratorio)tip+='<div class="td-tip-row"><span class="td-tip-lbl">Laboratório<\/span><span class="td-tip-val">'+t.laboratorio+'<\/span><\/div>';
+        if(t.certCal)tip+='<div class="td-tip-row"><span class="td-tip-lbl">Cert. Cal.<\/span><span class="td-tip-val" style="font-family:monospace">'+t.certCal+'<\/span><\/div>';
+        if(t.valor&&parseFloat(t.valor)>0){var vf=parseFloat(t.valor).toLocaleString('pt-BR',{minimumFractionDigits:2});tip+='<div class="td-tip-row"><span class="td-tip-lbl">Valor<\/span><span class="td-tip-val">R$ '+vf+'<\/span><\/div>';}
+        if(t.cicloConf&&t.cicloConf!=='quinzenal')tip+='<div class="td-tip-row"><span class="td-tip-lbl">Confirmação<\/span><span class="td-tip-val">'+t.cicloConf+'<\/span><\/div>';
+        tip+='<\/div>';
+        var hasExtra=t.obs||t.corretiva||t.laboratorio||t.certCal||(t.valor&&parseFloat(t.valor)>0);
+        var dot=hasExtra?'<span style="font-size:9px;color:var(--or);margin-left:4px">●<\/span>':'';
+        var sub=(t.marca?t.marca+(t.modelo?' · '+t.modelo:''):'')+
+          (t.serie&&t.serie!=='-'&&t.serie!=='S/N'&&t.serie!==''?' · <span style="font-family:monospace;font-size:9px">'+t.serie+'<\/span>':'')+
+          '<br>'+(t.setor||'');
+        return'<td><div class="td-wrap"><div class="td-nm">'+t.ferramenta+dot+'<\/div><div class="td-sub">'+sub+'<\/div>'+tip+'<\/div><\/td>';
+      })()+
       '<td>'+stBadge(t.status)+'<\/td>'+
       (function(){
         var d=t.disponibilidade||'Liberada';
@@ -982,7 +1004,7 @@ function renderTable(){
       })()+
       '<td>'+calBadge(t)+calTxt+'<\/td>'+
       (function(){var d=t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);if(isNaN(d))return'<td style="font-size:11px;color:var(--tx3);text-align:center">—<\/td>';var clr=d<0?'#e53935':d<=60?'#f59e0b':'#16a34a';return'<td style="font-size:11px;font-weight:700;color:'+clr+';text-align:center">'+Math.round(d)+'<\/td>';})()+
-      (function(){var manutTxt=t.dataManut?'<br><span style="font-size:9px;color:var(--tx3)">'+fmtDateCal(t.dataManut)+'<\/span>':'';return'<td>'+manutBadge(t)+manutTxt+'<\/td>';})()+
+      (function(){var manutTxt=t.dataManut?'<br><span style="font-size:9px;color:var(--tx3)">'+fmtDateCal(t.dataManut)+'<\/span>':'';var corrTxt=t.corretiva?'<br><span style="font-size:9px;color:#dc2626;font-weight:600">⚠ '+t.corretiva+(t.prevCorretiva?' ('+t.prevCorretiva+')':'')+'<\/span>':'';return'<td>'+manutBadge(t)+manutTxt+corrTxt+'<\/td>';})()+
       (function(){var d=t.dataManut?calcDiasProxManut(t):parseFloat(t.diasProxManut);if(isNaN(d))return'<td style="font-size:11px;color:var(--tx3);text-align:center">—<\/td>';var clr=d<0?'#e53935':d<=60?'#f59e0b':'#16a34a';return'<td style="font-size:11px;font-weight:700;color:'+clr+';text-align:center">'+Math.round(d)+'<\/td>';})()+
       '<td style="font-size:12px;font-weight:600">'+t.siglaLocal+'<br><span style="font-size:9px;color:var(--tx3);font-weight:400">'+(t.cidade?t.cidade+(t.estado?' — '+t.estado:''):'')+'<\/span><\/td>'+
       '<td style="font-size:12px">'+(t.responsavel||'—')+'<\/td>'+
@@ -1443,7 +1465,9 @@ function openUpd(id){
   h+='<div class="mf-row"><div class="mf"><label>Cert. Calibração<\/label><input id="uCert" value="'+(t.certCal||'')+'"/><\/div><div class="mf"><label>Laboratório<\/label><input id="uLab" value="'+(t.laboratorio||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Data Cal.<\/label><input id="uDcal" value="'+(t.dataCal||'')+'"/><\/div><div class="mf"><label>Dias próx. cal.<\/label><input id="uDias" type="number" value="'+(t.diasProxCal==='-'?'':t.diasProxCal||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Data Manutenção<\/label><input id="uDman" value="'+(t.dataManut||'')+'"/><\/div><div class="mf"><label>Dias próx. manut.<\/label><input id="uDman2" type="number" value="'+(t.diasProxManut==='-'?'':t.diasProxManut||'')+'"/><\/div><\/div>';
-  h+='<div class="mf"><label>Valor (R$)<\/label><input id="uVal" value="'+(t.valor||'')+'" oninput="maskMoney(this)"/><\/div>';
+  h+='<div class="mf-row"><div class="mf"><label>Manutenção corretiva<\/label><select id="uCorr"><option value="">—<\/option><option'+(t.corretiva==="Precisa de reparo"?" selected":"")+'>Precisa de reparo<\/option><option'+(t.corretiva==="Em manutenção"?" selected":"")+'>Em manutenção<\/option><option'+(t.corretiva==="Aguardando peça"?" selected":"")+'>Aguardando peça<\/option><\/select><\/div><div class="mf"><label>Previsão de retorno<\/label><input id="uPrevCorr" value="'+(t.prevCorretiva||'')+'" placeholder="Ex: 10 dias"/><\/div><\/div>';
+  h+='<div class="mf-row"><div class="mf"><label>Ciclo de confirmação<\/label><select id="uCiclo"><option value="quinzenal"'+((!t.cicloConf||t.cicloConf==="quinzenal")?" selected":"")+'>Quinzenal (15 dias)<\/option><option value="mensal"'+(t.cicloConf==="mensal"?" selected":"")+'>Mensal (30 dias)<\/option><option value="semestral"'+(t.cicloConf==="semestral"?" selected":"")+'>Semestral (180 dias)<\/option><\/select><\/div><div class="mf"><label>Valor (R$)<\/label><input id="uVal" value="'+(t.valor||'')+'" oninput="maskMoney(this)"/><\/div><\/div>';
+
   h+='<div class="mf"><label>Nota Fiscal <span style="font-size:10px;color:var(--tx3)">(opcional)<\/span><\/label>'+(t.notaFiscal?'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:var(--tx2)">📎 '+(t.notaFiscalNome||'nota_fiscal.pdf')+'<\/span><button type="button" class="bs ok" style="font-size:11px;padding:3px 8px" onclick="openNF('+t._id+')">Ver<\/button><button type="button" class="bs rd" style="font-size:11px;padding:3px 8px" onclick="removeNF('+t._id+')">Remover<\/button><\/div>':'<input id="uNF" type="file" accept="application/pdf"/>')+'<\/div>';
   h+='<div class="mf"><label>Observação<\/label><textarea id="uObs">'+(t.obs||'')+'<\/textarea><\/div>';
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar<\/button><button class="b-sv" onclick="saveUpd('+id+')">Salvar<\/button><\/div>';
@@ -1454,7 +1478,7 @@ function saveUpd(id){
   var ch=[];
   var fields=[['uP','patrimonio'],['uN','ferramenta'],['uMr','marca'],['uMd','modelo'],['uSr','serie'],
     ['uLoc','siglaLocal'],['uRes','responsavel'],['uCid','cidade'],['uEst','estado'],
-    ['uSt','status'],['uSek','setor'],['uCert','certCal'],['uLab','laboratorio'],['uDcal','dataCal'],['uDman','dataManut'],['uVal','valor']];
+    ['uSt','status'],['uSek','setor'],['uCert','certCal'],['uLab','laboratorio'],['uDcal','dataCal'],['uDman','dataManut'],['uCorr','corretiva'],['uPrevCorr','prevCorretiva'],['uCiclo','cicloConf'],['uVal','valor']];
   fields.forEach(function(f){
     var nv=f[0]==='uVal'?unMaskMoney(gv(f[0])):gv(f[0]);
     if(nv!==String(t[f[1]]||''))ch.push(f[1]+': "'+String(t[f[1]]||'—')+'"→"'+nv+'"');
