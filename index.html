@@ -583,7 +583,8 @@ function toggleDisponib(id){
   var t=tools.find(function(x){return x._id===id;});
   if(!t)return;
   t.disponibilidade=t.disponibilidade==='Em uso'?'Liberada':'Em uso';
-  dbSaveTool(t);saveTols();renderTable();
+  var msg='🔧 Disponibilidade: '+t.disponibilidade;
+  dbSaveTool(t);dbSaveHist(t._id,msg,CU?CU.name:'—');saveTols();renderTable();
   showToast(t.patrimonio+': '+t.disponibilidade,true);
 }
 function calSt(t){
@@ -1019,6 +1020,9 @@ function renderAll(){
   renderMetrics();renderTable();populateLocalFlt();renderUsers();renderCerts();
   var btnN=document.getElementById('btnNova');
   if(btnN)btnN.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
+  // reload historico if tab is active
+  var histTab=document.getElementById('tabHist');
+  if(histTab&&histTab.classList.contains('on'))loadHistGeral();
 }
 function setF(btn,f){document.querySelectorAll('.ft').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');AF=f;page=1;renderTable();}
 function setFMc(f){AF=f;page=1;document.querySelectorAll('.ft').forEach(function(b){var t=b.getAttribute('data-f');b.classList.toggle('on',t===f);});renderTable();}
