@@ -343,7 +343,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
             <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importXLSX(event)"/>
           </label>
           <button class="btn-nv" onclick="exportXLSX()" style="font-size:11px;padding:6px 12px">📊 CSV</button>
-          <button class="btn-or" onclick="openAdd()" style="font-size:11px;padding:6px 14px;font-weight:700">+ Nova</button>
+          <button class="btn-or" onclick="openAdd()" style="font-size:11px;padding:6px 14px;font-weight:700;display:none" id="btnNova">+ Nova</button>
         </div>
       </div>
       <div class="pag" id="pTop" style="display:none"></div>
@@ -354,6 +354,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
               <th><div class="th-wrap" onclick="sortBy('patrimonio')">Patrimônio<button class="th-flt-btn" id="fltBtn-patrimonio" onclick="event.stopPropagation();openColFlt('patrimonio',this)" title="Filtrar">▾</button><div class="col-flt-panel" id="fltPanel-patrimonio"></div></div></th>
               <th><div class="th-wrap" onclick="sortBy('ferramenta')">Ferramenta<button class="th-flt-btn" id="fltBtn-ferramenta" onclick="event.stopPropagation();openColFlt('ferramenta',this)" title="Filtrar">▾</button><div class="col-flt-panel" id="fltPanel-ferramenta"></div></div></th>
               <th><div class="th-wrap" onclick="sortBy('status')">Status<button class="th-flt-btn" id="fltBtn-status" onclick="event.stopPropagation();openColFlt('status',this)" title="Filtrar">▾</button><div class="col-flt-panel" id="fltPanel-status"></div></div></th>
+              <th>Disponib.</th>
               <th>Calibração</th>
               <th onclick="sortBy('diasProxCal')" title="Dias para próxima calibração">Dias Cal.</th>
               <th>Manutenção</th>
@@ -531,7 +532,7 @@ var tools=RAW.map(function(t,i){
     marca:t.marca||'',modelo:t.modelo||'',serie:(t.serie||'').toString().replace(/\.0$/,''),
     status:t.status||'OK',local:t.local||'',siglaLocal:t.siglaLocal||'',
     cidade:t.cidade||'',estado:t.estado||'',responsavel:t.responsavel||'',
-    setor:t.setor||'',valor:t.valor||'',certCal:(t.certCal||'').toString().replace(/\.0$/,''),dataManut:t.dataManut||'',diasProxManut:t.diasProxManut||'-',
+    setor:t.setor||'',valor:t.valor||'',certCal:(t.certCal||'').toString().replace(/\.0$/,''),dataManut:t.dataManut||'',diasProxManut:t.diasProxManut||'-',disponibilidade:t.disponibilidade||'Liberada',
     laboratorio:t.laboratorio||'',dataCal:t.dataCal||'',
     diasProxCal:t.diasProxCal||'-',obs:t.obs||'',lastConfirm:null};
 });
@@ -578,6 +579,13 @@ function fmtDateCal(s){
   if(!d)return s||'';
   return d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getFullYear();
 }
+function toggleDisponib(id){
+  var t=tools.find(function(x){return x._id===id;});
+  if(!t)return;
+  t.disponibilidade=t.disponibilidade==='Em uso'?'Liberada':'Em uso';
+  dbSaveTool(t);saveTols();renderTable();
+  showToast(t.patrimonio+': '+t.disponibilidade,true);
+}
 function calSt(t){
   var d=isNaN(parseFloat(t.diasProxCal))||t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);
   if(isNaN(d))return'sem';if(d<0)return'v';if(d<=60)return'p';return'ok';
@@ -601,7 +609,9 @@ function saveTols(){
         responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,obs:t.obs,
         lastConfirm:t.lastConfirm,hist:t.hist.slice(0,30),dataCal:t.dataCal,dataManut:t.dataManut,diasProxManut:t.diasProxManut,
         certCal:t.certCal,laboratorio:t.laboratorio,diasProxCal:t.diasProxCal,
-        ferramenta:t.ferramenta,marca:t.marca,modelo:t.modelo,serie:t.serie,valor:t.valor};
+        ferramenta:t.ferramenta,marca:t.marca,modelo:t.modelo,serie:t.serie,valor:t.valor,
+        disponibilidade:t.disponibilidade||'Liberada',
+        notaFiscal:t.notaFiscal||'',notaFiscalNome:t.notaFiscalNome||''};
     });
     sessionStorage.setItem('sg_t',JSON.stringify(u));
   }catch(e){}
@@ -615,7 +625,7 @@ function loadTols(){
       if(!t)return;
       var d=u[id];
       ['status','local','siglaLocal','responsavel','cidade','estado','obs',
-       'lastConfirm','dataCal','certCal','laboratorio','diasProxCal','dataManut','diasProxManut',
+       'lastConfirm','dataCal','certCal','laboratorio','diasProxCal','dataManut','diasProxManut','disponibilidade','notaFiscal','notaFiscalNome',
        'ferramenta','marca','modelo','serie','valor'].forEach(function(k){
         if(d[k]!==undefined&&d[k]!==null)t[k]=d[k];
       });
@@ -669,7 +679,7 @@ async function dbSaveTool(t){
     marca:t.marca,modelo:t.modelo,serie:t.serie,status:t.status,local:t.local,
     sigla_local:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,
     setor:t.setor,valor:t.valor,cert_cal:t.certCal,laboratorio:t.laboratorio,
-    data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),obs:t.obs||'',
+    data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',obs:t.obs||'',
     last_confirm:t.lastConfirm||null});
 }
 async function dbSaveHist(id,msg,user){
@@ -689,7 +699,7 @@ async function dbLoad(){
       var t=tools.find(function(x){return x._id===row.id||x._id===Number(row.id);});
       var map={status:'status',local:'local',sigla_local:'siglaLocal',responsavel:'responsavel',
         cidade:'cidade',estado:'estado',obs:'obs',last_confirm:'lastConfirm',
-        data_cal:'dataCal',dias_prox_cal:'diasProxCal',cert_cal:'certCal',data_manut:'dataManut',dias_prox_manut:'diasProxManut',
+        data_cal:'dataCal',dias_prox_cal:'diasProxCal',cert_cal:'certCal',data_manut:'dataManut',dias_prox_manut:'diasProxManut',disponibilidade:'disponibilidade',
         laboratorio:'laboratorio',ferramenta:'ferramenta',patrimonio:'patrimonio',
         marca:'marca',modelo:'modelo',serie:'serie',setor:'setor',valor:'valor'};
       if(!t){
@@ -697,7 +707,7 @@ async function dbLoad(){
         t={_id:row.id,_mod:true,hist:[],
           patrimonio:'',ferramenta:'',marca:'',modelo:'',serie:'',
           status:'OK',local:'',siglaLocal:'',cidade:'',estado:'',responsavel:'',
-          setor:'',valor:'',certCal:'',laboratorio:'',dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',obs:'',lastConfirm:null};
+          setor:'',valor:'',certCal:'',laboratorio:'',dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',disponibilidade:'Liberada',obs:'',lastConfirm:null};
         tools.unshift(t);
       }
       Object.keys(map).forEach(function(k){if(row[k]!==null&&row[k]!==undefined)t[map[k]]=row[k];});
@@ -744,6 +754,7 @@ function doLogout(){
   document.getElementById('aS').classList.remove('active');
   document.getElementById('lS').classList.add('active');
   document.getElementById('lN').value='';
+  document.getElementById('lEmail').value='';
   document.getElementById('lSetor').value='';
   document.querySelectorAll('.nav-tab').forEach(function(b,i){b.classList.toggle('on',i===0);});
   document.querySelectorAll('.tab-content').forEach(function(e,i){e.classList.toggle('on',i===0);});
@@ -962,6 +973,12 @@ function renderTable(){
       '<td><span class="td-pat">'+t.patrimonio+'<\/span><\/td>'+
       '<td><div class="td-nm">'+t.ferramenta+'<\/div><div class="td-sub">'+(t.marca?t.marca+(t.modelo?' · '+t.modelo:''):'')+(t.serie&&t.serie!=='-'&&t.serie!=='S/N'&&t.serie!==''?' · <span style="font-family:monospace;font-size:9px">'+t.serie+'<\/span>':'')+'<br>'+(t.setor||'')+'<\/div><\/td>'+
       '<td>'+stBadge(t.status)+'<\/td>'+
+      (function(){
+        var d=t.disponibilidade||'Liberada';
+        var bg=d==='Em uso'?'#FFF7ED':'#F0FDF4';
+        var cl=d==='Em uso'?'#c2410c':'#15803d';
+        return'<td><span style="background:'+bg+';color:'+cl+';border:1px solid '+cl+'40;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:600;cursor:pointer" onclick="toggleDisponib('+t._id+')">'+d+'<\/span><\/td>';
+      })()+
       '<td>'+calBadge(t)+calTxt+'<\/td>'+
       (function(){var d=t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);if(isNaN(d))return'<td style="font-size:11px;color:var(--tx3);text-align:center">—<\/td>';var clr=d<0?'#e53935':d<=60?'#f59e0b':'#16a34a';return'<td style="font-size:11px;font-weight:700;color:'+clr+';text-align:center">'+Math.round(d)+'<\/td>';})()+
       (function(){var manutTxt=t.dataManut?'<br><span style="font-size:9px;color:var(--tx3)">'+fmtDateCal(t.dataManut)+'<\/span>':'';return'<td>'+manutBadge(t)+manutTxt+'<\/td>';})()+
@@ -973,7 +990,8 @@ function renderTable(){
       '<td><div class="ab">'+
         '<button class="bs ok" onclick="openConf('+t._id+')">📍<\/button>'+
         '<button class="bs gh" onclick="openHist('+t._id+')">Hist.<\/button>'+
-        '<button class="bs pr" onclick="openUpd('+t._id+')">Editar<\/button>'+
+        (CU&&CU.role==='Admin'?'<button class="bs pr" onclick="openUpd('+t._id+')">Editar<\/button>':'')+
+        
         (CU&&CU.role==='Admin'?'<button class="bs rd" onclick="delTool('+t._id+')">✕<\/button>':'')+
       '<\/div><\/td>'+
     '<\/tr>';
@@ -997,7 +1015,11 @@ function renderPag(tot,cur,pages){
   ['pTop','pBot'].forEach(function(id){var e=document.getElementById(id);if(e){e.innerHTML=o;e.style.display='flex';}});
 }
 function goPg(p){page=p;renderTable();}
-function renderAll(){renderMetrics();renderTable();populateLocalFlt();renderUsers();renderCerts();}
+function renderAll(){
+  renderMetrics();renderTable();populateLocalFlt();renderUsers();renderCerts();
+  var btnN=document.getElementById('btnNova');
+  if(btnN)btnN.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
+}
 function setF(btn,f){document.querySelectorAll('.ft').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');AF=f;page=1;renderTable();}
 function setFMc(f){AF=f;page=1;document.querySelectorAll('.ft').forEach(function(b){var t=b.getAttribute('data-f');b.classList.toggle('on',t===f);});renderTable();}
 function doSrch(v){ST=v.toLowerCase();page=1;renderTable();}
@@ -1385,7 +1407,23 @@ function fillLocalInfo(sigla){
   if(c)c.value=m.cidade||'';
   if(e)e.value=m.estado||'';
 }
+function openNF(id){
+  var t=tools.find(function(x){return x._id===id;});
+  if(!t||!t.notaFiscal)return;
+  var win=window.open();
+  win.document.write('<iframe src="'+t.notaFiscal+'" style="width:100%;height:100vh;border:none"></iframe>');
+  win.document.title=t.notaFiscalNome||'Nota Fiscal';
+}
+function removeNF(id){
+  var t=tools.find(function(x){return x._id===id;});
+  if(!t)return;
+  t.notaFiscal='';t.notaFiscalNome='';
+  dbSaveTool(t);saveTols();
+  showToast('Nota fiscal removida',true);
+  closeM();
+}
 function openUpd(id){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem editar ferramentas.',false);return;}
   var t=tools.find(function(x){return x._id===id;});
   var h='<div class="mh"><div><div class="mtt">✏️ Editar<\/div><div class="msub">'+t.ferramenta+' · '+t.patrimonio+'<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Patrimônio<\/label><input id="uP" value="'+t.patrimonio+'"/><\/div><div class="mf"><label>Ferramenta<\/label><input id="uN" value="'+t.ferramenta+'"/><\/div><\/div>';
@@ -1402,6 +1440,7 @@ function openUpd(id){
   h+='<div class="mf-row"><div class="mf"><label>Data Cal.<\/label><input id="uDcal" value="'+(t.dataCal||'')+'"/><\/div><div class="mf"><label>Dias próx. cal.<\/label><input id="uDias" type="number" value="'+(t.diasProxCal==='-'?'':t.diasProxCal||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Data Manutenção<\/label><input id="uDman" value="'+(t.dataManut||'')+'"/><\/div><div class="mf"><label>Dias próx. manut.<\/label><input id="uDman2" type="number" value="'+(t.diasProxManut==='-'?'':t.diasProxManut||'')+'"/><\/div><\/div>';
   h+='<div class="mf"><label>Valor (R$)<\/label><input id="uVal" value="'+(t.valor||'')+'" oninput="maskMoney(this)"/><\/div>';
+  h+='<div class="mf"><label>Nota Fiscal <span style="font-size:10px;color:var(--tx3)">(opcional)<\/span><\/label>'+(t.notaFiscal?'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:var(--tx2)">📎 '+(t.notaFiscalNome||'nota_fiscal.pdf')+'<\/span><button type="button" class="bs ok" style="font-size:11px;padding:3px 8px" onclick="openNF('+t._id+')">Ver<\/button><button type="button" class="bs rd" style="font-size:11px;padding:3px 8px" onclick="removeNF('+t._id+')">Remover<\/button><\/div>':'<input id="uNF" type="file" accept="application/pdf"/>')+'<\/div>';
   h+='<div class="mf"><label>Observação<\/label><textarea id="uObs">'+(t.obs||'')+'<\/textarea><\/div>';
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar<\/button><button class="b-sv" onclick="saveUpd('+id+')">Salvar<\/button><\/div>';
   showM(h);
@@ -1437,9 +1476,20 @@ function saveUpd(id){
   t.diasProxManut=!isNaN(autoDM)?autoDM:(diasM!==''?diasM:'-');
   var obs=gv('uObs');if(obs!==t.obs)ch.push('OBS atualizada');t.obs=obs;
   var msg=ch.length?ch.join(' | '):'Revisado';
-  t.hist.unshift({msg:msg,user:CU.name,t:fmt(ts()),dot:'or'});
-  dbSaveTool(t);dbSaveHist(t._id,msg,CU.name);
-  closeM();renderAll();showToast('Salvo!',true);
+  var nfInput=document.getElementById('uNF');
+  var nfFile=nfInput&&nfInput.files&&nfInput.files[0];
+  function finishUpd(){
+    t.hist.unshift({msg:msg,user:CU.name,t:fmt(ts()),dot:'or'});
+    dbSaveTool(t);dbSaveHist(t._id,msg,CU.name);
+    closeM();renderAll();showToast('Salvo!',true);
+  }
+  if(nfFile){
+    var reader=new FileReader();
+    reader.onload=function(ev){t.notaFiscal=ev.target.result;t.notaFiscalNome=nfFile.name;finishUpd();};
+    reader.readAsDataURL(nfFile);
+  } else {
+    finishUpd();
+  }
 }
 
 
@@ -1462,6 +1512,7 @@ function fillLocalInfoAdd(sigla){
   if(e)e.value=m.estado||'';
 }
 function openAdd(){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem cadastrar ferramentas.',false);return;}
   var h='<div class="mh"><div><div class="mtt">+ Nova Ferramenta<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Patrimônio<\/label><input id="aP" placeholder="OEM00999"/><\/div><div class="mf"><label>Ferramenta<\/label><input id="aN" placeholder="Ex: Multímetro"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Marca<\/label><input id="aMr"/><\/div><div class="mf"><label>Modelo<\/label><input id="aMd"/><\/div><\/div>';
@@ -1470,6 +1521,7 @@ function openAdd(){
   h+='<div class="mf-row"><div class="mf"><label>Sigla Local<\/label><input id="aLoc" placeholder="Ex: CSPA" oninput="fillLocalInfoAdd(this.value)"/><\/div><div class="mf"><label>Responsável<\/label><input id="aRes"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Cidade<\/label><input id="aCid"/><\/div><div class="mf"><label>Estado<\/label><input id="aEst"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Valor (R$)<\/label><input id="aVal" placeholder="0,00" oninput="maskMoney(this)"/><\/div><div class="mf"><label>OBS<\/label><input id="aObs"/><\/div><\/div>';
+  h+='<div class="mf"><label>Nota Fiscal (PDF) <span style="font-size:10px;color:var(--tx3)">(opcional)</span><\/label><input id="aNF" type="file" accept="application/pdf"/><\/div>';
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar<\/button><button class="b-sv" onclick="saveAdd()">Registrar<\/button><\/div>';
   showM(h);
 }
@@ -1478,18 +1530,28 @@ function saveAdd(){
   var loc=gv('aLoc')||'—';
   var now=new Date();
   var fmtNow=now.toLocaleDateString('pt-BR')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  var nfFile=document.getElementById('aNF')&&document.getElementById('aNF').files[0];
   var nt={_id:Date.now(),_mod:true,
     patrimonio:gv('aP')||'—',ferramenta:n,
     marca:gv('aMr')||'',modelo:gv('aMd')||'',serie:gv('aSr')||'',
     status:gv('aSt')||'OK',setor:gv('aSek')||'OEM',
     local:loc,siglaLocal:loc,cidade:gv('aCid')||'',estado:gv('aEst')||'',
     responsavel:gv('aRes')||'',certCal:'',laboratorio:'',
-    dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',valor:unMaskMoney(gv('aVal'))||'',obs:gv('aObs')||'',
+    dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',disponibilidade:'Liberada',valor:unMaskMoney(gv('aVal'))||'',obs:gv('aObs')||'',notaFiscal:'',notaFiscalNome:'',
     lastConfirm:null,
     hist:[{msg:'Ferramenta registrada',user:CU.name,t:fmtNow,dot:'gr'}]};
-  tools.unshift(nt);
-  dbSaveTool(nt);dbSaveHist(nt._id,'Ferramenta registrada',CU.name);
-  closeM();page=1;renderAll();showToast('Ferramenta registrada!',true);
+  function finish(){
+    tools.unshift(nt);
+    dbSaveTool(nt);dbSaveHist(nt._id,'Ferramenta registrada',CU.name);
+    closeM();page=1;renderAll();showToast('Ferramenta registrada!',true);
+  }
+  if(nfFile){
+    var reader=new FileReader();
+    reader.onload=function(ev){nt.notaFiscal=ev.target.result;nt.notaFiscalNome=nfFile.name;finish();};
+    reader.readAsDataURL(nfFile);
+  } else {
+    finish();
+  }
 }
 
 // ── EXPORT ──
@@ -1794,6 +1856,10 @@ document.addEventListener('DOMContentLoaded',function(){
   if(sb){
     var loginBtn=document.querySelector('.lp-btn');
     if(loginBtn){loginBtn.disabled=true;loginBtn.textContent='Carregando…';}
+    // safety timeout - always re-enable after 5 seconds
+    var loginTimeout=setTimeout(function(){
+      if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='Entrar →';}
+    },5000);
     sb.from('usuários').select('*').then(function(r){
       if(r.data&&r.data.length){
         r.data.forEach(function(row){
@@ -1804,6 +1870,7 @@ document.addEventListener('DOMContentLoaded',function(){
         try{localStorage.setItem('sg_users',JSON.stringify(users));}catch(e){}
       }
     }).catch(function(){}).finally(function(){
+      clearTimeout(loginTimeout);
       if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='Entrar →';}
     });
   }
