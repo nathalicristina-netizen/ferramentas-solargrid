@@ -517,7 +517,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
           <h2 style="font-size:17px;font-weight:700;color:var(--nv)">📥 Solicitações de Ferramentas</h2>
-          <p style="font-size:12px;color:var(--tx3);margin-top:3px">Registre solicitações sem precisar do WhatsApp</p>
+          <p style="font-size:12px;color:var(--tx3);margin-top:3px">Gerencie as solicitações de ferramentas dos setores</p>
         </div>
         <button class="btn-or" onclick="openAddSolic()" style="font-size:12px;padding:7px 16px">+ Nova solicitação</button>
       </div>
@@ -714,6 +714,7 @@ async function dbDelHist(id){if(!sb)return;try{await sb.from('historico').delete
 async function dbLoad(){
   if(!sb){renderAll();return;}
   await loadUsersSB();
+  await loadSolicsSB();
   showBanner('connecting','Conectando…');
   try{
     var r=await sb.from('ferramentas').select('*');
@@ -1389,6 +1390,45 @@ function renderHistGeral(){
 var solics = JSON.parse(localStorage.getItem('sg_solics')||'[]');
 function saveSolics(){try{localStorage.setItem('sg_solics',JSON.stringify(solics));}catch(e){}}
 
+async function saveSolicSB(s){
+  if(!sb||s.sbId)return;
+  try{
+    var r=await sb.from('solicitacoes').insert({
+      ferramenta:s.ferramenta,destino:s.destino,solicitante:s.solicitante,
+      setor:s.setor,motivo:s.motivo||'',data_necessaria:s.dataNecessaria||null,
+      status:s.status,data_registro:s.data
+    }).select();
+    if(r.data&&r.data[0]){s.sbId=r.data[0].id;saveSolics();}
+  }catch(e){console.warn('saveSolicSB:',e);}
+}
+async function updateSolicSB(s){
+  if(!sb||!s.sbId)return;
+  try{await sb.from('solicitacoes').update({status:s.status}).eq('id',s.sbId);}catch(e){}
+}
+async function delSolicSB(s){
+  if(!sb||!s.sbId)return;
+  try{await sb.from('solicitacoes').delete().eq('id',s.sbId);}catch(e){}
+}
+async function loadSolicsSB(){
+  if(!sb)return;
+  try{
+    var r=await sb.from('solicitacoes').select('*').order('id',{ascending:false});
+    if(r.data&&r.data.length){
+      r.data.forEach(function(row){
+        var ex=solics.find(function(s){return s.sbId===row.id;});
+        if(!ex){
+          solics.push({ferramenta:row.ferramenta,destino:row.destino,solicitante:row.solicitante,
+            setor:row.setor,motivo:row.motivo,dataNecessaria:row.data_necessaria,
+            status:row.status,data:row.data_registro,sbId:row.id});
+        } else {
+          ex.status=row.status;
+        }
+      });
+      saveSolics();
+    }
+  }catch(e){console.warn('loadSolicsSB:',e);}
+}
+
 function renderSolics(){
   var el=document.getElementById('solicList');if(!el)return;
   if(!solics.length){
@@ -1459,19 +1499,19 @@ function saveNewSolic(){
     dataNecessaria:dataNec,status:'Pendente',
     data:now.toLocaleDateString('pt-BR')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')
   });
-  saveSolics();closeM();renderSolics();
+  saveSolics();saveSolicSB(solics[0]);closeM();renderSolics();
   showToast('Solicitação registrada!',true);
 }
 
 function updateSolicStatus(i,status){
   solics[i].status=status;
-  saveSolics();renderSolics();
+  saveSolics();updateSolicSB(solics[i]);renderSolics();
   showToast('Status atualizado: '+status,true);
 }
 
 function delSolic(i){
   if(!confirm('Excluir esta solicitação?'))return;
-  solics.splice(i,1);saveSolics();renderSolics();
+  delSolicSB(solics[i]);solics.splice(i,1);saveSolics();renderSolics();
   showToast('Solicitação removida',true);
 }
 
