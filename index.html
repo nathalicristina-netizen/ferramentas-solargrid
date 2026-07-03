@@ -309,6 +309,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       <button class="nav-tab" onclick="showTab('tabTerm',this)">📄 Termo de Transferência</button>
       <button class="nav-tab" onclick="showTab('tabUsers',this)">👥 Usuários</button>
       <button class="nav-tab" onclick="showTab('tabHist',this)">📋 Histórico</button>
+      <button class="nav-tab" onclick="showTab('tabSolic',this)">📥 Solicitações</button>
     </div>
   </div>
 
@@ -507,6 +508,20 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         </div>
       </div>
       <div id="histGeralList"><div style="text-align:center;padding:40px;color:var(--tx3)">Carregando histórico…</div></div>
+    </div>
+  </div>
+
+  <!-- TAB SOLICITAÇÕES -->
+  <div id="tabSolic" class="tab-content">
+    <div style="max-width:860px;margin:0 auto;padding:20px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <h2 style="font-size:17px;font-weight:700;color:var(--nv)">📥 Solicitações de Ferramentas</h2>
+          <p style="font-size:12px;color:var(--tx3);margin-top:3px">Registre solicitações sem precisar do WhatsApp</p>
+        </div>
+        <button class="btn-or" onclick="openAddSolic()" style="font-size:12px;padding:7px 16px">+ Nova solicitação</button>
+      </div>
+      <div id="solicList"></div>
     </div>
   </div>
 
@@ -1076,6 +1091,8 @@ function renderAll(){
   // reload historico if tab is active
   var histTab=document.getElementById('tabHist');
   if(histTab&&histTab.classList.contains('on'))loadHistGeral();
+  var solicTab=document.getElementById('tabSolic');
+  if(solicTab&&solicTab.classList.contains('on'))renderSolics();
 }
 function setF(btn,f){document.querySelectorAll('.ft').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');AF=f;page=1;renderTable();}
 function setFMc(f){AF=f;page=1;document.querySelectorAll('.ft').forEach(function(b){var t=b.getAttribute('data-f');b.classList.toggle('on',t===f);});renderTable();}
@@ -1368,6 +1385,96 @@ function renderHistGeral(){
     '<div style="font-size:11px;color:var(--tx3);text-align:right;margin-top:8px">Exibindo '+list.length+' registro(s)</div>';
 }
 
+// ===== SOLICITAÇÕES =====
+var solics = JSON.parse(localStorage.getItem('sg_solics')||'[]');
+function saveSolics(){try{localStorage.setItem('sg_solics',JSON.stringify(solics));}catch(e){}}
+
+function renderSolics(){
+  var el=document.getElementById('solicList');if(!el)return;
+  if(!solics.length){
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3);font-size:13px">Nenhuma solicitação ainda.<br>Clique em <b>+ Nova solicitação</b> para registrar.</div>';
+    return;
+  }
+  var statusColors={
+    'Pendente':{bg:'#FFF7ED',cl:'#c2410c'},
+    'Em andamento':{bg:'#EEF2FF',cl:'#3730a3'},
+    'Atendida':{bg:'#F0FDF4',cl:'#15803d'},
+    'Cancelada':{bg:'#F9FAFB',cl:'#6B7280'}
+  };
+  var cards=solics.map(function(s,i){
+    var sc=statusColors[s.status]||statusColors['Pendente'];
+    return '<div style="background:var(--bg2);border:1.5px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:10px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+            '<span style="font-weight:700;color:var(--nv);font-size:13px">'+s.ferramenta+'</span>'+
+            '<span style="background:'+sc.bg+';color:'+sc.cl+';border:1px solid '+sc.cl+'40;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:600">'+s.status+'</span>'+
+          '</div>'+
+          '<div style="font-size:12px;color:var(--tx2);margin-bottom:4px">'+
+            '📍 '+s.destino+' &nbsp;|&nbsp; 👤 '+s.solicitante+' ('+s.setor+')'+
+          '</div>'+
+          (s.motivo?'<div style="font-size:12px;color:var(--tx3)">💬 '+s.motivo+'</div>':'')+
+          '<div style="font-size:10px;color:var(--tx3);margin-top:6px">🕐 '+s.data+'</div>'+
+        '</div>'+
+        '<div style="display:flex;gap:6px;flex-shrink:0">'+
+          '<select onchange="updateSolicStatus('+i+',this.value)" style="font-size:11px;padding:4px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--bg2);color:var(--tx2);cursor:pointer">'+
+            '<option'+(s.status==='Pendente'?' selected':'')+'>Pendente</option>'+
+            '<option'+(s.status==='Em andamento'?' selected':'')+'>Em andamento</option>'+
+            '<option'+(s.status==='Atendida'?' selected':'')+'>Atendida</option>'+
+            '<option'+(s.status==='Cancelada'?' selected':'')+'>Cancelada</option>'+
+          '</select>'+
+          '<button class="bs rd" onclick="delSolic('+i+')" style="font-size:11px;padding:4px 8px">✕</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  el.innerHTML=cards;
+}
+
+function openAddSolic(){
+  var h='<div class="mh"><div><div class="mtt">📥 Nova Solicitação</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
+  h+='<div class="mf"><label>Ferramenta solicitada</label><input id="slFerr" placeholder="Ex: Multímetro, Megger 5KV..."/></div>';
+  h+='<div class="mf-row"><div class="mf"><label>Destino / Local</label><input id="slDest" placeholder="Ex: CSPA, Obra X..."/></div><div class="mf"><label>Data necessária</label><input id="slDataNec" type="date"/></div></div>';
+  h+='<div class="mf-row"><div class="mf"><label>Solicitante</label><input id="slSolic" value="'+(CU?CU.name:'')+'"/></div><div class="mf"><label>Setor</label><input id="slSetor" value="'+(CU?CU.setor:'')+'"/></div></div>';
+  h+='<div class="mf"><label>Motivo / Observação</label><textarea id="slMotivo" placeholder="Descreva o motivo da solicitação..."></textarea></div>';
+  h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button><button class="b-sv" onclick="saveNewSolic()">Enviar solicitação</button></div>';
+  document.getElementById('mbody').innerHTML=h;
+  document.getElementById('mo').style.display='flex';
+  document.getElementById('slFerr').focus();
+}
+
+function saveNewSolic(){
+  var ferr=document.getElementById('slFerr').value.trim();
+  var dest=document.getElementById('slDest').value.trim();
+  var solic=document.getElementById('slSolic').value.trim();
+  var setor=document.getElementById('slSetor').value.trim();
+  if(!ferr){showToast('Informe a ferramenta solicitada',false);return;}
+  if(!dest){showToast('Informe o destino',false);return;}
+  if(!solic){showToast('Informe o solicitante',false);return;}
+  var now=new Date();
+  var dataNec=document.getElementById('slDataNec').value;
+  solics.unshift({
+    ferramenta:ferr,destino:dest,solicitante:solic,setor:setor,
+    motivo:document.getElementById('slMotivo').value.trim(),
+    dataNecessaria:dataNec,status:'Pendente',
+    data:now.toLocaleDateString('pt-BR')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')
+  });
+  saveSolics();closeM();renderSolics();
+  showToast('Solicitação registrada!',true);
+}
+
+function updateSolicStatus(i,status){
+  solics[i].status=status;
+  saveSolics();renderSolics();
+  showToast('Status atualizado: '+status,true);
+}
+
+function delSolic(i){
+  if(!confirm('Excluir esta solicitação?'))return;
+  solics.splice(i,1);saveSolics();renderSolics();
+  showToast('Solicitação removida',true);
+}
+
 function showTab(id,btn){
   document.querySelectorAll('.tab-content').forEach(function(e){e.classList.remove('on');});
   document.querySelectorAll('.nav-tab').forEach(function(b){b.classList.remove('on');});
@@ -1376,6 +1483,7 @@ function showTab(id,btn){
   if(id==='tabUsers')renderUsers();
   if(id==='tabCert')renderCerts();
   if(id==='tabHist')loadHistGeral();
+  if(id==='tabSolic')renderSolics();
 }
 
 // ── CONFIRMAÇÃO ──
