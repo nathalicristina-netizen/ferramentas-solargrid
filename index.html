@@ -120,9 +120,9 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
 .td-nm{font-weight:600;color:var(--tx1);font-size:13px}
 .td-sub{font-size:9.5px;color:var(--tx3);margin-top:2px}
 .td-wrap{position:relative;display:inline-block;width:100%}
-.td-tip{display:none;position:fixed;z-index:9999;background:var(--bg2);border:1.5px solid var(--bd);border-radius:10px;padding:12px 14px;box-shadow:0 8px 32px rgba(0,0,0,.18);min-width:240px;max-width:300px;pointer-events:none}
-.td-wrap:hover .td-tip{display:block}
-.td-tip-row{display:flex;gap:6px;margin-bottom:5px;font-size:11px;align-items:flex-start}
+.td-wrap{position:relative;display:inline-block;width:100%}
+.td-tip{display:none;position:fixed;z-index:9999;background:var(--bg2);border:1.5px solid var(--bd);border-radius:10px;padding:12px 14px;box-shadow:0 8px 32px rgba(0,0,0,.18);min-width:220px;max-width:280px;pointer-events:none}
+/* tooltip positioned via JS */
 .td-tip-lbl{color:var(--tx3);font-size:10px;min-width:80px;padding-top:1px}
 .td-tip-val{color:var(--tx1);font-weight:500;flex:1;word-break:break-word}
 .td-tip-sep{border:none;border-top:1px solid var(--bd);margin:7px 0}
@@ -869,6 +869,37 @@ function closeColFlt(col){
 }
 
 // Close panels when clicking outside
+// ── TOOLTIP ──
+document.addEventListener('mouseover',function(e){
+  var wrap=e.target.closest('.td-wrap');
+  if(!wrap)return;
+  var tip=wrap.querySelector('.td-tip');
+  if(!tip||!tip.innerHTML.trim())return;
+  tip.style.display='block';
+  positionTip(tip,e);
+});
+document.addEventListener('mousemove',function(e){
+  var wrap=e.target.closest('.td-wrap');
+  if(!wrap){
+    document.querySelectorAll('.td-tip').forEach(function(t){t.style.display='none';});
+    return;
+  }
+  var tip=wrap.querySelector('.td-tip');
+  if(tip)positionTip(tip,e);
+});
+document.addEventListener('mouseout',function(e){
+  var wrap=e.target.closest('.td-wrap');
+  if(wrap){var tip=wrap.querySelector('.td-tip');if(tip)tip.style.display='none';}
+});
+function positionTip(tip,e){
+  var x=e.clientX+14,y=e.clientY+14;
+  var tw=tip.offsetWidth||240,th=tip.offsetHeight||120;
+  if(x+tw>window.innerWidth-10)x=e.clientX-tw-10;
+  if(y+th>window.innerHeight-10)y=e.clientY-th-10;
+  tip.style.left=x+'px';
+  tip.style.top=y+'px';
+}
+
 document.addEventListener('click',function(e){
   if(!_activeFltPanel)return;
   var el=e.target;
