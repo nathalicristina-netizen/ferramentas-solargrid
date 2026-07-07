@@ -529,6 +529,14 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
   <!-- TAB CHAT -->
   <div id="tabChat" class="tab-content">
     <div style="max-width:860px;margin:0 auto;padding:20px 16px;height:calc(100vh - 140px);display:flex;flex-direction:column">
+      <!-- Search bar -->
+      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+        <div class="srch" style="flex:1">
+          <span class="srch-ico">🔍</span>
+          <input type="text" id="chatSearch" placeholder="Buscar no chat..." oninput="searchChat(this.value)" style="width:100%"/>
+        </div>
+        <button onclick="clearChatSearch()" id="chatSearchClear" style="display:none;font-size:11px;color:var(--tx3);background:none;border:none;cursor:pointer;padding:4px 8px">✕ Limpar</button>
+      </div>
       <!-- Canal selector -->
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <button class="ft on" id="chatCanalBtn-geral" onclick="setChatCanal('geral',this)">🌐 Geral</button>
@@ -1585,9 +1593,9 @@ function renderSolics(){
 
 function openAddSolic(){
   var h='<div class="mh"><div><div class="mtt">📥 Nova Solicitação</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
-  h+='<div class="mf"><label>Ferramenta solicitada</label><input id="slFerr" placeholder="Ex: Multímetro, Megger 5KV..."/></div>';
-  h+='<div class="mf-row"><div class="mf"><label>Destino / Local</label><input id="slDest" placeholder="Ex: CSPA, Obra X..."/></div><div class="mf"><label>Data necessária</label><input id="slDataNec" type="date"/></div></div>';
-  h+='<div class="mf-row"><div class="mf"><label>Solicitante</label><input id="slSolic" value="'+(CU?CU.name:'')+'"/></div><div class="mf"><label>Setor</label><input id="slSetor" value="'+(CU?CU.setor:'')+'"/></div></div>';
+  h+='<div class="mf-row"><div class="mf"><label>Patrimônio</label><input id="slPat" placeholder="Ex: OEM0036" style="font-family:monospace" oninput="fillSolicFromPat(this.value)"/></div><div class="mf"><label>Ferramenta</label><input id="slFerr" placeholder="Preenchido automático ou manual"/></div></div>';
+  h+='<div class="mf-row"><div class="mf"><label>Destino / Local / UFV</label><input id="slDest" placeholder="Ex: CSPA, BFN, Obra X..."/></div><div class="mf"><label>Data necessária</label><input id="slDataNec" type="date"/></div></div>';
+  h+='<div class="mf-row"><div class="mf"><label>Solicitante</label><input id="slSolic" value="'+(CU?CU.name:'')+'"/></div><div class="mf"><label>Setor</label><select id="slSetor"><option value="">Selecione…</option><option'+(CU&&CU.setor==="Comissionamento"?' selected':'')+'>Comissionamento</option><option'+(CU&&CU.setor==="Construção"?' selected':'')+'>Construção</option><option'+(CU&&CU.setor==="O&M"?' selected':'')+'>O&M</option><option'+(CU&&CU.setor==="PMO"?' selected':'')+'>PMO</option><option'+(CU&&CU.setor==="CSC"?' selected':'')+'>CSC</option><option'+(CU&&CU.setor==="Engenharia do Proprietário"?' selected':'')+'>Engenharia do Proprietário</option></select></div></div>';
   h+='<div class="mf"><label>Motivo / Observação</label><textarea id="slMotivo" placeholder="Descreva o motivo da solicitação..."></textarea></div>';
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button><button class="b-sv" onclick="saveNewSolic()">Enviar solicitação</button></div>';
   document.getElementById('mbody').innerHTML=h;
@@ -1632,6 +1640,35 @@ var chatCanal = 'geral';
 var chatSub = null;
 var chatBucket = 'chat-arquivos';
 
+function searchChat(v){
+  var term=v.toLowerCase().trim();
+  var clr=document.getElementById('chatSearchClear');
+  if(clr)clr.style.display=term?'inline':'none';
+  var msgs=document.getElementById('chatMsgList');
+  if(!msgs)return;
+  var items=msgs.children;
+  for(var i=0;i<items.length;i++){
+    var txt=items[i].textContent.toLowerCase();
+    items[i].style.display=(!term||txt.includes(term))?'':'none';
+    if(term&&txt.includes(term)){
+      // highlight
+      items[i].style.outline='2px solid var(--or)';
+      items[i].style.borderRadius='8px';
+    } else {
+      items[i].style.outline='';
+    }
+  }
+}
+function clearChatSearch(){
+  var inp=document.getElementById('chatSearch');
+  if(inp)inp.value='';
+  searchChat('');
+}
+function fillSolicFromPat(pat){
+  if(!pat||pat.length<3)return;
+  var t=tools.find(function(x){return x.patrimonio.toLowerCase()===pat.toLowerCase();});
+  if(t){var f=document.getElementById('slFerr');if(f&&!f.value)f.value=t.ferramenta;}
+}
 function setChatCanal(canal, btn){
   chatCanal = canal;
   document.querySelectorAll('[id^="chatCanalBtn-"]').forEach(function(b){b.classList.remove('on');});
