@@ -1652,7 +1652,7 @@ async function loadChatMsgs(){
   var el=document.getElementById('chatMsgs');if(!el)return;
   if(!sb){el.innerHTML='<div style="text-align:center;color:var(--tx3)">Sem conexão.</div>';return;}
   // unsubscribe previous
-  if(chatSub){try{chatSub.unsubscribe();}catch(e){}}
+  if(chatSub){clearInterval(chatSub);chatSub=null;}
   el.innerHTML='<div style="text-align:center;color:var(--tx3);font-size:13px">Carregando...</div>';
   try{
     var r=await sb.from('chat').select('*').eq('canal',chatCanal).order('created_at',{ascending:true}).limit(100);
@@ -1663,24 +1663,26 @@ async function loadChatMsgs(){
       el.innerHTML='<div id="chatMsgList" style="display:flex;flex-direction:column;gap:10px">'+r.data.map(renderChatMsg).join('')+'</div>';
       el.scrollTop=el.scrollHeight;
     }
-    // subscribe to realtime
-    chatSub=sb.channel('chat-'+chatCanal)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'chat',filter:'canal=eq.'+chatCanal},function(payload){
-        var msgs=document.getElementById('chatMsgList');
-        if(!msgs){
-          el.innerHTML='<div id="chatMsgList" style="display:flex;flex-direction:column;gap:10px"></div>';
-          msgs=document.getElementById('chatMsgList');
-        } else {
-          // clear "no messages" placeholder if present
-          var ph=msgs.querySelector('div[style*="text-align:center"]');
-          if(ph)ph.remove();
+    // poll for new messages every 2 seconds
+    var lastId=r.data.length?r.data[r.data.length-1].id:0;
+    chatSub=setInterval(async function(){
+      if(!document.getElementById('chatMsgList'))return;
+      try{
+        var nr=await sb.from('chat').select('*').eq('canal',chatCanal).gt('id',lastId).order('id',{ascending:true});
+        if(nr.data&&nr.data.length){
+          var msgs=document.getElementById('chatMsgList');
+          if(!msgs)return;
+          var ph=msgs.querySelector('div[style*="text-align:center"]');if(ph)ph.remove();
+          nr.data.forEach(function(m){
+            var div=document.createElement('div');
+            div.innerHTML=renderChatMsg(m);
+            msgs.appendChild(div.firstChild);
+            lastId=m.id;
+          });
+          el.scrollTop=el.scrollHeight;
         }
-        var div=document.createElement('div');
-        div.innerHTML=renderChatMsg(payload.new);
-        msgs.appendChild(div.firstChild);
-        el.scrollTop=el.scrollHeight;
-      })
-      .subscribe();
+      }catch(e){}
+    },2000);
   }catch(e){
     el.innerHTML='<div style="text-align:center;color:var(--rd);font-size:13px">Erro ao carregar. Tente novamente.</div>';
   }
@@ -1721,7 +1723,7 @@ function showTab(id,btn){
   if(id==='tabHist')loadHistGeral();
   if(id==='tabSolic')renderSolics();
   if(id==='tabChat')loadChatMsgs();
-  else if(chatSub){try{chatSub.unsubscribe();chatSub=null;}catch(e){}}
+  else if(chatSub){clearInterval(chatSub);chatSub=null;}
 }
 
 // ── CONFIRMAÇÃO ──
