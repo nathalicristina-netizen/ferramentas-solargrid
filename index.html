@@ -715,6 +715,7 @@ async function dbLoad(){
   if(!sb){renderAll();return;}
   await loadUsersSB();
   await loadSolicsSB();
+  await loadCertsSB();
   showBanner('connecting','Conectando…');
   try{
     var r=await sb.from('ferramentas').select('*');
@@ -1238,8 +1239,25 @@ function delUser(i){
 var certs = JSON.parse(localStorage.getItem('sg_certs')||'[]');
 var certSearchTerm = '';
 function saveCerts(){
-  try{localStorage.setItem('sg_certs',JSON.stringify(certs));}
-  catch(e){showToast('Arquivo muito grande para salvar. Tente um PDF menor.',false);}
+  // save only metadata (no fileData) to localStorage
+  try{
+    var meta=certs.map(function(c){return{patrimonio:c.patrimonio,ferramenta:c.ferramenta,fileName:c.fileName,fileUrl:c.fileUrl||'',sbPath:c.sbPath||'',fileData:c.fileData||''};});
+    localStorage.setItem('sg_certs',JSON.stringify(meta));
+  }catch(e){}
+}
+
+async function loadCertsSB(){
+  if(!sb)return;
+  try{
+    var r=await sb.from('certificados').select('*').order('id',{ascending:false});
+    if(r.data&&r.data.length){
+      r.data.forEach(function(row){
+        var ex=certs.find(function(c){return c.sbId===row.id;});
+        if(!ex){certs.push({patrimonio:row.patrimonio,ferramenta:row.ferramenta,fileName:row.file_name,fileUrl:row.file_url,sbPath:row.sb_path,sbId:row.id});}
+      });
+      saveCerts();
+    }
+  }catch(e){console.warn('loadCertsSB:',e);}
 }
 
 function searchCerts(v){certSearchTerm=v.toLowerCase().trim();renderCerts();}
@@ -1275,9 +1293,12 @@ function renderCerts(){
 
 function openCertFile(idx){
   var c=certs[idx];if(!c)return;
-  var win=window.open();
-  win.document.write('<iframe src="'+c.fileData+'" style="width:100%;height:100vh;border:none"></iframe>');
-  win.document.title=c.fileName||'Certificado';
+  if(c.fileUrl){window.open(c.fileUrl,'_blank');return;}
+  if(c.fileData){
+    var win=window.open();
+    win.document.write('<iframe src="'+c.fileData+'" style="width:100%;height:100vh;border:none"></iframe>');
+    win.document.title=c.fileName||'Certificado';
+  }
 }
 
 function openAddCert(){
@@ -1296,7 +1317,7 @@ function fillCertFromTool(pat){
   if(t){var nm=document.getElementById('ccNome');if(nm&&!nm.value)nm.value=t.ferramenta;}
 }
 
-function saveNewCert(){
+async function saveNewCert(){
   var pat=document.getElementById('ccPat').value.trim();
   var nome=document.getElementById('ccNome').value.trim();
   var fileInput=document.getElementById('ccFile');
@@ -1305,18 +1326,47 @@ function saveNewCert(){
   if(!nome){showToast('Informe o nome da ferramenta',false);return;}
   if(!file){showToast('Selecione o arquivo do certificado',false);return;}
   if(file.type!=='application/pdf'){showToast('O arquivo deve ser um PDF',false);return;}
-  var reader=new FileReader();
-  reader.onload=function(ev){
-    certs.unshift({patrimonio:pat,ferramenta:nome,fileName:file.name,fileData:ev.target.result});
-    saveCerts();closeM();renderCerts();
-    showToast('Certificado anexado com sucesso!',true);
-  };
-  reader.readAsDataURL(file);
+  showToast('Enviando certificado... ⏳',true);
+  var cert={patrimonio:pat,ferramenta:nome,fileName:file.name,fileUrl:'',sbPath:'',fileData:''};
+  if(sb){
+    try{
+      var path=pat.replace(/\s/g,'_')+'_'+Date.now()+'.pdf';
+      var up=await sb.storage.from('certificados').upload(path,file,{contentType:'application/pdf',upsert:true});
+      if(up.error)throw up.error;
+      var pub=sb.storage.from('certificados').getPublicUrl(path);
+      cert.fileUrl=pub.data.publicUrl;
+      cert.sbPath=path;
+      // save metadata to DB
+      var r=await sb.from('certificados').insert({patrimonio:pat,ferramenta:nome,file_name:file.name,file_url:cert.fileUrl,sb_path:path}).select();
+      if(r.data&&r.data[0])cert.sbId=r.data[0].id;
+    }catch(e){
+      console.warn('cert upload err:',e);
+      // fallback to base64
+      await new Promise(function(res){
+        var reader=new FileReader();
+        reader.onload=function(ev){cert.fileData=ev.target.result;res();};
+        reader.readAsDataURL(file);
+      });
+    }
+  } else {
+    await new Promise(function(res){
+      var reader=new FileReader();
+      reader.onload=function(ev){cert.fileData=ev.target.result;res();};
+      reader.readAsDataURL(file);
+    });
+  }
+  certs.unshift(cert);
+  saveCerts();closeM();renderCerts();
+  showToast('Certificado salvo com sucesso!',true);
 }
 
-function delCert(idx){
+async function delCert(idx){
   var c=certs[idx];
   if(!confirm('Excluir certificado de "'+c.ferramenta+'" ('+c.patrimonio+')?'))return;
+  if(sb&&c.sbPath){
+    try{await sb.storage.from('certificados').remove([c.sbPath]);}catch(e){}
+    if(c.sbId){try{await sb.from('certificados').delete().eq('id',c.sbId);}catch(e){}}
+  }
   certs.splice(idx,1);saveCerts();renderCerts();
   showToast('Certificado removido',true);
 }
