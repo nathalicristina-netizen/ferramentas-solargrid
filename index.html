@@ -702,7 +702,7 @@ async function dbSaveTool(t){
     marca:t.marca,modelo:t.modelo,serie:t.serie,status:t.status,local:t.local,
     sigla_local:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,
     setor:t.setor,valor:t.valor,cert_cal:t.certCal,laboratorio:t.laboratorio,
-    data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',ciclo_conf:t.cicloConf||'quinzenal',obs:t.obs||'',
+    data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',ciclo_conf:t.cicloConf||'quinzenal',nota_fiscal_url:t.notaFiscalUrl||'',nota_fiscal_path:t.notaFiscalPath||'',nota_fiscal_nome:t.notaFiscalNome||'',obs:t.obs||'',
     last_confirm:t.lastConfirm||null});
 }
 async function dbSaveHist(id,msg,user){
@@ -724,7 +724,7 @@ async function dbLoad(){
       var t=tools.find(function(x){return x._id===row.id||x._id===Number(row.id);});
       var map={status:'status',local:'local',sigla_local:'siglaLocal',responsavel:'responsavel',
         cidade:'cidade',estado:'estado',obs:'obs',last_confirm:'lastConfirm',
-        data_cal:'dataCal',dias_prox_cal:'diasProxCal',cert_cal:'certCal',data_manut:'dataManut',dias_prox_manut:'diasProxManut',disponibilidade:'disponibilidade',corretiva:'corretiva',prev_corretiva:'prevCorretiva',ciclo_conf:'cicloConf',
+        data_cal:'dataCal',dias_prox_cal:'diasProxCal',cert_cal:'certCal',data_manut:'dataManut',dias_prox_manut:'diasProxManut',disponibilidade:'disponibilidade',corretiva:'corretiva',prev_corretiva:'prevCorretiva',ciclo_conf:'cicloConf',nota_fiscal_url:'notaFiscalUrl',nota_fiscal_path:'notaFiscalPath',nota_fiscal_nome:'notaFiscalNome',
         laboratorio:'laboratorio',ferramenta:'ferramenta',patrimonio:'patrimonio',
         marca:'marca',modelo:'modelo',serie:'serie',setor:'setor',valor:'valor'};
       if(!t){
@@ -1664,15 +1664,21 @@ function fillLocalInfo(sigla){
 }
 function openNF(id){
   var t=tools.find(function(x){return x._id===id;});
-  if(!t||!t.notaFiscal)return;
+  if(!t)return;
+  var url=t.notaFiscalUrl||t.notaFiscal||'';
+  if(!url)return;
+  if(t.notaFiscalUrl){window.open(t.notaFiscalUrl,'_blank');return;}
   var win=window.open();
-  win.document.write('<iframe src="'+t.notaFiscal+'" style="width:100%;height:100vh;border:none"></iframe>');
+  win.document.write('<iframe src="'+url+'" style="width:100%;height:100vh;border:none"></iframe>');
   win.document.title=t.notaFiscalNome||'Nota Fiscal';
 }
-function removeNF(id){
+async function removeNF(id){
   var t=tools.find(function(x){return x._id===id;});
   if(!t)return;
-  t.notaFiscal='';t.notaFiscalNome='';
+  if(sb&&t.notaFiscalPath){
+    try{await sb.storage.from('notas-fiscais').remove([t.notaFiscalPath]);}catch(e){}
+  }
+  t.notaFiscal='';t.notaFiscalNome='';t.notaFiscalUrl='';t.notaFiscalPath='';
   dbSaveTool(t);saveTols();
   showToast('Nota fiscal removida',true);
   closeM();
@@ -1697,7 +1703,7 @@ function openUpd(id){
   h+='<div class="mf-row"><div class="mf"><label>Manutenção corretiva<\/label><select id="uCorr"><option value="">—<\/option><option'+(t.corretiva==="Precisa de reparo"?" selected":"")+'>Precisa de reparo<\/option><option'+(t.corretiva==="Em manutenção"?" selected":"")+'>Em manutenção<\/option><option'+(t.corretiva==="Aguardando peça"?" selected":"")+'>Aguardando peça<\/option><\/select><\/div><div class="mf"><label>Previsão de retorno<\/label><input id="uPrevCorr" value="'+(t.prevCorretiva||'')+'" placeholder="Ex: 10 dias"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Ciclo de confirmação<\/label><select id="uCiclo"><option value="quinzenal"'+((!t.cicloConf||t.cicloConf==="quinzenal")?" selected":"")+'>Quinzenal (15 dias)<\/option><option value="mensal"'+(t.cicloConf==="mensal"?" selected":"")+'>Mensal (30 dias)<\/option><option value="semestral"'+(t.cicloConf==="semestral"?" selected":"")+'>Semestral (180 dias)<\/option><\/select><\/div><div class="mf"><label>Valor (R$)<\/label><input id="uVal" value="'+(t.valor||'')+'" oninput="maskMoney(this)"/><\/div><\/div>';
 
-  h+='<div class="mf"><label>Nota Fiscal <span style="font-size:10px;color:var(--tx3)">(opcional)<\/span><\/label>'+(t.notaFiscal?'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:var(--tx2)">📎 '+(t.notaFiscalNome||'nota_fiscal.pdf')+'<\/span><button type="button" class="bs ok" style="font-size:11px;padding:3px 8px" onclick="openNF('+t._id+')">Ver<\/button><button type="button" class="bs rd" style="font-size:11px;padding:3px 8px" onclick="removeNF('+t._id+')">Remover<\/button><\/div>':'<input id="uNF" type="file" accept="application/pdf"/>')+'<\/div>';
+  h+='<div class="mf"><label>Nota Fiscal <span style="font-size:10px;color:var(--tx3)">(opcional)<\/span><\/label>'+((t.notaFiscalUrl||t.notaFiscal)?'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:var(--tx2)">📎 '+(t.notaFiscalNome||'nota_fiscal.pdf')+'<\/span><button type="button" class="bs ok" style="font-size:11px;padding:3px 8px" onclick="openNF('+t._id+')">Ver<\/button><button type="button" class="bs rd" style="font-size:11px;padding:3px 8px" onclick="removeNF('+t._id+')">Remover<\/button><\/div>':'<input id="uNF" type="file" accept="application/pdf"/>')+'<\/div>';
   h+='<div class="mf"><label>Observação<\/label><textarea id="uObs">'+(t.obs||'')+'<\/textarea><\/div>';
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar<\/button><button class="b-sv" onclick="saveUpd('+id+')">Salvar<\/button><\/div>';
   showM(h);
@@ -1735,18 +1741,31 @@ function saveUpd(id){
   var msg=ch.length?ch.join(' | '):'Revisado';
   var nfInput=document.getElementById('uNF');
   var nfFile=nfInput&&nfInput.files&&nfInput.files[0];
-  function finishUpd(){
+  async function finishUpd(){
+    if(nfFile){
+      if(sb){
+        try{
+          var path=t._id+'_'+Date.now()+'.pdf';
+          var up=await sb.storage.from('notas-fiscais').upload(path,nfFile,{contentType:'application/pdf',upsert:true});
+          if(!up.error){
+            t.notaFiscalUrl=sb.storage.from('notas-fiscais').getPublicUrl(path).data.publicUrl;
+            t.notaFiscalPath=path;
+            t.notaFiscalNome=nfFile.name;
+            t.notaFiscal='';
+          }
+        }catch(e){
+          var reader=new FileReader();
+          await new Promise(function(res){reader.onload=function(ev){t.notaFiscal=ev.target.result;t.notaFiscalNome=nfFile.name;res();};reader.readAsDataURL(nfFile);});
+        }
+      } else {
+        await new Promise(function(res){var reader=new FileReader();reader.onload=function(ev){t.notaFiscal=ev.target.result;t.notaFiscalNome=nfFile.name;res();};reader.readAsDataURL(nfFile);});
+      }
+    }
     t.hist.unshift({msg:msg,user:CU.name,t:fmt(ts()),dot:'or'});
     dbSaveTool(t);dbSaveHist(t._id,msg,CU.name);
     closeM();renderAll();showToast('Salvo!',true);
   }
-  if(nfFile){
-    var reader=new FileReader();
-    reader.onload=function(ev){t.notaFiscal=ev.target.result;t.notaFiscalNome=nfFile.name;finishUpd();};
-    reader.readAsDataURL(nfFile);
-  } else {
-    finishUpd();
-  }
+  finishUpd();
 }
 
 
@@ -1797,18 +1816,30 @@ function saveAdd(){
     dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',disponibilidade:'Liberada',valor:unMaskMoney(gv('aVal'))||'',obs:gv('aObs')||'',notaFiscal:'',notaFiscalNome:'',
     lastConfirm:null,
     hist:[{msg:'Ferramenta registrada',user:CU.name,t:fmtNow,dot:'gr'}]};
-  function finish(){
+  async function finish(){
+    if(nfFile){
+      if(sb){
+        try{
+          var path=nt._id+'_'+Date.now()+'.pdf';
+          var up=await sb.storage.from('notas-fiscais').upload(path,nfFile,{contentType:'application/pdf',upsert:true});
+          if(!up.error){
+            nt.notaFiscalUrl=sb.storage.from('notas-fiscais').getPublicUrl(path).data.publicUrl;
+            nt.notaFiscalPath=path;
+            nt.notaFiscalNome=nfFile.name;
+            nt.notaFiscal='';
+          }
+        }catch(e){
+          await new Promise(function(res){var reader=new FileReader();reader.onload=function(ev){nt.notaFiscal=ev.target.result;nt.notaFiscalNome=nfFile.name;res();};reader.readAsDataURL(nfFile);});
+        }
+      } else {
+        await new Promise(function(res){var reader=new FileReader();reader.onload=function(ev){nt.notaFiscal=ev.target.result;nt.notaFiscalNome=nfFile.name;res();};reader.readAsDataURL(nfFile);});
+      }
+    }
     tools.unshift(nt);
     dbSaveTool(nt);dbSaveHist(nt._id,'Ferramenta registrada',CU.name);
     closeM();page=1;renderAll();showToast('Ferramenta registrada!',true);
   }
-  if(nfFile){
-    var reader=new FileReader();
-    reader.onload=function(ev){nt.notaFiscal=ev.target.result;nt.notaFiscalNome=nfFile.name;finish();};
-    reader.readAsDataURL(nfFile);
-  } else {
-    finish();
-  }
+  finish();
 }
 
 // ── EXPORT ──
