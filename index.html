@@ -1516,6 +1516,30 @@ async function loadSolicsSB(){
   }catch(e){console.warn('loadSolicsSB:',e);}
 }
 
+function discutirSolic(i){
+  var s=solics[i];if(!s)return;
+  // map setor to canal
+  var canalMap={
+    'Comissionamento':'Comissionamento','Construção':'Construção',
+    'O&M':'O&M','PMO':'PMO','CSC':'CSC','Engenharia do Proprietário':'EP'
+  };
+  var canal=canalMap[s.setor]||'geral';
+  // pre-fill chat message
+  var msg='📋 Solicitação: '+s.ferramenta+' → '+s.destino+' ('+s.solicitante+')';
+  // switch to chat tab
+  var chatBtn=document.querySelector('[onclick*="tabChat"]');
+  if(chatBtn)chatBtn.click();
+  setTimeout(function(){
+    // set canal
+    var canalBtn=document.getElementById('chatCanalBtn-'+canal)||document.getElementById('chatCanalBtn-geral');
+    if(canalBtn)canalBtn.click();
+    setTimeout(function(){
+      var inp=document.getElementById('chatInput');
+      if(inp){inp.value=msg;inp.focus();}
+    },300);
+  },300);
+}
+
 function renderSolics(){
   var el=document.getElementById('solicList');if(!el)return;
   if(!solics.length){
@@ -1550,6 +1574,7 @@ function renderSolics(){
             '<option'+(s.status==='Atendida'?' selected':'')+'>Atendida</option>'+
             '<option'+(s.status==='Cancelada'?' selected':'')+'>Cancelada</option>'+
           '</select>'+
+          '<button class="bs gh" onclick="discutirSolic('+i+')" style="font-size:11px;padding:4px 10px">💬 Discutir</button>'+
           '<button class="bs rd" onclick="delSolic('+i+')" style="font-size:11px;padding:4px 8px">✕</button>'+
         '</div>'+
       '</div>'+
