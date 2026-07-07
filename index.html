@@ -1130,6 +1130,8 @@ function renderAll(){
   if(histTab&&histTab.classList.contains('on'))loadHistGeral();
   var solicTab=document.getElementById('tabSolic');
   if(solicTab&&solicTab.classList.contains('on'))renderSolics();
+  var chatTab=document.getElementById('tabChat');
+  if(chatTab&&chatTab.classList.contains('on')&&!chatSub)loadChatMsgs();
 }
 function setF(btn,f){document.querySelectorAll('.ft').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');AF=f;page=1;renderTable();}
 function setFMc(f){AF=f;page=1;document.querySelectorAll('.ft').forEach(function(b){var t=b.getAttribute('data-f');b.classList.toggle('on',t===f);});renderTable();}
