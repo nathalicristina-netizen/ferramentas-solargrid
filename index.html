@@ -310,6 +310,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       <button class="nav-tab" onclick="showTab('tabUsers',this)">👥 Usuários</button>
       <button class="nav-tab" onclick="showTab('tabHist',this)">📋 Histórico</button>
       <button class="nav-tab" onclick="showTab('tabSolic',this)">📥 Solicitações</button>
+      <button class="nav-tab" onclick="showTab('tabChat',this)">💬 Chat</button>
     </div>
   </div>
 
@@ -522,6 +523,40 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         <button class="btn-or" onclick="openAddSolic()" style="font-size:12px;padding:7px 16px">+ Nova solicitação</button>
       </div>
       <div id="solicList"></div>
+    </div>
+  </div>
+
+  <!-- TAB CHAT -->
+  <div id="tabChat" class="tab-content">
+    <div style="max-width:860px;margin:0 auto;padding:20px 16px;height:calc(100vh - 140px);display:flex;flex-direction:column">
+      <!-- Canal selector -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="ft on" id="chatCanalBtn-geral" onclick="setChatCanal('geral',this)">🌐 Geral</button>
+        <button class="ft" id="chatCanalBtn-Comissionamento" onclick="setChatCanal('Comissionamento',this)">Comissionamento</button>
+        <button class="ft" id="chatCanalBtn-Construção" onclick="setChatCanal('Construção',this)">Construção</button>
+        <button class="ft" id="chatCanalBtn-O&M" onclick="setChatCanal('O&M',this)">O&M</button>
+        <button class="ft" id="chatCanalBtn-PMO" onclick="setChatCanal('PMO',this)">PMO</button>
+        <button class="ft" id="chatCanalBtn-CSC" onclick="setChatCanal('CSC',this)">CSC</button>
+        <button class="ft" id="chatCanalBtn-EP" onclick="setChatCanal('EP',this)">Eng. Proprietário</button>
+      </div>
+      <!-- Messages area -->
+      <div id="chatMsgs" style="flex:1;overflow-y:auto;background:var(--bg2);border:1.5px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="text-align:center;color:var(--tx3);font-size:13px">Carregando mensagens...</div>
+      </div>
+      <!-- Input area -->
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1;background:var(--bg2);border:1.5px solid var(--bd);border-radius:10px;padding:8px 12px">
+          <textarea id="chatInput" placeholder="Digite uma mensagem..." rows="2" style="width:100%;border:none;background:transparent;font-family:var(--fb);font-size:13px;resize:none;outline:none;color:var(--tx1)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMsg();}"></textarea>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+            <label style="cursor:pointer;font-size:11px;color:var(--tx3);display:flex;align-items:center;gap:4px">
+              📎 <span id="chatFileLabel">Anexar arquivo</span>
+              <input type="file" id="chatFile" accept="image/*,application/pdf" style="display:none" onchange="updateChatFileLabel(this)"/>
+            </label>
+            <button id="chatClearFile" onclick="clearChatFile()" style="display:none;font-size:10px;color:var(--rd);background:none;border:none;cursor:pointer">✕ remover</button>
+          </div>
+        </div>
+        <button class="btn-or" onclick="sendChatMsg()" style="padding:10px 16px;font-size:13px;height:fit-content">Enviar</button>
+      </div>
     </div>
   </div>
 
@@ -1565,6 +1600,108 @@ function delSolic(i){
   showToast('Solicitação removida',true);
 }
 
+// ===== CHAT =====
+var chatCanal = 'geral';
+var chatSub = null;
+var chatBucket = 'chat-arquivos';
+
+function setChatCanal(canal, btn){
+  chatCanal = canal;
+  document.querySelectorAll('[id^="chatCanalBtn-"]').forEach(function(b){b.classList.remove('on');});
+  if(btn)btn.classList.add('on');
+  loadChatMsgs();
+}
+
+function updateChatFileLabel(input){
+  var lbl=document.getElementById('chatFileLabel');
+  var clr=document.getElementById('chatClearFile');
+  if(input.files&&input.files[0]){
+    lbl.textContent=input.files[0].name;
+    clr.style.display='inline';
+  }
+}
+function clearChatFile(){
+  var inp=document.getElementById('chatFile');
+  if(inp)inp.value='';
+  var lbl=document.getElementById('chatFileLabel');if(lbl)lbl.textContent='Anexar arquivo';
+  var clr=document.getElementById('chatClearFile');if(clr)clr.style.display='none';
+}
+
+function renderChatMsg(m){
+  var isMe=CU&&m.usuario===CU.name;
+  var align=isMe?'flex-end':'flex-start';
+  var bg=isMe?'var(--nv)':'var(--bg3)';
+  var cl=isMe?'#fff':'var(--tx1)';
+  var dt=m.created_at?new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'';
+  var content='';
+  if(m.mensagem)content+='<div style="font-size:13px;margin-bottom:'+( m.arquivo_url?'6':'0')+'px">'+m.mensagem.replace(/\n/g,'<br>')+'</div>';
+  if(m.arquivo_url){
+    if(m.arquivo_tipo&&m.arquivo_tipo.startsWith('image/')){
+      content+='<img src="'+m.arquivo_url+'" style="max-width:200px;max-height:200px;border-radius:8px;display:block;cursor:pointer" onclick="window.open(\''+m.arquivo_url+'\',\'_blank\')"/>';
+    } else {
+      content+='<a href="'+m.arquivo_url+'" target="_blank" style="color:'+(isMe?'#fff':'var(--nv)')+';font-size:12px;display:flex;align-items:center;gap:4px">📎 '+(m.arquivo_nome||'arquivo')+'</a>';
+    }
+  }
+  return '<div style="display:flex;flex-direction:column;align-items:'+align+';max-width:75%">'+
+    '<div style="font-size:10px;color:var(--tx3);margin-bottom:2px;'+( isMe?'text-align:right':'')+'">'+m.usuario+' · '+m.setor+(dt?' · '+dt:'')+'</div>'+
+    '<div style="background:'+bg+';color:'+cl+';padding:10px 14px;border-radius:'+(isMe?'14px 4px 14px 14px':'4px 14px 14px 14px')+';max-width:100%">'+content+'</div>'+
+  '</div>';
+}
+
+async function loadChatMsgs(){
+  var el=document.getElementById('chatMsgs');if(!el)return;
+  if(!sb){el.innerHTML='<div style="text-align:center;color:var(--tx3)">Sem conexão.</div>';return;}
+  // unsubscribe previous
+  if(chatSub){try{chatSub.unsubscribe();}catch(e){}}
+  el.innerHTML='<div style="text-align:center;color:var(--tx3);font-size:13px">Carregando...</div>';
+  try{
+    var r=await sb.from('chat').select('*').eq('canal',chatCanal).order('created_at',{ascending:true}).limit(100);
+    if(r.error)throw r.error;
+    if(!r.data.length){
+      el.innerHTML='<div style="text-align:center;color:var(--tx3);font-size:13px;margin:auto">Nenhuma mensagem ainda. Seja o primeiro a escrever! 👋</div>';
+    } else {
+      el.innerHTML='<div style="display:flex;flex-direction:column;gap:10px">'+r.data.map(renderChatMsg).join('')+'</div>';
+      el.scrollTop=el.scrollHeight;
+    }
+    // subscribe to realtime
+    chatSub=sb.channel('chat-'+chatCanal)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'chat',filter:'canal=eq.'+chatCanal},function(payload){
+        var msgs=el.querySelector('div[style*="flex-direction:column"]');
+        if(!msgs){el.innerHTML='<div style="display:flex;flex-direction:column;gap:10px"></div>';msgs=el.querySelector('div');}
+        msgs.innerHTML+=renderChatMsg(payload.new);
+        el.scrollTop=el.scrollHeight;
+      })
+      .subscribe();
+  }catch(e){
+    el.innerHTML='<div style="text-align:center;color:var(--rd);font-size:13px">Erro ao carregar. Tente novamente.</div>';
+  }
+}
+
+async function sendChatMsg(){
+  if(!CU){showToast('Faça login para enviar mensagens',false);return;}
+  var input=document.getElementById('chatInput');
+  var msg=input?input.value.trim():'';
+  var fileInput=document.getElementById('chatFile');
+  var file=fileInput&&fileInput.files&&fileInput.files[0];
+  if(!msg&&!file){return;}
+  if(!sb){showToast('Sem conexão com o banco',false);return;}
+  var row={mensagem:msg,usuario:CU.name,setor:CU.setor||'',canal:chatCanal,arquivo_url:'',arquivo_nome:'',arquivo_tipo:''};
+  if(file){
+    try{
+      var path=chatCanal+'/'+Date.now()+'_'+file.name.replace(/\s/g,'_');
+      var up=await sb.storage.from(chatBucket).upload(path,file,{contentType:file.type,upsert:true});
+      if(!up.error){
+        row.arquivo_url=sb.storage.from(chatBucket).getPublicUrl(path).data.publicUrl;
+        row.arquivo_nome=file.name;
+        row.arquivo_tipo=file.type;
+      }
+    }catch(e){console.warn('chat file upload:',e);}
+  }
+  if(input)input.value='';
+  clearChatFile();
+  try{await sb.from('chat').insert(row);}catch(e){showToast('Erro ao enviar mensagem',false);}
+}
+
 function showTab(id,btn){
   document.querySelectorAll('.tab-content').forEach(function(e){e.classList.remove('on');});
   document.querySelectorAll('.nav-tab').forEach(function(b){b.classList.remove('on');});
@@ -1574,6 +1711,8 @@ function showTab(id,btn){
   if(id==='tabCert')renderCerts();
   if(id==='tabHist')loadHistGeral();
   if(id==='tabSolic')renderSolics();
+  if(id==='tabChat')loadChatMsgs();
+  else if(chatSub){try{chatSub.unsubscribe();chatSub=null;}catch(e){}}
 }
 
 // ── CONFIRMAÇÃO ──
