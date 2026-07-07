@@ -1658,17 +1658,26 @@ async function loadChatMsgs(){
     var r=await sb.from('chat').select('*').eq('canal',chatCanal).order('created_at',{ascending:true}).limit(100);
     if(r.error)throw r.error;
     if(!r.data.length){
-      el.innerHTML='<div style="text-align:center;color:var(--tx3);font-size:13px;margin:auto">Nenhuma mensagem ainda. Seja o primeiro a escrever! 👋</div>';
+      el.innerHTML='<div id="chatMsgList" style="display:flex;flex-direction:column;gap:10px;min-height:40px"><div style="text-align:center;color:var(--tx3);font-size:13px;margin:auto">Nenhuma mensagem ainda. Seja o primeiro a escrever! 👋</div></div>';
     } else {
-      el.innerHTML='<div style="display:flex;flex-direction:column;gap:10px">'+r.data.map(renderChatMsg).join('')+'</div>';
+      el.innerHTML='<div id="chatMsgList" style="display:flex;flex-direction:column;gap:10px">'+r.data.map(renderChatMsg).join('')+'</div>';
       el.scrollTop=el.scrollHeight;
     }
     // subscribe to realtime
     chatSub=sb.channel('chat-'+chatCanal)
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'chat',filter:'canal=eq.'+chatCanal},function(payload){
-        var msgs=el.querySelector('div[style*="flex-direction:column"]');
-        if(!msgs){el.innerHTML='<div style="display:flex;flex-direction:column;gap:10px"></div>';msgs=el.querySelector('div');}
-        msgs.innerHTML+=renderChatMsg(payload.new);
+        var msgs=document.getElementById('chatMsgList');
+        if(!msgs){
+          el.innerHTML='<div id="chatMsgList" style="display:flex;flex-direction:column;gap:10px"></div>';
+          msgs=document.getElementById('chatMsgList');
+        } else {
+          // clear "no messages" placeholder if present
+          var ph=msgs.querySelector('div[style*="text-align:center"]');
+          if(ph)ph.remove();
+        }
+        var div=document.createElement('div');
+        div.innerHTML=renderChatMsg(payload.new);
+        msgs.appendChild(div.firstChild);
         el.scrollTop=el.scrollHeight;
       })
       .subscribe();
