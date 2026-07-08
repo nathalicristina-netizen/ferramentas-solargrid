@@ -307,6 +307,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       <button class="nav-tab" onclick="showTab('tabDash',this)">📊 Dashboard</button>
       <button class="nav-tab" onclick="showTab('tabCert',this)">📜 Certificados</button>
       <button class="nav-tab" onclick="showTab('tabTerm',this)">📄 Termo de Transferência</button>
+      <button class="nav-tab" onclick="showTab('tabTermos',this)">🗂️ Termos Salvos</button>
       <button class="nav-tab" onclick="showTab('tabUsers',this)">👥 Usuários</button>
       <button class="nav-tab" onclick="showTab('tabHist',this)">📋 Histórico</button>
       <button class="nav-tab" onclick="showTab('tabSolic',this)">📥 Solicitações</button>
@@ -565,6 +566,19 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         </div>
         <button class="btn-or" onclick="sendChatMsg()" style="padding:10px 16px;font-size:13px;height:fit-content">Enviar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- TAB TERMOS SALVOS -->
+  <div id="tabTermos" class="tab-content">
+    <div style="max-width:900px;margin:0 auto;padding:20px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div>
+          <h2 style="font-size:17px;font-weight:700;color:var(--nv)">🗂️ Termos de Transferência Salvos</h2>
+          <p style="font-size:12px;color:var(--tx3);margin-top:3px">Histórico de todos os termos gerados</p>
+        </div>
+      </div>
+      <div id="termosList"></div>
     </div>
   </div>
 
@@ -1787,6 +1801,7 @@ function showTab(id,btn){
   if(id==='tabHist')loadHistGeral();
   if(id==='tabSolic')renderSolics();
   if(id==='tabChat')loadChatMsgs();
+  if(id==='tabTermos')loadTermosSB();
   else if(chatSub){clearInterval(chatSub);chatSub=null;}
 }
 
@@ -2276,6 +2291,62 @@ function previewTTPhoto(idx){
   ov.onclick=function(){document.body.removeChild(ov);};
   document.body.appendChild(ov);
 }
+// ===== TERMOS SALVOS =====
+async function loadTermosSB(){
+  var el=document.getElementById('termosList');if(!el)return;
+  if(!sb){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">Sem conexão.</div>';return;}
+  el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">Carregando...</div>';
+  try{
+    var r=await sb.from('termos').select('*').order('id',{ascending:false});
+    if(r.error)throw r.error;
+    if(!r.data.length){
+      el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3);font-size:13px">Nenhum termo salvo ainda.<br>Exporte um termo na aba Termo de Transferência.</div>';
+      return;
+    }
+    var cards=r.data.map(function(t){
+      var ferrs=[];try{ferrs=JSON.parse(t.ferramentas||'[]');}catch(e){}
+      return '<div style="background:var(--bg2);border:1.5px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px">'+
+        '<div style="font-size:28px">📄</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-weight:700;color:var(--nv);font-size:13px;margin-bottom:4px">'+
+            (t.remetente||'—')+' → '+(t.destino||'—')+
+          '</div>'+
+          '<div style="font-size:11px;color:var(--tx3);margin-bottom:6px">'+
+            '📅 '+(t.data_termo||'—')+' &nbsp;|&nbsp; 👤 '+(t.criado_por||'—')+
+          '</div>'+
+          '<div style="font-size:11px;color:var(--tx2)">'+
+            ferrs.slice(0,5).map(function(f){return'<span style="background:var(--bg3);border:1px solid var(--bd);border-radius:4px;padding:1px 6px;margin-right:4px;font-family:monospace">'+f+'</span>';}).join('')+
+            (ferrs.length>5?'<span style="color:var(--tx3)">+'+( ferrs.length-5)+' mais</span>':'')+
+          '</div>'+
+        '</div>'+
+        (t.pdf_url?'<a href="'+t.pdf_url+'" target="_blank" class="bs ok" style="font-size:11px;padding:6px 12px;text-decoration:none;white-space:nowrap">📥 Baixar PDF</a>':'')+
+      '</div>';
+    }).join('');
+    el.innerHTML=cards;
+  }catch(e){
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--rd)">Erro ao carregar termos.</div>';
+  }
+}
+
+async function saveTermoSB(remetente,destino,dataTermo,ferramentas,pdfBlob){
+  if(!sb)return;
+  try{
+    var pdfUrl='';var pdfPath='';
+    if(pdfBlob){
+      pdfPath='termo_'+Date.now()+'.pdf';
+      var up=await sb.storage.from('termos').upload(pdfPath,pdfBlob,{contentType:'application/pdf',upsert:true});
+      if(!up.error){pdfUrl=sb.storage.from('termos').getPublicUrl(pdfPath).data.publicUrl;}
+    }
+    await sb.from('termos').insert({
+      remetente:remetente,destino:destino,data_termo:dataTermo,
+      ferramentas:JSON.stringify(ferramentas),
+      pdf_url:pdfUrl,pdf_path:pdfPath,
+      criado_por:CU?CU.name:'—'
+    });
+    showToast('Termo salvo com sucesso!',true);
+  }catch(e){console.warn('saveTermoSB:',e);}
+}
+
 function exportTermo(){
   var toolsRows=termTools.map(function(tt){return'<tr><td style="font-family:monospace">'+tt.pat+'<\/td><td>'+tt.nome+'<\/td><td>'+tt.marca+'<\/td><td>'+tt.modelo+'<\/td><td>'+tt.serie+'<\/td><td>'+tt.status+'<\/td><td>'+tt.dest+'<\/td><\/tr>';}).join('');
   // Photo section — only ferramentas that have photos
@@ -2331,7 +2402,14 @@ function exportTermo(){
     '<\/div>'+
     '<div class="note">📱 Pronto para upload no Autentique para assinatura digital.<\/div>'+
     '<\/body><\/html>');
-  w.document.close();setTimeout(function(){w.print();},600);
+  w.document.close();
+  setTimeout(function(){w.print();},600);
+  // save to Supabase
+  var remetente=document.getElementById('tRem')?document.getElementById('tRem').value:'';
+  var destino=termTools[0]?termTools[0].dest:'';
+  var dataTermo=document.getElementById('tData')?document.getElementById('tData').value:'';
+  var ferramentas=termTools.filter(function(t){return t.pat;}).map(function(t){return t.pat;});
+  saveTermoSB(remetente,destino,dataTermo,ferramentas,null);
 }
 
 // ── MODAL ──
