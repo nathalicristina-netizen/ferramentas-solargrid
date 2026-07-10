@@ -1003,7 +1003,6 @@ function renderMetrics(){
     mc('❌','Inoperantes',inop,'Inoperante','v-rd')+
     mc('⚠️','Atenção',atenc,'Atenção','v-rd')+
     mc('🔍','Procurar',procu,'Procurar','v-am')+
-    mc('🔒','Furtados',furt,'Furtado','v-rd')+
     mc('📅','Cal. Vencida',calV,'cal_venc','v-rd');
 }
 var MC_STYLES={
@@ -1310,10 +1309,12 @@ async function loadCertsSB(){
   try{
     var r=await sb.from('certificados').select('*').order('id',{ascending:false});
     if(r.data&&r.data.length){
-      r.data.forEach(function(row){
-        var ex=certs.find(function(c){return c.sbId===row.id;});
-        if(!ex){certs.push({patrimonio:row.patrimonio,ferramenta:row.ferramenta,fileName:row.file_name,fileUrl:row.file_url,sbPath:row.sb_path,sbId:row.id});}
+      // rebuild certs from DB entirely, keeping local-only ones (no sbId)
+      var localOnly=certs.filter(function(c){return!c.sbId;});
+      var fromDB=r.data.map(function(row){
+        return {patrimonio:row.patrimonio,ferramenta:row.ferramenta,fileName:row.file_name,fileUrl:row.file_url,sbPath:row.sb_path,sbId:row.id};
       });
+      certs=fromDB.concat(localOnly);
       saveCerts();
     }
   }catch(e){console.warn('loadCertsSB:',e);}
@@ -1664,13 +1665,8 @@ function searchChat(v){
   for(var i=0;i<items.length;i++){
     var txt=items[i].textContent.toLowerCase();
     items[i].style.display=(!term||txt.includes(term))?'':'none';
-    if(term&&txt.includes(term)){
-      // highlight
-      items[i].style.outline='2px solid var(--or)';
-      items[i].style.borderRadius='8px';
-    } else {
-      items[i].style.outline='';
-    }
+    items[i].style.outline='';
+    items[i].style.opacity=(!term||txt.includes(term))?'1':'0.3';
   }
 }
 function clearChatSearch(){
@@ -2328,22 +2324,27 @@ async function loadTermosSB(){
   }
 }
 
-async function saveTermoSB(remetente,destino,dataTermo,ferramentas,pdfBlob){
+async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin){
   if(!sb)return;
   try{
     var pdfUrl='';var pdfPath='';
-    if(pdfBlob){
-      pdfPath='termo_'+Date.now()+'.pdf';
-      var up=await sb.storage.from('termos').upload(pdfPath,pdfBlob,{contentType:'application/pdf',upsert:true});
-      if(!up.error){pdfUrl=sb.storage.from('termos').getPublicUrl(pdfPath).data.publicUrl;}
+    if(printWin){
+      try{
+        // Save the HTML content as a file in storage for viewing
+        var htmlContent=printWin.document.documentElement.outerHTML;
+        var blob=new Blob([htmlContent],{type:'text/html'});
+        pdfPath='termo_'+Date.now()+'.html';
+        var up=await sb.storage.from('termos').upload(pdfPath,blob,{contentType:'text/html',upsert:true});
+        if(!up.error){pdfUrl=sb.storage.from('termos').getPublicUrl(pdfPath).data.publicUrl;}
+      }catch(e){console.warn('termo upload err:',e);}
     }
     await sb.from('termos').insert({
-      remetente:remetente,destino:destino,data_termo:dataTermo,
+      remetente:remetente||'—',destino:destino||'—',data_termo:dataTermo||'',
       ferramentas:JSON.stringify(ferramentas),
       pdf_url:pdfUrl,pdf_path:pdfPath,
       criado_por:CU?CU.name:'—'
     });
-    showToast('Termo salvo com sucesso!',true);
+    showToast('Termo salvo!',true);
   }catch(e){console.warn('saveTermoSB:',e);}
 }
 
@@ -2405,11 +2406,12 @@ function exportTermo(){
   w.document.close();
   setTimeout(function(){w.print();},600);
   // save to Supabase
-  var remetente=document.getElementById('tRem')?document.getElementById('tRem').value:'';
+  var remetente=document.getElementById('tPN')?document.getElementById('tPN').value:'';
   var destino=termTools[0]?termTools[0].dest:'';
   var dataTermo=document.getElementById('tData')?document.getElementById('tData').value:'';
   var ferramentas=termTools.filter(function(t){return t.pat;}).map(function(t){return t.pat;});
-  saveTermoSB(remetente,destino,dataTermo,ferramentas,null);
+  // generate PDF blob from the print window content and save
+  saveTermoSB(remetente,destino,dataTermo,ferramentas,w);
 }
 
 // ── MODAL ──
