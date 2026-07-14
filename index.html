@@ -1293,7 +1293,7 @@ function delUser(i){
 }
 
 // ===== CERTIFICADOS DE CALIBRAÇÃO =====
-var certs = JSON.parse(localStorage.getItem('sg_certs')||'[]');
+var certs = []; // loaded from Supabase in loadCertsFB
 var certSearchTerm = '';
 function saveCerts(){
   // save only metadata (no fileData) to localStorage
@@ -1307,15 +1307,14 @@ async function loadCertsFB(){
   if(!sb)return;
   try{
     var r=await sb.from('certificados').select('*').order('id',{ascending:false});
+    // always rebuild from DB — ignore localStorage cache
+    certs=[];
     if(r.data&&r.data.length){
-      // rebuild certs from DB entirely, keeping local-only ones (no sbId)
-      var localOnly=certs.filter(function(c){return!c.sbId;});
-      var fromDB=r.data.map(function(row){
+      certs=r.data.map(function(row){
         return {patrimonio:row.patrimonio,ferramenta:row.ferramenta,fileName:row.file_name,fileUrl:row.file_url,sbPath:row.sb_path,sbId:row.id};
       });
-      certs=fromDB.concat(localOnly);
-      saveCerts();
     }
+    saveCerts();
   }catch(e){console.warn('loadCertsFB:',e);}
 }
 
