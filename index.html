@@ -679,7 +679,7 @@ function saveSession(){
     if(!CU)return;
     var tab='tabFerr';
     document.querySelectorAll('.tab-content.on').forEach(function(e){if(e.id)tab=e.id;});
-    sessionStorage.setItem('sg_s',JSON.stringify(Object.assign({},CU,{_tab:tab})));
+    localStorage.setItem('sg_s',JSON.stringify(Object.assign({},CU,{_tab:tab})));
   }catch(e){}
 }
 function saveTols(){
@@ -717,7 +717,7 @@ function loadTols(){
 }
 function loadSession(){
   try{
-    var raw=sessionStorage.getItem('sg_s');if(!raw)return false;
+    var raw=localStorage.getItem('sg_s');if(!raw)return false;
     CU=JSON.parse(raw);if(!CU||!CU.name)return false;
     loadTols();
     showApp();
@@ -830,7 +830,7 @@ function doLogin(){
   saveSession();showApp();renderAll();dbLoad();
 }
 function doLogout(){
-  try{sessionStorage.clear();}catch(e){}
+  try{sessionStorage.clear();localStorage.removeItem('sg_s');}catch(e){}
   CU=null;AF='todos';ST='';SF='';LF='';page=1;
   document.getElementById('aS').classList.remove('active');
   document.getElementById('lS').classList.add('active');
@@ -1304,7 +1304,7 @@ function saveCerts(){
 }
 
 async function loadCertsFB(){
-  if(!db)return;
+  if(!sb)return;
   try{
     var r=await sb.from('certificados').select('*').order('id',{ascending:false});
     if(r.data&&r.data.length){
