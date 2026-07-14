@@ -786,7 +786,7 @@ async function dbLoad(){
         laboratorio:'laboratorio',ferramenta:'ferramenta',patrimonio:'patrimonio',
         marca:'marca',modelo:'modelo',serie:'serie',setor:'setor',valor:'valor'};
       if(!t){
-        t={_id:doc.id,_mod:true,hist:[],
+        t={_id:row.id,_mod:true,hist:[],
           patrimonio:'',ferramenta:'',marca:'',modelo:'',serie:'',
           status:'OK',local:'',siglaLocal:'',cidade:'',estado:'',responsavel:'',
           setor:'',valor:'',certCal:'',laboratorio:'',dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',disponibilidade:'Liberada',corretiva:'',prevCorretiva:'',cicloConf:'quinzenal',obs:'',lastConfirm:null};
