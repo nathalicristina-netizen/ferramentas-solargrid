@@ -539,7 +539,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         <button onclick="clearChatSearch()" id="chatSearchClear" style="display:none;font-size:11px;color:var(--tx3);background:none;border:none;cursor:pointer;padding:4px 8px">✕ Limpar</button>
       </div>
       <!-- Canal selector -->
-      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
         <button class="ft on" id="chatCanalBtn-geral" onclick="setChatCanal('geral',this)">🌐 Geral</button>
         <button class="ft" id="chatCanalBtn-Comissionamento" onclick="setChatCanal('Comissionamento',this)">Comissionamento</button>
         <button class="ft" id="chatCanalBtn-Construção" onclick="setChatCanal('Construção',this)">Construção</button>
@@ -596,6 +596,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
 
 <script>
 
+// ── SUPABASE ──
 var SB_URL='https://itpvhhgwnuxxdzvfxcvd.supabase.co';
 var SB_KEY='sb_publishable_0J4dWHxmjNKRnbz4JGtc0w_NUTAqQv0';
 var sb=null;
@@ -769,14 +770,14 @@ async function dbSaveHist(id,msg,user){
 }
 async function dbDelHist(id){if(!sb)return;try{await sb.from('historico').delete().eq('ferramenta_id',id);}catch(e){}}
 async function dbLoad(){
-  if(!sb){renderAll();return;}
-  await loadUsersSB();
-  await loadSolicsSB();
-  await loadCertsSB();
+  if(!db){renderAll();return;}
+  await loadUsersFB();
+  await loadSolicsFB();
+  await loadCertsFB();
   showBanner('connecting','Conectando…');
   try{
     var r=await sb.from('ferramentas').select('*');
-    if(r.error){showBanner('err','Banco offline. Dados locais.');return;}
+    if(r.error){showBanner('err','Banco offline. Dados locais.');renderAll();return;}
     if(r.data)r.data.forEach(function(row){
       var t=tools.find(function(x){return x._id===row.id||x._id===Number(row.id);});
       var map={status:'status',local:'local',sigla_local:'siglaLocal',responsavel:'responsavel',
@@ -785,15 +786,13 @@ async function dbLoad(){
         laboratorio:'laboratorio',ferramenta:'ferramenta',patrimonio:'patrimonio',
         marca:'marca',modelo:'modelo',serie:'serie',setor:'setor',valor:'valor'};
       if(!t){
-        // ferramenta nova no banco que não existe localmente — adiciona
-        t={_id:row.id,_mod:true,hist:[],
+        t={_id:doc.id,_mod:true,hist:[],
           patrimonio:'',ferramenta:'',marca:'',modelo:'',serie:'',
           status:'OK',local:'',siglaLocal:'',cidade:'',estado:'',responsavel:'',
           setor:'',valor:'',certCal:'',laboratorio:'',dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',disponibilidade:'Liberada',corretiva:'',prevCorretiva:'',cicloConf:'quinzenal',obs:'',lastConfirm:null};
         tools.unshift(t);
       }
       Object.keys(map).forEach(function(k){if(row[k]!==null&&row[k]!==undefined)t[map[k]]=row[k];});
-      // strip .0 from serie and certCal
       if(t.serie)t.serie=t.serie.toString().replace(/\.0$/,'');
       if(t.certCal)t.certCal=t.certCal.toString().replace(/\.0$/,'');
       t._mod=true;
@@ -809,7 +808,7 @@ async function dbLoad(){
     saveTols();
     showBanner('ok','Banco conectado!');
     renderAll();
-  }catch(e){showBanner('err','Erro de conexão.');renderAll();}
+  }catch(e){console.warn(e);showBanner('err','Erro de conexão.');renderAll();}
 }
 
 // ── LOGIN ──
@@ -1182,7 +1181,7 @@ async function delUserSB(u){
   if(!sb||!u.sbId)return;
   try{await sb.from('usuários').delete().eq('id',u.sbId);}catch(e){}
 }
-async function loadUsersSB(){
+async function loadUsersFB(){
   if(!sb)return;
   try{
     var r=await sb.from('usuários').select('*');
@@ -1194,7 +1193,7 @@ async function loadUsersSB(){
       });
       saveUsers();
     }
-  }catch(e){console.warn('loadUsersSB:',e);}
+  }catch(e){console.warn('loadUsersFB:',e);}
 }
 
 function renderUsers(){
@@ -1304,8 +1303,8 @@ function saveCerts(){
   }catch(e){}
 }
 
-async function loadCertsSB(){
-  if(!sb)return;
+async function loadCertsFB(){
+  if(!db)return;
   try{
     var r=await sb.from('certificados').select('*').order('id',{ascending:false});
     if(r.data&&r.data.length){
@@ -1317,7 +1316,7 @@ async function loadCertsSB(){
       certs=fromDB.concat(localOnly);
       saveCerts();
     }
-  }catch(e){console.warn('loadCertsSB:',e);}
+  }catch(e){console.warn('loadCertsFB:',e);}
 }
 
 function searchCerts(v){certSearchTerm=v.toLowerCase().trim();renderCerts();}
@@ -1503,12 +1502,12 @@ function saveSolics(){try{localStorage.setItem('sg_solics',JSON.stringify(solics
 async function saveSolicSB(s){
   if(!sb||s.sbId)return;
   try{
-    var r=await sb.from('solicitacoes').insert({
+    var r2=await sb.from('solicitacoes').insert({
       ferramenta:s.ferramenta,destino:s.destino,solicitante:s.solicitante,
       setor:s.setor,motivo:s.motivo||'',data_necessaria:s.dataNecessaria||null,
       status:s.status,data_registro:s.data
     }).select();
-    if(r.data&&r.data[0]){s.sbId=r.data[0].id;saveSolics();}
+    if(r2.data&&r2.data[0]){s.sbId=r2.data[0].id;saveSolics();}
   }catch(e){console.warn('saveSolicSB:',e);}
 }
 async function updateSolicSB(s){
@@ -1519,8 +1518,8 @@ async function delSolicSB(s){
   if(!sb||!s.sbId)return;
   try{await sb.from('solicitacoes').delete().eq('id',s.sbId);}catch(e){}
 }
-async function loadSolicsSB(){
-  if(!sb)return;
+async function loadSolicsFB(){
+  if(!db)return;
   try{
     var r=await sb.from('solicitacoes').select('*').order('id',{ascending:false});
     if(r.data&&r.data.length){
@@ -1536,31 +1535,31 @@ async function loadSolicsSB(){
       });
       saveSolics();
     }
-  }catch(e){console.warn('loadSolicsSB:',e);}
+  }catch(e){console.warn('loadSolicsFB:',e);}
 }
 
 function discutirSolic(i){
   var s=solics[i];if(!s)return;
-  // map setor to canal
-  var canalMap={
-    'Comissionamento':'Comissionamento','Construção':'Construção',
-    'O&M':'O&M','PMO':'PMO','CSC':'CSC','Engenharia do Proprietário':'EP'
-  };
-  var canal=canalMap[s.setor]||'geral';
-  // pre-fill chat message
-  var msg='📋 Solicitação: '+s.ferramenta+' → '+s.destino+' ('+s.solicitante+')';
+  // create a unique canal for this solicitação
+  var canal='solic-'+(s.sbId||i);
   // switch to chat tab
   var chatBtn=document.querySelector('[onclick*="tabChat"]');
   if(chatBtn)chatBtn.click();
   setTimeout(function(){
-    // set canal
-    var canalBtn=document.getElementById('chatCanalBtn-'+canal)||document.getElementById('chatCanalBtn-geral');
-    if(canalBtn)canalBtn.click();
-    setTimeout(function(){
-      var inp=document.getElementById('chatInput');
-      if(inp){inp.value=msg;inp.focus();}
-    },300);
-  },300);
+    // set canal directly (bypassing the canal buttons)
+    setChatCanal(canal,null);
+    // update header to show solicitação context
+    var msgArea=document.getElementById('chatMsgs');
+    if(msgArea){
+      var header='<div style="background:var(--bg3);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--tx2)">'+
+        '<span style="font-weight:700;color:var(--nv)">💬 Chat da solicitação</span><br>'+
+        '<span>'+s.ferramenta+'</span> → <span>'+s.destino+'</span> | <span style="color:var(--tx3)">'+s.solicitante+' ('+s.setor+')</span>'+
+      '</div>';
+      msgArea.insertAdjacentHTML('afterbegin',header);
+    }
+    // highlight canal button if exists, otherwise set active manually
+    document.querySelectorAll('[id^="chatCanalBtn-"]').forEach(function(b){b.classList.remove('on');});
+  },400);
 }
 
 function renderSolics(){
@@ -1597,7 +1596,7 @@ function renderSolics(){
             '<option'+(s.status==='Atendida'?' selected':'')+'>Atendida</option>'+
             '<option'+(s.status==='Cancelada'?' selected':'')+'>Cancelada</option>'+
           '</select>'+
-          '<button class="bs gh" onclick="discutirSolic('+i+')" style="font-size:11px;padding:4px 10px">💬 Discutir</button>'+
+          '<button class="bs gh" onclick="discutirSolic('+i+')" style="font-size:11px;padding:4px 10px">💬 Chat privado</button>'+
           '<button class="bs rd" onclick="delSolic('+i+')" style="font-size:11px;padding:4px 8px">✕</button>'+
         '</div>'+
       '</div>'+
@@ -2312,10 +2311,10 @@ async function loadTermosSB(){
           '</div>'+
           '<div style="font-size:11px;color:var(--tx2)">'+
             ferrs.slice(0,5).map(function(f){return'<span style="background:var(--bg3);border:1px solid var(--bd);border-radius:4px;padding:1px 6px;margin-right:4px;font-family:monospace">'+f+'</span>';}).join('')+
-            (ferrs.length>5?'<span style="color:var(--tx3)">+'+( ferrs.length-5)+' mais</span>':'')+
+            (ferrs.length>5?'<span style="color:var(--tx3)">+'+(ferrs.length-5)+' mais</span>':'')+
           '</div>'+
         '</div>'+
-        (t.pdf_url?'<a href="'+t.pdf_url+'" target="_blank" class="bs ok" style="font-size:11px;padding:6px 12px;text-decoration:none;white-space:nowrap">📥 Baixar PDF</a>':'')+
+        (t.pdf_url?'<a href="'+t.pdf_url+'" target="_blank" class="bs ok" style="font-size:11px;padding:6px 12px;text-decoration:none;white-space:nowrap;flex-shrink:0">📄 Abrir termo</a>':'<span style="font-size:11px;color:var(--tx3);flex-shrink:0">Sem arquivo</span>')+
       '</div>';
     }).join('');
     el.innerHTML=cards;
@@ -2330,7 +2329,6 @@ async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin){
     var pdfUrl='';var pdfPath='';
     if(printWin){
       try{
-        // Save the HTML content as a file in storage for viewing
         var htmlContent=printWin.document.documentElement.outerHTML;
         var blob=new Blob([htmlContent],{type:'text/html'});
         pdfPath='termo_'+Date.now()+'.html';
@@ -2434,11 +2432,10 @@ function showToast(msg,ok){
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded',function(){
-  // load users from Supabase before login validation
-  if(sb){
+  // load users from Firebase before login validation
+  if(db){
     var loginBtn=document.querySelector('.lp-btn');
     if(loginBtn){loginBtn.disabled=true;loginBtn.textContent='Carregando…';}
-    // safety timeout - always re-enable after 5 seconds
     var loginTimeout=setTimeout(function(){
       if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='Entrar →';}
     },5000);
