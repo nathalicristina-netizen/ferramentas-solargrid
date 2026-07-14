@@ -666,6 +666,7 @@ function fmtDateCal(s){
   return d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getFullYear();
 }
 function toggleDisponib(id){
+  if(!CU||CU.role==='Comum'){showToast('Sem permissão para esta ação.',false);return;}
   var t=tools.find(function(x){return x._id===id;});
   if(!t)return;
   t.disponibilidade=t.disponibilidade==='Em uso'?'Liberada':'Em uso';
@@ -1153,6 +1154,11 @@ function renderAll(){
   if(btnN)btnN.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
   var btnNU=document.getElementById('btnNovoUser');
   if(btnNU)btnNU.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
+  var isComum=CU&&CU.role==='Comum';
+  // hide action buttons for Comum
+  ['btnImportExcel','btnExportCSV'].forEach(function(id){
+    var b=document.getElementById(id);if(b)b.style.display=isComum?'none':'';
+  });
   // reload historico if tab is active
   var histTab=document.getElementById('tabHist');
   if(histTab&&histTab.classList.contains('on'))loadHistGeral();
@@ -1369,6 +1375,7 @@ function openCertFile(idx){
 }
 
 function openAddCert(){
+  if(!CU||CU.role==='Comum'){showToast('Sem permissão para esta ação.',false);return;}
   var h='<div class="mh"><div><div class="mtt">📜 Novo Certificado</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
   h+='<div class="mf-row"><div class="mf"><label>Patrimônio</label><input id="ccPat" placeholder="Ex: OEM0036" style="font-family:monospace" oninput="fillCertFromTool(this.value)"/></div><div class="mf"><label>Nome da ferramenta</label><input id="ccNome" placeholder="Ex: Micro-ohmímetro"/></div></div>';
   h+='<div class="mf"><label>Arquivo do certificado (PDF)</label><input id="ccFile" type="file" accept="application/pdf"/></div>';
@@ -1428,6 +1435,7 @@ async function saveNewCert(){
 }
 
 async function delCert(idx){
+  if(!CU||CU.role==='Comum'){showToast('Sem permissão para excluir.',false);return;}
   var c=certs[idx];
   if(!confirm('Excluir certificado de "'+c.ferramenta+'" ('+c.patrimonio+')?'))return;
   if(sb&&c.sbPath){
@@ -1614,6 +1622,7 @@ function renderSolics(){
 }
 
 function openAddSolic(){
+  if(!CU||CU.role==='Comum'){showToast('Sem permissão para esta ação.',false);return;}
   var h='<div class="mh"><div><div class="mtt">📥 Nova Solicitação</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
   h+='<div class="mf-row"><div class="mf"><label>Patrimônio</label><input id="slPat" placeholder="Ex: OEM0036" style="font-family:monospace" oninput="fillSolicFromPat(this.value)"/></div><div class="mf"><label>Ferramenta</label><input id="slFerr" placeholder="Preenchido automático ou manual"/></div></div>';
   h+='<div class="mf-row"><div class="mf"><label>Destino / Local / UFV</label><input id="slDest" placeholder="Ex: CSPA, BFN, Obra X..."/></div><div class="mf"><label>Data necessária</label><input id="slDataNec" type="date"/></div></div>';
@@ -1687,6 +1696,7 @@ function fillSolicFromPat(pat){
   if(t){var f=document.getElementById('slFerr');if(f&&!f.value)f.value=t.ferramenta;}
 }
 async function clearChatCanal(){
+  if(!CU||CU.role==='Comum'){showToast('Sem permissão para limpar canal.',false);return;}
   if(!confirm('Limpar todas as mensagens do canal "'+chatCanal+'"? Esta ação não pode ser desfeita.'))return;
   if(!sb)return;
   try{
@@ -1780,6 +1790,7 @@ async function loadChatMsgs(){
 
 async function sendChatMsg(){
   if(!CU){showToast('Faça login para enviar mensagens',false);return;}
+  if(CU.role==='Comum'){showToast('Sem permissão para enviar mensagens.',false);return;}
   var input=document.getElementById('chatInput');
   var msg=input?input.value.trim():'';
   var fileInput=document.getElementById('chatFile');
@@ -2096,6 +2107,7 @@ function exportPDF(){
   w.document.close();setTimeout(function(){w.print();},600);
 }
 function importXLSX(e){
+  if(!CU||CU.role==='Comum'){showToast('Sem permissão para importar Excel.',false);e.target.value='';return;}
   var file=e.target.files[0];
   if(!file)return;
   e.target.value='';
@@ -2218,6 +2230,7 @@ function importXLSX(e){
   reader.readAsArrayBuffer(file);
 }
 function exportXLSX(){
+  if(!CU||CU.role==='Comum'){showToast('Sem permissão para exportar dados.',false);return;}
   var list=getFiltered();if(!list.length){showToast('Nenhuma ferramenta',false);return;}
   var CRLF=String.fromCharCode(13,10);
   var hdr=['Patrimônio','Ferramenta','Marca','Modelo','Série','Status','Local','Responsável','Cidade','Estado','Setor','Valor','Data Cal','Cert Cal','Lab','Dias Prox Cal','OBS'];
@@ -2351,6 +2364,7 @@ function abrirTermoPDF(url){
 }
 
 async function delTermo(id){
+  if(!CU||CU.role==='Comum'){showToast('Sem permissão para excluir.',false);return;}
   if(!confirm('Excluir este termo?'))return;
   if(!sb)return;
   try{
@@ -2366,6 +2380,7 @@ async function delTermo(id){
 }
 
 async function importTermoPDF(e){
+  if(!CU||CU.role==='Comum'){showToast('Sem permissão para esta ação.',false);e.target.value='';return;}
   var file=e.target.files[0];
   if(!file)return;
   e.target.value='';
