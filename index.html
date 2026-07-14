@@ -770,7 +770,7 @@ async function dbSaveHist(id,msg,user){
 }
 async function dbDelHist(id){if(!sb)return;try{await sb.from('historico').delete().eq('ferramenta_id',id);}catch(e){}}
 async function dbLoad(){
-  if(!db){renderAll();return;}
+  if(!sb){renderAll();return;}
   await loadUsersFB();
   await loadSolicsFB();
   await loadCertsFB();
@@ -1519,7 +1519,7 @@ async function delSolicSB(s){
   try{await sb.from('solicitacoes').delete().eq('id',s.sbId);}catch(e){}
 }
 async function loadSolicsFB(){
-  if(!db)return;
+  if(!sb)return;
   try{
     var r=await sb.from('solicitacoes').select('*').order('id',{ascending:false});
     if(r.data&&r.data.length){
@@ -2432,8 +2432,8 @@ function showToast(msg,ok){
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded',function(){
-  // load users from Firebase before login validation
-  if(db){
+  // load users from Supabase before login validation
+  if(sb){
     var loginBtn=document.querySelector('.lp-btn');
     if(loginBtn){loginBtn.disabled=true;loginBtn.textContent='Carregando…';}
     var loginTimeout=setTimeout(function(){
