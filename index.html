@@ -2109,20 +2109,26 @@ async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin){
 }
 
 function exportTermo(){
-  // read directly from DOM to get exactly what's visible
+  // sync termTools from DOM inputs first, then lookup tool data
   var validTools=[];
   termTools.forEach(function(tt,i){
     var patEl=document.getElementById('tp'+i);
-    var pat=patEl?patEl.value.trim():tt.pat;
+    var pat=patEl?patEl.value.trim():(tt.pat||'').trim();
     if(!pat)return;
+    // if data is missing, try to lookup from tools array
+    var data=tt;
+    if(!tt.nome&&pat){
+      var f=tools.find(function(t){return t.patrimonio.trim().toUpperCase()===pat.toUpperCase();});
+      if(f)data={pat:f.patrimonio,nome:f.ferramenta,marca:f.marca,modelo:f.modelo,serie:f.serie,status:f.status,dest:tt.dest||termTools[0].dest||''};
+    }
     validTools.push({
       pat:pat,
-      nome:tt.nome||'',
-      marca:tt.marca||'',
-      modelo:tt.modelo||'',
-      serie:tt.serie||'',
-      status:tt.status||'',
-      dest:tt.dest||termTools[0].dest||''
+      nome:data.nome||'',
+      marca:data.marca||'',
+      modelo:data.modelo||'',
+      serie:data.serie||'',
+      status:data.status||'',
+      dest:data.dest||termTools[0].dest||''
     });
   });
   if(!validTools.length){showToast('Adicione pelo menos uma ferramenta ao termo.',false);return;}
