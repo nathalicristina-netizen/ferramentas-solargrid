@@ -1949,23 +1949,18 @@ function handleTTPaste(e,idx){
   if(parts.length===0)return;
   e.preventDefault();
   var dest=termTools[0]?termTools[0].dest||'':'';
-  // if pasting into the empty placeholder row (idx=0, pat=''), replace from beginning
-  if(idx===0&&(!termTools[0].pat||!termTools[0].pat.trim())){
-    termTools=[];
-  }
-  // resolve each patrimônio immediately against tools before rebuilding DOM
-  for(var k=0;k<parts.length;k++){
-    var ti=idx+k;
-    var pat=parts[k];
+  // resolve each patrimônio against tools
+  var newRows=parts.map(function(pat){
     var f=tools.find(function(t){return t.patrimonio.trim().toUpperCase()===pat.trim().toUpperCase();});
-    var row=f
+    return f
       ?{pat:f.patrimonio,nome:f.ferramenta,marca:f.marca,modelo:f.modelo,serie:f.serie,status:f.status,dest:dest}
       :{pat:pat,nome:'',marca:'',modelo:'',serie:'',status:'',dest:dest};
-    if(ti<termTools.length){termTools[ti]=row;}
-    else{termTools.push(row);}
-  }
-  // always add one empty row at the end for next input
-  termTools.push({pat:'',nome:'',marca:'',modelo:'',serie:'',status:'',dest:dest});
+  });
+  // replace from idx, keeping rows before idx
+  var before=termTools.slice(0,idx);
+  // add empty row at end for next input
+  newRows.push({pat:'',nome:'',marca:'',modelo:'',serie:'',status:'',dest:dest});
+  termTools=before.concat(newRows);
   buildTerm();
   if(termTools[0]&&termTools[0].dest)syncDest();
 }
