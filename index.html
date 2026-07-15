@@ -1949,6 +1949,10 @@ function handleTTPaste(e,idx){
   if(parts.length===0)return;
   e.preventDefault();
   var dest=termTools[0]?termTools[0].dest||'':'';
+  // if pasting into the empty placeholder row (idx=0, pat=''), replace from beginning
+  if(idx===0&&(!termTools[0].pat||!termTools[0].pat.trim())){
+    termTools=[];
+  }
   // resolve each patrimônio immediately against tools before rebuilding DOM
   for(var k=0;k<parts.length;k++){
     var ti=idx+k;
@@ -1960,6 +1964,8 @@ function handleTTPaste(e,idx){
     if(ti<termTools.length){termTools[ti]=row;}
     else{termTools.push(row);}
   }
+  // always add one empty row at the end for next input
+  termTools.push({pat:'',nome:'',marca:'',modelo:'',serie:'',status:'',dest:dest});
   buildTerm();
   if(termTools[0]&&termTools[0].dest)syncDest();
 }
@@ -2103,8 +2109,22 @@ async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin){
 }
 
 function exportTermo(){
-  // filter out empty rows (placeholder first row with no patrimônio)
-  var validTools=termTools.filter(function(tt){return tt.pat&&tt.pat.trim();});
+  // read directly from DOM to get exactly what's visible
+  var validTools=[];
+  termTools.forEach(function(tt,i){
+    var patEl=document.getElementById('tp'+i);
+    var pat=patEl?patEl.value.trim():tt.pat;
+    if(!pat)return;
+    validTools.push({
+      pat:pat,
+      nome:tt.nome||'',
+      marca:tt.marca||'',
+      modelo:tt.modelo||'',
+      serie:tt.serie||'',
+      status:tt.status||'',
+      dest:tt.dest||termTools[0].dest||''
+    });
+  });
   if(!validTools.length){showToast('Adicione pelo menos uma ferramenta ao termo.',false);return;}
   var toolsRows=validTools.map(function(tt){return'<tr><td style="font-family:monospace">'+tt.pat+'<\/td><td>'+tt.nome+'<\/td><td>'+tt.marca+'<\/td><td>'+tt.modelo+'<\/td><td>'+tt.serie+'<\/td><td>'+tt.status+'<\/td><td>'+tt.dest+'<\/td><\/tr>';}).join('');
   // Photo section — only ferramentas that have photos
