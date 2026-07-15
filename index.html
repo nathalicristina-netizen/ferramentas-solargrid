@@ -1919,7 +1919,7 @@ function buildTerm(){
   termTools.forEach(function(tt,i){
     var rm=termTools.length>1?'<button onclick="rmTT('+i+')" style="background:var(--rd-bg);border:1px solid rgba(220,38,38,.2);color:var(--rd);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;flex-shrink:0">✕<\/button>':'';
     rows+='<div class="tt-row">'+
-      '<input id="tp'+i+'" value="'+tt.pat+'" placeholder="Patrimônio" style="font-family:monospace;font-size:11px" onblur="lookupTT(this.value,'+i+')" onpaste="handleTTPaste(event,'+i+')" oninput="if(!this.value)lookupTT(\'\','+i+')"/>'+
+      '<input id="tp'+i+'" value="'+tt.pat+'" placeholder="Patrimônio" style="font-family:monospace;font-size:11px" onblur="lookupTT(this.value,'+i+')" onpaste="handleTTPaste(event,'+i+')" oninput="termTools['+i+'].pat=this.value"/>'+
       '<input id="tn'+i+'" value="'+tt.nome+'" placeholder="Ferramenta"/>'+
       '<input id="tmr'+i+'" value="'+tt.marca+'" placeholder="Marca"/>'+
       '<input id="tmd'+i+'" value="'+tt.modelo+'" placeholder="Modelo"/>'+
