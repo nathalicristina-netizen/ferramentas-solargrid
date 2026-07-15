@@ -1014,7 +1014,17 @@ function renderTable(){
   var pages=Math.max(1,Math.ceil(tot/PG));
   if(page>pages)page=pages;
   var slice=list.slice((page-1)*PG,page*PG);
-  document.getElementById('cntLbl').textContent=tot+' ferramenta'+(tot!==1?'s':'');
+  var totalGeral=tools.length;
+  var cntEl=document.getElementById('cntLbl');
+  if(cntEl){
+    if(tot===totalGeral){
+      cntEl.textContent=tot+' ferramenta'+(tot!==1?'s':'');
+      cntEl.style.color='';cntEl.style.fontWeight='';
+    } else {
+      cntEl.textContent=tot+' de '+totalGeral+' ferramenta'+(totalGeral!==1?'s':'');
+      cntEl.style.color='var(--or)';cntEl.style.fontWeight='700';
+    }
+  }
 
   var epBtn=document.getElementById('epBtn');
   if(epBtn)epBtn.style.display=AF!=='todos'?'inline-flex':'none';
