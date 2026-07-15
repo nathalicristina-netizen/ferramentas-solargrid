@@ -348,7 +348,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
           </select>
           <div style="height:28px;width:1.5px;background:var(--bd);border-radius:2px"></div>
           <button id="epBtn" class="btn-or" onclick="exportPDF()" style="display:none;font-size:11px;padding:6px 11px">📄 PDF</button>
-          <label class="btn-nv" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px" title="Importar Excel (aba Controle)">
+          <label class="btn-nv" id="btnImportXLS" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;display:none" title="Importar Excel (aba Controle)">
             📥 Importar Excel
             <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importXLSX(event)"/>
           </label>
@@ -666,6 +666,7 @@ function fmtDateCal(s){
   return d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getFullYear();
 }
 function toggleDisponib(id){
+  if(!CU||CU.role==='Comum'){showToast('Usuários Comuns não podem alterar disponibilidade.',false);return;}
   if(!CU||CU.role==='Comum'){showToast('Sem permissão para esta ação.',false);return;}
   var t=tools.find(function(x){return x._id===id;});
   if(!t)return;
@@ -1154,6 +1155,12 @@ function renderAll(){
   if(btnN)btnN.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
   var btnNU=document.getElementById('btnNovoUser');
   if(btnNU)btnNU.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
+  // show/hide import Excel button
+  var btnIXL=document.getElementById('btnImportXLS');
+  if(btnIXL)btnIXL.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
+  // show/hide Usuarios tab for Admin only
+  var tabUserBtn=document.querySelector('[onclick*="tabUsers"]');
+  if(tabUserBtn)tabUserBtn.style.display=(CU&&CU.role==='Admin')?'':'none';
   var isComum=CU&&CU.role==='Comum';
   // hide action buttons for Comum
   ['btnImportExcel','btnExportCSV'].forEach(function(id){
@@ -1375,6 +1382,7 @@ function openCertFile(idx){
 }
 
 function openAddCert(){
+  if(!CU||CU.role==='Comum'){showToast('Usuários Comuns não podem adicionar certificados.',false);return;}
   if(!CU||CU.role==='Comum'){showToast('Sem permissão para esta ação.',false);return;}
   var h='<div class="mh"><div><div class="mtt">📜 Novo Certificado</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
   h+='<div class="mf-row"><div class="mf"><label>Patrimônio</label><input id="ccPat" placeholder="Ex: OEM0036" style="font-family:monospace" oninput="fillCertFromTool(this.value)"/></div><div class="mf"><label>Nome da ferramenta</label><input id="ccNome" placeholder="Ex: Micro-ohmímetro"/></div></div>';
@@ -1435,6 +1443,7 @@ async function saveNewCert(){
 }
 
 async function delCert(idx){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem excluir certificados.',false);return;}
   if(!CU||CU.role==='Comum'){showToast('Sem permissão para excluir.',false);return;}
   var c=certs[idx];
   if(!confirm('Excluir certificado de "'+c.ferramenta+'" ('+c.patrimonio+')?'))return;
@@ -1622,6 +1631,7 @@ function renderSolics(){
 }
 
 function openAddSolic(){
+  if(!CU||CU.role==='Comum'){showToast('Usuários Comuns não podem criar solicitações.',false);return;}
   if(!CU||CU.role==='Comum'){showToast('Sem permissão para esta ação.',false);return;}
   var h='<div class="mh"><div><div class="mtt">📥 Nova Solicitação</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
   h+='<div class="mf-row"><div class="mf"><label>Patrimônio</label><input id="slPat" placeholder="Ex: OEM0036" style="font-family:monospace" oninput="fillSolicFromPat(this.value)"/></div><div class="mf"><label>Ferramenta</label><input id="slFerr" placeholder="Preenchido automático ou manual"/></div></div>';
@@ -1655,12 +1665,14 @@ function saveNewSolic(){
 }
 
 function updateSolicStatus(i,status){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem alterar status de solicitações.',false);renderSolics();return;}
   solics[i].status=status;
   saveSolics();updateSolicSB(solics[i]);renderSolics();
   showToast('Status atualizado: '+status,true);
 }
 
 function delSolic(i){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem excluir solicitações.',false);return;}
   if(!confirm('Excluir esta solicitação?'))return;
   delSolicSB(solics[i]);solics.splice(i,1);saveSolics();renderSolics();
   showToast('Solicitação removida',true);
@@ -1696,6 +1708,7 @@ function fillSolicFromPat(pat){
   if(t){var f=document.getElementById('slFerr');if(f&&!f.value)f.value=t.ferramenta;}
 }
 async function clearChatCanal(){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem limpar canais.',false);return;}
   if(!CU||CU.role==='Comum'){showToast('Sem permissão para limpar canal.',false);return;}
   if(!confirm('Limpar todas as mensagens do canal "'+chatCanal+'"? Esta ação não pode ser desfeita.'))return;
   if(!sb)return;
@@ -1790,6 +1803,7 @@ async function loadChatMsgs(){
 
 async function sendChatMsg(){
   if(!CU){showToast('Faça login para enviar mensagens',false);return;}
+  if(CU.role==='Comum'){showToast('Usuários Comuns não podem enviar mensagens.',false);return;}
   if(CU.role==='Comum'){showToast('Sem permissão para enviar mensagens.',false);return;}
   var input=document.getElementById('chatInput');
   var msg=input?input.value.trim():'';
@@ -2107,7 +2121,7 @@ function exportPDF(){
   w.document.close();setTimeout(function(){w.print();},600);
 }
 function importXLSX(e){
-  if(!CU||CU.role==='Comum'){showToast('Sem permissão para importar Excel.',false);e.target.value='';return;}
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem importar Excel.',false);e.target.value='';return;}
   var file=e.target.files[0];
   if(!file)return;
   e.target.value='';
@@ -2364,6 +2378,7 @@ function abrirTermoPDF(url){
 }
 
 async function delTermo(id){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem excluir termos.',false);return;}
   if(!CU||CU.role==='Comum'){showToast('Sem permissão para excluir.',false);return;}
   if(!confirm('Excluir este termo?'))return;
   if(!sb)return;
@@ -2380,6 +2395,7 @@ async function delTermo(id){
 }
 
 async function importTermoPDF(e){
+  if(!CU||CU.role==='Comum'){showToast('Usuários Comuns não podem importar termos.',false);return;}
   if(!CU||CU.role==='Comum'){showToast('Sem permissão para esta ação.',false);e.target.value='';return;}
   var file=e.target.files[0];
   if(!file)return;
