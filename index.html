@@ -1949,20 +1949,20 @@ function handleTTPaste(e,idx){
   if(parts.length===0)return;
   e.preventDefault();
   var dest=termTools[0]?termTools[0].dest||'':'';
-  // resolve each patrimônio against tools
+  // build new rows for all pasted items
   var newRows=parts.map(function(pat){
     var f=tools.find(function(t){return t.patrimonio.trim().toUpperCase()===pat.trim().toUpperCase();});
     return f
       ?{pat:f.patrimonio,nome:f.ferramenta,marca:f.marca,modelo:f.modelo,serie:f.serie,status:f.status,dest:dest}
       :{pat:pat,nome:'',marca:'',modelo:'',serie:'',status:'',dest:dest};
   });
-  // replace from idx, keeping rows before idx
-  var before=termTools.slice(0,idx);
-  // add empty row at end for next input
-  newRows.push({pat:'',nome:'',marca:'',modelo:'',serie:'',status:'',dest:dest});
-  termTools=before.concat(newRows);
-  buildTerm();
-  if(termTools[0]&&termTools[0].dest)syncDest();
+  // replace termTools from idx onward with new rows + empty row at end
+  termTools=termTools.slice(0,idx).concat(newRows).concat([{pat:'',nome:'',marca:'',modelo:'',serie:'',status:'',dest:dest}]);
+  // use setTimeout to ensure DOM is ready
+  setTimeout(function(){
+    buildTerm();
+    if(termTools[0]&&termTools[0].dest)syncDest();
+  },0);
 }
 function addTT(){termTools.push({pat:'',nome:'',marca:'',modelo:'',serie:'',status:'',dest:termTools[0].dest||''});buildTerm();}
 function rmTT(i){termTools.splice(i,1);var np={};Object.keys(termPhotos).forEach(function(k){var ki=parseInt(k);if(ki<i)np[ki]=termPhotos[k];else if(ki>i)np[ki-1]=termPhotos[k];});termPhotos=np;buildTerm();}
