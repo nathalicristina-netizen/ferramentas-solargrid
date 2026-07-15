@@ -718,7 +718,6 @@ async function dbDelHist(id){if(!sb)return;try{await sb.from('historico').delete
 async function dbLoad(){
   if(!sb){renderAll();return;}
   await loadUsersFB();
-  await loadSolicsFB();
   await loadCertsFB();
   showBanner('connecting','Conectando…');
   try{
