@@ -1919,7 +1919,7 @@ function buildTerm(){
   termTools.forEach(function(tt,i){
     var rm=termTools.length>1?'<button onclick="rmTT('+i+')" style="background:var(--rd-bg);border:1px solid rgba(220,38,38,.2);color:var(--rd);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;flex-shrink:0">✕<\/button>':'';
     rows+='<div class="tt-row">'+
-      '<input id="tp'+i+'" value="'+tt.pat+'" placeholder="Patrimônio" style="font-family:monospace;font-size:11px" onblur="lookupTT(this.value,'+i+')" onpaste="handleTTPaste(event,'+i+')" oninput="termTools['+i+'].pat=this.value"/>'+
+      '<input id="tp'+i+'" value="'+tt.pat+'" placeholder="Patrimônio" style="font-family:monospace;font-size:11px" onblur="if(!isPasting)lookupTT(this.value,'+i+')" onpaste="handleTTPaste(event,'+i+')" oninput="termTools['+i+'].pat=this.value"/>'+
       '<input id="tn'+i+'" value="'+tt.nome+'" placeholder="Ferramenta"/>'+
       '<input id="tmr'+i+'" value="'+tt.marca+'" placeholder="Marca"/>'+
       '<input id="tmd'+i+'" value="'+tt.modelo+'" placeholder="Modelo"/>'+
@@ -1932,6 +1932,7 @@ function buildTerm(){
   el.innerHTML=rows;
 }
 function lookupTT(pat,idx){
+  if(isPasting)return; // don't interfere during paste
   var dest=termTools[idx]?termTools[idx].dest||termTools[0].dest||'':'';
   if(!pat||!pat.trim()){
     termTools[idx]={pat:'',nome:'',marca:'',modelo:'',serie:'',status:'',dest:dest};
@@ -1943,10 +1944,12 @@ function lookupTT(pat,idx){
   buildTerm();if(idx===0)syncDest();
 }
 function syncDest(){var d=termTools[0].dest;if(!d)return;termTools.forEach(function(tt,i){if(i>0){tt.dest=d;var e=document.getElementById('td'+i);if(e)e.value=d;}});}
+var isPasting=false;
 function handleTTPaste(e,idx){
   var txt=e.clipboardData&&e.clipboardData.getData('text')||'';
   var parts=txt.split(/[\n\r,;]+/).map(function(s){return s.trim();}).filter(Boolean);
   if(parts.length===0)return;
+  isPasting=true;
   e.preventDefault();
   var dest=termTools[0]?termTools[0].dest||'':'';
   // build new rows for all pasted items
@@ -1958,8 +1961,8 @@ function handleTTPaste(e,idx){
   });
   // replace termTools from idx onward with new rows + empty row at end
   termTools=termTools.slice(0,idx).concat(newRows).concat([{pat:'',nome:'',marca:'',modelo:'',serie:'',status:'',dest:dest}]);
-  // use setTimeout to ensure DOM is ready
   setTimeout(function(){
+    isPasting=false;
     buildTerm();
     if(termTools[0]&&termTools[0].dest)syncDest();
   },0);
