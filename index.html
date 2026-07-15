@@ -326,7 +326,6 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
           <button class="ft" data-f="OK" onclick="setF(this,'OK')">✓ OK</button>
           <button class="ft" data-f="Inoperante" onclick="setF(this,'Inoperante')">✗ Inop.</button>
           <button class="ft" data-f="Atenção" onclick="setF(this,'Atenção')">⚠ Atenção</button>
-          <button class="ft" data-f="Furtado" onclick="setF(this,'Furtado')">🔒 Furtado</button>
           <button class="ft" data-f="Procurar" onclick="setF(this,'Procurar')">🔍 Procurar</button>
           <button class="ft" data-f="cal_venc" onclick="setF(this,'cal_venc')">📅 Cal. Vencida</button>
           <div style="flex:1"></div>
@@ -1610,7 +1609,7 @@ function openUpd(id){
   h+='<div class="mf-row"><div class="mf"><label>Data Cal.<\/label><input id="uDcal" value="'+(t.dataCal||'')+'"/><\/div><div class="mf"><label>Dias próx. cal.<\/label><input id="uDias" type="number" value="'+(t.diasProxCal==='-'?'':t.diasProxCal||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Data Manutenção<\/label><input id="uDman" value="'+(t.dataManut||'')+'"/><\/div><div class="mf"><label>Dias próx. manut.<\/label><input id="uDman2" type="number" value="'+(t.diasProxManut==='-'?'':t.diasProxManut||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Manutenção corretiva<\/label><select id="uCorr"><option value="">—<\/option><option'+(t.corretiva==="Precisa de reparo"?" selected":"")+'>Precisa de reparo<\/option><option'+(t.corretiva==="Em manutenção"?" selected":"")+'>Em manutenção<\/option><\/select><\/div><div class="mf"><label>Previsão de retorno<\/label><input id="uPrevCorr" value="'+(t.prevCorretiva||'')+'" placeholder="Ex: 10 dias"/><\/div><\/div>';
-  h+='<div class="mf-row"><div class="mf"><label>Ciclo de confirmação<\/label><select id="uCiclo"><option value="quinzenal"'+((!t.cicloConf||t.cicloConf==="quinzenal")?" selected":"")+'>Quinzenal (15 dias)<\/option><option value="mensal"'+(t.cicloConf==="mensal"?" selected":"")+'>Mensal (30 dias)<\/option><option value="semestral"'+(t.cicloConf==="semestral"?" selected":"")+'>Semestral (180 dias)<\/option><\/select><\/div><div class="mf"><label>Valor (R$)<\/label><input id="uVal" value="'+(t.valor||'')+'" oninput="maskMoney(this)"/><\/div><\/div>';
+  h+='<div class="mf-row"><div class="mf"><label>Ciclo de confirmação<\/label><select id="uCiclo"><option value="quinzenal"'+((!t.cicloConf||t.cicloConf==="quinzenal")?" selected":"")+'>Quinzenal (15 dias)<\/option><option value="mensal"'+(t.cicloConf==="mensal"?" selected":"")+'>Mensal (30 dias)<\/option><option value="anual"'+(t.cicloConf==="anual"?" selected":"")+'>Anual (365 dias)<\/option><\/select><\/div><div class="mf"><label>Valor (R$)<\/label><input id="uVal" value="'+(t.valor||'')+'" oninput="maskMoney(this)"/><\/div><\/div>';
 
   h+='<div class="mf"><label>Nota Fiscal <span style="font-size:10px;color:var(--tx3)">(opcional)<\/span><\/label>'+((t.notaFiscalUrl||t.notaFiscal)?'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:var(--tx2)">📎 '+(t.notaFiscalNome||'nota_fiscal.pdf')+'<\/span><button type="button" class="bs ok" style="font-size:11px;padding:3px 8px" onclick="openNF('+t._id+')">Ver<\/button><button type="button" class="bs rd" style="font-size:11px;padding:3px 8px" onclick="removeNF('+t._id+')">Remover<\/button><\/div>':'<input id="uNF" type="file" accept="application/pdf"/>')+'<\/div>';
   h+='<div class="mf"><label>Observação<\/label><textarea id="uObs">'+(t.obs||'')+'<\/textarea><\/div>';
@@ -1893,7 +1892,7 @@ function exportXLSX(){
   var hdr=['Patrimônio','Ferramenta','Marca','Modelo','Série','Status','Local','Responsável','Cidade','Estado','Setor','Valor','Data Cal','Cert Cal','Lab','Dias Prox Cal','OBS'];
   var csv=[hdr].concat(list.map(function(t){
     return[t.patrimonio,t.ferramenta,t.marca,t.modelo,t.serie,t.status,t.siglaLocal,t.responsavel,t.cidade,t.estado,t.setor,t.valor,t.dataCal,t.certCal,t.laboratorio,t.diasProxCal,t.obs];
-  })).map(function(r){return r.map(function(c){var s=String(c||'');if(s.indexOf(',')>=0)s='"'+s.replace(/"/g,'""')+'"';return s;}).join(',');}).join(CRLF);
+  })).map(function(r){return r.map(function(c){var s=String(c||'').replace(/\r?\n/g,' ');if(s.indexOf(';')>=0||s.indexOf('"')>=0)s='"'+s.replace(/"/g,'""')+'"';return s;}).join(';');}).join(CRLF);
   var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');a.href=url;a.download='solargrid_'+new Date().toISOString().slice(0,10)+'.csv';
