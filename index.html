@@ -2103,10 +2103,13 @@ async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin){
 }
 
 function exportTermo(){
-  var toolsRows=termTools.map(function(tt){return'<tr><td style="font-family:monospace">'+tt.pat+'<\/td><td>'+tt.nome+'<\/td><td>'+tt.marca+'<\/td><td>'+tt.modelo+'<\/td><td>'+tt.serie+'<\/td><td>'+tt.status+'<\/td><td>'+tt.dest+'<\/td><\/tr>';}).join('');
+  // filter out empty rows (placeholder first row with no patrimônio)
+  var validTools=termTools.filter(function(tt){return tt.pat&&tt.pat.trim();});
+  if(!validTools.length){showToast('Adicione pelo menos uma ferramenta ao termo.',false);return;}
+  var toolsRows=validTools.map(function(tt){return'<tr><td style="font-family:monospace">'+tt.pat+'<\/td><td>'+tt.nome+'<\/td><td>'+tt.marca+'<\/td><td>'+tt.modelo+'<\/td><td>'+tt.serie+'<\/td><td>'+tt.status+'<\/td><td>'+tt.dest+'<\/td><\/tr>';}).join('');
   // Photo section — only ferramentas that have photos
   var photoCards=termTools.map(function(tt,i){
-    if(!termPhotos[i])return'';
+    if(!termPhotos[i]||!tt.pat||!tt.pat.trim())return'';
     return'<div style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">'+
       '<div style="background:#f3f4f6;padding:7px 10px;border-bottom:1px solid #e5e7eb">'+
         '<div style="font-family:monospace;font-size:10pt;font-weight:700;color:#1B3A6B">'+tt.pat+'<\/div>'+
