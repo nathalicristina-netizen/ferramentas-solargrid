@@ -1004,7 +1004,11 @@ function setLF(v){LF=v;page=1;renderTable();}
 function populateLocalFlt(){
   var sel=document.getElementById('localFlt');if(!sel)return;
   var cur=sel.value;
-  var locais=ALL_LOCAIS.slice().sort();
+  // merge ALL_LOCAIS + dynamic from tools
+  var locSet={};
+  ALL_LOCAIS.forEach(function(l){locSet[l]=1;});
+  tools.forEach(function(t){if(t.siglaLocal&&t.siglaLocal.trim()&&t.siglaLocal!=='—')locSet[t.siglaLocal]=1;});
+  var locais=Object.keys(locSet).sort();
   var opts='<option value="">Todos locais<\/option>';
   locais.forEach(function(l){opts+='<option value="'+l+'"'+(l===cur?' selected':'')+'>'+l+'<\/option>';});
   sel.innerHTML=opts;
@@ -1486,7 +1490,7 @@ function openConf(id){
   var h='<div class="mh"><div><div class="mtt">📍 Confirmação Quinzenal<\/div><div class="msub">'+t.ferramenta+' · '+t.patrimonio+'<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>';
   h+='<div class="cfm-box"><strong>'+t.siglaLocal+'<\/strong>'+(t.cidade?' — '+t.cidade:'')+'<br>Resp: '+(t.responsavel||'—')+'<br><span class="badge '+(done?'b-gr':'b-am')+'" style="margin-top:6px;display:inline-flex">'+(done?'✓ Confirmado esta quinzena':'Aguardando confirmação')+'<\/span><\/div>';
   h+='<div class="mf"><label>Mesmo local?<\/label><select id="cSame" onchange="document.getElementById(\'cNL\').style.display=this.value===\'nao\'?\'block\':\'none\'"><option value="">Selecione…<\/option><option value="sim">✅ Sim<\/option><option value="nao">🔄 Não — mudou<\/option><\/select><\/div>';
-  h+='<div id="cNL" style="display:none"><div class="mf"><label>Novo local (sigla)<\/label><input id="cLoc" value="'+t.siglaLocal+'" oninput="prevCity(this.value)"/><\/div>';
+  h+='<div id="cNL" style="display:none"><div class="mf"><label>Novo local<\/label><select id="cLoc" onchange="prevCity(this.value)">'+(buildLocalOptions(t.siglaLocal,'cLoc'))+'<\/select><\/div>';
   h+='<div class="mf"><label>Responsável<\/label><input id="cRes" value="'+(t.responsavel||'')+'"/><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Cidade <span id="cPrev" style="color:var(--tx3);font-weight:400;font-size:10px"><\/span><\/label><input id="cCid" value="'+(t.cidade||'')+'"/><\/div><div class="mf"><label>Estado<\/label><input id="cEst" value="'+(t.estado||'')+'"/><\/div><\/div>';
   h+='<div class="mf"><label>Motivo<\/label><textarea id="cMot" style="min-height:50px" placeholder="Ex: enviada para calibração…"><\/textarea><\/div><\/div>';
@@ -1556,11 +1560,12 @@ function delTool(id){
   page=1;renderAll();
 }
 function buildLocalOptions(currentVal, inputId){
-  // Get all unique siglaLocal values from tools
+  // Merge ALL_LOCAIS + dynamic locals from tools
   var locs={};
+  ALL_LOCAIS.forEach(function(l){locs[l]={cidade:'',estado:''};});
   tools.forEach(function(t){
     if(t.siglaLocal&&t.siglaLocal.trim()&&t.siglaLocal!=='—'){
-      locs[t.siglaLocal]={cidade:t.cidade||'',estado:t.estado||''};
+      locs[t.siglaLocal]={cidade:t.cidade||locs[t.siglaLocal]&&locs[t.siglaLocal].cidade||'',estado:t.estado||''};
     }
   });
   var sorted=Object.keys(locs).sort();
@@ -1844,7 +1849,11 @@ function importXLSX(e){
           diasProxCal:'-',
           dataManut:fmtDate(row['Ultima Manutenção ']||row['Ultima Manutenção']||row['DataManut']||''),
           diasProxManut:'-',
-          obs:cleanStr(row['OBS']||row['Obs']||'')
+          obs:cleanStr(row['OBS']||row['Obs']||''),
+          disponibilidade:cleanStr(row['Disponibilidade']||row['disponibilidade']||'Liberada'),
+          corretiva:cleanStr(row['Corretiva']||row['corretiva']||''),
+          prevCorretiva:cleanStr(row['Prev Corretiva']||row['prevCorretiva']||''),
+          cicloConf:cleanStr(row['Ciclo']||row['cicloConf']||'quinzenal')
         };
       }).filter(Boolean);
 
