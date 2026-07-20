@@ -441,6 +441,11 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       </div>
 
       <div class="ts">
+        <h3>Observações</h3>
+        <div class="tf"><label>Observação (opcional)</label><textarea id="tObsTermo" placeholder="Ex: Ferramentas enviadas para calibração, retorno previsto em 30 dias…" style="min-height:70px;width:100%;font-family:var(--fb);font-size:13px;padding:8px 10px;border:1.5px solid var(--bd);border-radius:var(--rs);background:var(--bg2);color:var(--tx1);resize:vertical"></textarea></div>
+      </div>
+
+      <div class="ts">
         <h3>Data e Assinaturas</h3>
         <div class="tf"><label>Data</label><input id="tData" placeholder="_____________, ___ de __________ de ______"/></div>
         <div class="sign-row">
@@ -1825,35 +1830,44 @@ function importXLSX(e){
       }
 
       var imported=rows.map(function(row){
-        var pat=cleanStr(row['Patr']||row['Patrimônio']||row['patrimonio']||'');
-        if(!pat)return null;
-        var siglaLocal=cleanStr(row['Sigla Local']||row['siglaLocal']||'');
-        var local=cleanStr(row['Local']||row['local']||'')||siglaLocal;
+        // Try all possible column name variations
+        var pat=cleanStr(row['Patr']||row['Patrimônio']||row['Patrimonio']||row['patrimonio']||row['PAT']||row['pat']||'');
+        if(!pat||pat==='nan'||pat==='None')return null;
+        var siglaLocal=cleanStr(row['Sigla Local']||row['SiglaLocal']||row['siglaLocal']||row['Sigla']||row['SIGLA']||'');
+        var local=cleanStr(row['Local']||row['LOCAL']||row['local']||'')||siglaLocal;
+        var status=cleanStr(row['Status']||row['STATUS']||row['status']||'')||'OK';
+        // normalize status
+        var statusMap={'ok':'OK','operante':'OK','inoperante':'Inoperante','atenção':'Atenção','atencao':'Atenção','procurar':'Procurar','furtado':'Furtado'};
+        status=statusMap[status.toLowerCase()]||status||'OK';
+        var disponibilidade=cleanStr(row['Disponibilidade']||row['disponibilidade']||'Liberada');
+        if(disponibilidade!=='Em uso')disponibilidade='Liberada';
+        var ciclo=cleanStr(row['Ciclo']||row['cicloConf']||row['Ciclo Conf']||'quinzenal').toLowerCase();
+        if(ciclo!=='mensal'&&ciclo!=='anual')ciclo='quinzenal';
         return{
           patrimonio:pat,
-          ferramenta:cleanStr(row['Ferramenta']||''),
-          marca:cleanStr(row['Marca']||''),
-          modelo:cleanStr(row['Modelo']||''),
-          serie:cleanStr(row['Nº Série']||row['Serie']||''),
-          status:cleanStr(row['Status']||'')||'OK',
+          ferramenta:cleanStr(row['Ferramenta']||row['FERRAMENTA']||row['ferramenta']||row['Descrição']||''),
+          marca:cleanStr(row['Marca']||row['MARCA']||row['marca']||''),
+          modelo:cleanStr(row['Modelo']||row['MODELO']||row['modelo']||''),
+          serie:cleanStr(row['Nº Série']||row['Nº Serie']||row['Série']||row['Serie']||row['serie']||row['SERIE']||''),
+          status:status,
           local:local,
-          siglaLocal:siglaLocal,
-          cidade:cleanStr(row['Cidade']||''),
-          estado:cleanStr(row['Estado']||''),
-          responsavel:cleanStr(row['Responsável']||row['Responsavel']||''),
-          setor:cleanStr(row['Setor']||''),
-          valor:cleanStr(row['Valor']||''),
-          certCal:cleanStr(row['Nº Cert. Calibração']||row['CertCal']||''),
-          laboratorio:cleanStr(row['Laboratório']||row['Laboratorio']||''),
-          dataCal:fmtDate(row['Data de calibração']||row['DataCal']||''),
+          siglaLocal:siglaLocal||local,
+          cidade:cleanStr(row['Cidade']||row['CIDADE']||row['cidade']||''),
+          estado:cleanStr(row['Estado']||row['ESTADO']||row['estado']||row['UF']||''),
+          responsavel:cleanStr(row['Responsável']||row['Responsavel']||row['RESPONSAVEL']||row['responsavel']||''),
+          setor:cleanStr(row['Setor']||row['SETOR']||row['setor']||''),
+          valor:cleanStr(row['Valor']||row['VALOR']||row['valor']||''),
+          certCal:cleanStr(row['Nº Cert. Calibração']||row['Cert. Calibração']||row['CertCal']||row['Nº Cert']||''),
+          laboratorio:cleanStr(row['Laboratório']||row['Laboratorio']||row['Lab']||row['LAB']||''),
+          dataCal:fmtDate(row['Data de calibração']||row['Data Calibração']||row['DataCal']||row['Data Cal']||''),
           diasProxCal:'-',
-          dataManut:fmtDate(row['Ultima Manutenção ']||row['Ultima Manutenção']||row['DataManut']||''),
+          dataManut:fmtDate(row['Ultima Manutenção ']||row['Ultima Manutenção']||row['Última Manutenção']||row['DataManut']||row['Data Manut']||''),
           diasProxManut:'-',
-          obs:cleanStr(row['OBS']||row['Obs']||''),
-          disponibilidade:cleanStr(row['Disponibilidade']||row['disponibilidade']||'Liberada'),
+          obs:cleanStr(row['OBS']||row['Obs']||row['Observação']||row['Observacao']||''),
+          disponibilidade:disponibilidade,
           corretiva:cleanStr(row['Corretiva']||row['corretiva']||''),
-          prevCorretiva:cleanStr(row['Prev Corretiva']||row['prevCorretiva']||''),
-          cicloConf:cleanStr(row['Ciclo']||row['cicloConf']||'quinzenal')
+          prevCorretiva:cleanStr(row['Prev Corretiva']||row['prevCorretiva']||row['Previsão Corretiva']||''),
+          cicloConf:ciclo
         };
       }).filter(Boolean);
 
@@ -1978,7 +1992,7 @@ function handleTTPaste(e,idx){
 }
 function addTT(){termTools.push({pat:'',nome:'',marca:'',modelo:'',serie:'',status:'',dest:termTools[0].dest||''});buildTerm();}
 function rmTT(i){termTools.splice(i,1);var np={};Object.keys(termPhotos).forEach(function(k){var ki=parseInt(k);if(ki<i)np[ki]=termPhotos[k];else if(ki>i)np[ki-1]=termPhotos[k];});termPhotos=np;buildTerm();}
-function clearTerm(){['tRN','tRC','tRE','tRB','tRCep','tRCid','tRUF','tRObs','tPN','tPC','tPE','tPB','tPCep','tPCid','tPUF','tPObs','tUso','tData'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});termTools=[{pat:'',nome:'',marca:'',modelo:'',serie:'',status:'',dest:''}];buildTerm();}
+function clearTerm(){['tRN','tRC','tRE','tRB','tRCep','tRCid','tRUF','tRObs','tPN','tPC','tPE','tPB','tPCep','tPCid','tPUF','tPObs','tUso','tData','tObsTermo'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});termTools=[{pat:'',nome:'',marca:'',modelo:'',serie:'',status:'',dest:''}];buildTerm();}
 function tg(id){return(document.getElementById(id)||{}).value||'';}
 function loadTTPhoto(e,idx){
   var file=e.target.files[0];if(!file)return;
@@ -2269,6 +2283,7 @@ function exportTermo(){
     '<\/div>'+
     '<table><thead><tr><th>Patrimônio<\/th><th>Ferramenta<\/th><th>Marca<\/th><th>Modelo<\/th><th>Série<\/th><th>Status<\/th><th>Enviado para<\/th><\/tr><\/thead><tbody>'+toolsRows+'<\/tbody><\/table>'+photoSection+
     '<div style="text-align:right;margin:14px 0;font-size:10pt">'+(tg('tData')||'____________, ___ de __________ de ______')+'<\/div>'+
+    (tg('tObsTermo')?'<div style="margin:10px 0;padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:5px;font-size:10pt"><strong>Observações:</strong> '+tg('tObsTermo')+'<\/div>':'')+
     '<div class="sg">'+
       '<div class="sb"><div class="sl"><\/div><div class="slb">Remetente<\/div><div style="font-size:8pt;color:#555">'+(tg('tPN')||'')+'<\/div><\/div>'+
       '<div class="sb"><div class="sl"><\/div><div class="slb">Destinatário<\/div><div style="font-size:8pt;color:#555">'+(tg('tRN')||'')+'<\/div><\/div>'+
