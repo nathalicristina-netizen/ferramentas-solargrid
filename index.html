@@ -2009,23 +2009,37 @@ async function loadTermosSB(){
     }
     var cards=r.data.map(function(t){
       var ferrs=[];try{ferrs=JSON.parse(t.ferramentas||'[]');}catch(e){}
-      return '<div style="background:var(--bg2);border:1.5px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px">'+
-        '<div style="font-size:28px;cursor:pointer" onclick="abrirTermoPDF(this.dataset.url)" data-url="'+encodeURIComponent(t.pdf_url||'')+'">📄</div>'+
-        '<div style="flex:1;min-width:0;cursor:pointer" onclick="abrirTermoPDF(this.dataset.url)" data-url="'+encodeURIComponent(t.pdf_url||'')+'">'+
-          '<div style="font-weight:700;color:var(--nv);font-size:13px;margin-bottom:4px">'+
-            (t.remetente||'Sem título')+(t.destino?' → '+t.destino:'')+
+      // aceite badge
+      var aceiteStatus=t.aceite_status||'pendente';
+      var badgeColor={'pendente':'#FFF7ED','aceito':'#F0FDF4','rejeitado':'#FEF2F2'}[aceiteStatus]||'#F3F4F6';
+      var badgeText={'pendente':'⏳ Aguardando aceite','aceito':'✅ Aceito por '+( t.aceite_por||'—'),'rejeitado':'❌ Rejeitado'}[aceiteStatus]||'—';
+      var badgeFg={'pendente':'#c2410c','aceito':'#15803d','rejeitado':'#dc2626'}[aceiteStatus]||'#6B7280';
+      // link de aceite
+      var linkAceite=t.aceite_token?window.location.origin+window.location.pathname+'?aceite='+t.aceite_token:'';
+      return '<div style="background:var(--bg2);border:1.5px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:10px">'+
+        '<div style="display:flex;align-items:flex-start;gap:12px">'+
+          '<div style="font-size:28px">📄</div>'+
+          '<div style="flex:1;min-width:0">'+
+            '<div style="font-weight:700;color:var(--nv);font-size:13px;margin-bottom:4px">'+
+              (t.remetente||'Sem título')+(t.destino?' → '+t.destino:'')+
+            '</div>'+
+            '<div style="font-size:11px;color:var(--tx3);margin-bottom:6px">'+
+              '📅 '+(t.data_termo||'—')+' &nbsp;|&nbsp; 👤 '+(t.criado_por||'—')+
+            '</div>'+
+            '<div style="font-size:11px;color:var(--tx2);margin-bottom:8px">'+
+              ferrs.slice(0,5).map(function(f){return'<span style="background:var(--bg3);border:1px solid var(--bd);border-radius:4px;padding:1px 6px;margin-right:4px;font-family:monospace">'+f+'</span>';}).join('')+
+              (ferrs.length>5?'<span style="color:var(--tx3)">+'+(ferrs.length-5)+' mais</span>':'')+
+            '</div>'+
+            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+              '<span style="background:'+badgeColor+';color:'+badgeFg+';border:1px solid '+badgeFg+'40;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:600">'+badgeText+'</span>'+
+              (linkAceite&&aceiteStatus==='pendente'?'<button class="bs gh" onclick="copyAceiteLink(\''+linkAceite+'\')" style="font-size:11px;padding:4px 10px">🔗 Copiar link de aceite</button>':'')+
+              (aceiteStatus==='pendente'&&!t.aceite_token?'<button class="bs gh" onclick="gerarLinkAceite('+t.id+')" style="font-size:11px;padding:4px 10px">🔗 Gerar link de aceite</button>':'')+
+            '</div>'+
           '</div>'+
-          '<div style="font-size:11px;color:var(--tx3);margin-bottom:6px">'+
-            '📅 '+(t.data_termo||'—')+' &nbsp;|&nbsp; 👤 '+(t.criado_por||'—')+
+          '<div style="display:flex;gap:6px;flex-shrink:0">'+
+            (t.pdf_url?'<button class="bs ok" onclick="window.open(\''+t.pdf_url+'\',\'_blank\')" style="font-size:11px;padding:5px 10px">📄 Abrir</button>':'<span style="font-size:11px;color:var(--tx3)">Sem arquivo</span>')+
+            '<button class="bs rd" onclick="delTermo('+t.id+')" style="font-size:11px;padding:5px 8px">✕</button>'+
           '</div>'+
-          '<div style="font-size:11px;color:var(--tx2)">'+
-            ferrs.slice(0,5).map(function(f){return'<span style="background:var(--bg3);border:1px solid var(--bd);border-radius:4px;padding:1px 6px;margin-right:4px;font-family:monospace">'+f+'</span>';}).join('')+
-            (ferrs.length>5?'<span style="color:var(--tx3)">+'+(ferrs.length-5)+' mais</span>':'')+
-          '</div>'+
-        '</div>'+
-        '<div style="display:flex;gap:6px;flex-shrink:0">'+
-          (t.pdf_url?'<button class="bs ok" onclick="abrirTermoPDF(this.dataset.url)" data-url="'+encodeURIComponent(t.pdf_url)+'" style="font-size:11px;padding:5px 10px">📄 Abrir</button>':'<span style="font-size:11px;color:var(--tx3)">Sem arquivo</span>')+
-          '<button class="bs rd" onclick="delTermo('+t.id+')" style="font-size:11px;padding:5px 8px">✕</button>'+
         '</div>'+
       '</div>';
     }).join('');
@@ -2035,12 +2049,82 @@ async function loadTermosSB(){
   }
 }
 
-function abrirTermoPDF(url){
-  if(!url){showToast('Sem arquivo para abrir',false);return;}
-  var decoded=decodeURIComponent(url);
-  if(!decoded){showToast('Sem arquivo para abrir',false);return;}
-  window.open(decoded,'_blank');
+function copyAceiteLink(link){
+  navigator.clipboard.writeText(link).then(function(){
+    showToast('Link de aceite copiado! Envie para o destinatário.',true);
+  }).catch(function(){
+    prompt('Copie o link abaixo:',link);
+  });
 }
+
+async function gerarLinkAceite(id){
+  if(!sb)return;
+  var token=Math.random().toString(36).substring(2)+Math.random().toString(36).substring(2);
+  try{
+    await sb.from('termos').update({aceite_token:token,aceite_status:'pendente'}).eq('id',id);
+    showToast('Link gerado!',true);
+    loadTermosSB();
+  }catch(e){showToast('Erro ao gerar link',false);}
+}
+
+async function processarAceite(){
+  var params=new URLSearchParams(window.location.search);
+  var token=params.get('aceite');
+  if(!token||!sb)return;
+  // load termo by token
+  try{
+    var r=await sb.from('termos').select('*').eq('aceite_token',token).single();
+    if(r.error||!r.data){alert('Termo não encontrado ou link inválido.');return;}
+    var t=r.data;
+    var ferrs=[];try{ferrs=JSON.parse(t.ferramentas||'[]');}catch(e){}
+    // show aceite page
+    document.body.innerHTML='<div style="font-family:Inter,sans-serif;max-width:700px;margin:40px auto;padding:20px">'+
+      '<div style="text-align:center;margin-bottom:30px">'+
+        '<div style="font-size:32px;font-weight:800;color:#E86A00">SolarGrid</div>'+
+        '<div style="font-size:14px;color:#6B7280">Gestão de Ferramentas</div>'+
+      '</div>'+
+      '<div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;padding:24px;margin-bottom:20px">'+
+        '<h2 style="font-size:18px;color:#1B3A6B;margin-bottom:8px">📄 Termo de Transferência</h2>'+
+        '<p style="color:#6B7280;font-size:13px;margin-bottom:4px"><strong>De:</strong> '+(t.remetente||'—')+'</p>'+
+        '<p style="color:#6B7280;font-size:13px;margin-bottom:16px"><strong>Data:</strong> '+(t.data_termo||'—')+'</p>'+
+        '<p style="color:#374151;font-size:14px;margin-bottom:12px"><strong>Ferramentas incluídas no termo:</strong></p>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px">'+
+          ferrs.map(function(f){return'<span style="background:#EEF2FF;color:#1B3A6B;border:1px solid #a5b4fc;border-radius:5px;padding:3px 10px;font-family:monospace;font-size:12px">'+f+'</span>';}).join('')+
+        '</div>'+
+        (t.pdf_url?'<p style="margin-bottom:16px"><a href="'+t.pdf_url+'" target="_blank" style="color:#1B3A6B;font-size:13px">📎 Ver PDF do termo</a></p>':'')+
+        (t.aceite_status==='aceito'?
+          '<div style="background:#F0FDF4;border:1.5px solid #86efac;border-radius:8px;padding:14px;text-align:center">'+
+            '<div style="font-size:24px">✅</div>'+
+            '<div style="font-weight:700;color:#15803d;margin-top:4px">Termo já aceito por '+( t.aceite_por||'—')+'</div>'+
+            '<div style="font-size:12px;color:#6B7280;margin-top:4px">em '+(t.aceite_em||'—')+'</div>'+
+          '</div>':
+          '<div style="border-top:1px solid #e5e7eb;padding-top:16px">'+
+            '<p style="color:#374151;font-size:14px;margin-bottom:12px">Você confirma que recebeu todas as ferramentas listadas acima?</p>'+
+            '<div style="display:flex;gap:10px;justify-content:center">'+
+              '<button onclick="confirmarAceite(\''+token+'\',\'aceito\')" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">✅ Confirmar recebimento</button>'+
+              '<button onclick="confirmarAceite(\''+token+'\',\'rejeitado\')" style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">❌ Não recebi</button>'+
+            '</div>'+
+          '</div>'
+        )+
+      '</div>'+
+    '</div>';
+  }catch(e){alert('Erro ao carregar termo.');}
+}
+
+async function confirmarAceite(token,status){
+  var nome=prompt('Seu nome completo:')||'Anônimo';
+  if(!nome.trim())return;
+  var agora=new Date().toLocaleString('pt-BR');
+  try{
+    await sb.from('termos').update({aceite_status:status,aceite_por:nome,aceite_em:agora}).eq('aceite_token',token);
+    document.body.innerHTML='<div style="font-family:Inter,sans-serif;text-align:center;padding:80px 20px">'+
+      '<div style="font-size:60px">'+(status==='aceito'?'✅':'❌')+'</div>'+
+      '<h2 style="color:'+(status==='aceito'?'#15803d':'#dc2626')+';margin:20px 0">'+(status==='aceito'?'Recebimento confirmado!':'Não recebimento registrado')+'</h2>'+
+      '<p style="color:#6B7280">Registrado em: '+agora+'</p>'+
+    '</div>';
+  }catch(e){alert('Erro ao registrar aceite.');}
+}
+
 
 async function delTermo(id){
   if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem excluir termos.',false);return;}
@@ -2241,6 +2325,8 @@ document.addEventListener('DOMContentLoaded',function(){
       if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='Entrar →';}
     });
   }
+  // check for aceite token in URL
+  processarAceite();
   if(!loadSession()){/* stay on login */}
   var tUso=document.getElementById('tUso');
   if(tUso)tUso.addEventListener('input',function(){var e=document.getElementById('tUsoP');if(e)e.textContent=this.value||'___';});
