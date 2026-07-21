@@ -1943,7 +1943,7 @@ function buildTerm(){
   termTools.forEach(function(tt,i){
     var rm=termTools.length>1?'<button onclick="rmTT('+i+')" style="background:var(--rd-bg);border:1px solid rgba(220,38,38,.2);color:var(--rd);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;flex-shrink:0">✕<\/button>':'';
     rows+='<div class="tt-row">'+
-      '<input id="tp'+i+'" value="'+tt.pat+'" placeholder="Patrimônio" style="font-family:monospace;font-size:11px" onpaste="handleTTPaste(event,'+i+')" oninput="termTools['+i+'].pat=this.value"/>'+
+      '<input id="tp'+i+'" value="'+tt.pat+'" placeholder="Patrimônio" style="font-family:monospace;font-size:11px" onpaste="handleTTPaste(event,'+i+')" oninput="termTools['+i+'].pat=this.value" onblur="lookupTT(this.value,'+i+')" onkeydown="if(event.key===\'Enter\'||event.key===\'Tab\'){event.preventDefault();lookupTT(this.value,'+i+');setTimeout(function(){var nx=document.getElementById(\'tp'+(i+1)+'\');if(nx)nx.focus();else document.getElementById(\'td'+i+'\').focus();},50);}"/>'+
       '<input id="tn'+i+'" value="'+tt.nome+'" placeholder="Ferramenta"/>'+
       '<input id="tmr'+i+'" value="'+tt.marca+'" placeholder="Marca"/>'+
       '<input id="tmd'+i+'" value="'+tt.modelo+'" placeholder="Modelo"/>'+
@@ -1956,16 +1956,35 @@ function buildTerm(){
   el.innerHTML=rows;
 }
 function lookupTT(pat,idx){
-  if(isPasting)return; // don't interfere during paste
+  if(isPasting)return;
   var dest=termTools[idx]?termTools[idx].dest||termTools[0].dest||'':'';
   if(!pat||!pat.trim()){
     termTools[idx]={pat:'',nome:'',marca:'',modelo:'',serie:'',status:'',dest:dest};
     buildTerm();return;
   }
   var f=tools.find(function(t){return t.patrimonio.trim().toUpperCase()===pat.trim().toUpperCase();});
-  if(!f){termTools[idx].pat=pat;buildTerm();return;}
+  if(!f){
+    // Não encontrou — mantém o que digitou e marca campo em vermelho
+    termTools[idx].pat=pat;
+    var patEl=document.getElementById('tp'+idx);
+    if(patEl){patEl.style.borderColor='var(--rd)';patEl.title='Patrimônio não encontrado na base';}
+    return;
+  }
   termTools[idx]={pat:f.patrimonio,nome:f.ferramenta,marca:f.marca,modelo:f.modelo,serie:f.serie,status:f.status,dest:dest};
-  buildTerm();if(idx===0)syncDest();
+  buildTerm();
+  // Marca campos preenchidos automaticamente com borda verde
+  ['tn'+idx,'tmr'+idx,'tmd'+idx,'tsr'+idx,'tst'+idx].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el){el.style.borderColor='var(--gr)';el.style.background='rgba(34,197,94,.05)';}
+  });
+  var patEl=document.getElementById('tp'+idx);
+  if(patEl){patEl.style.borderColor='var(--gr)';patEl.title='✅ '+f.ferramenta;}
+  if(idx===0)syncDest();
+  // Foco automático para próxima linha de patrimônio
+  setTimeout(function(){
+    var next=document.getElementById('tp'+(idx+1));
+    if(next)next.focus();
+  },60);
 }
 function syncDest(){var d=termTools[0].dest;if(!d)return;termTools.forEach(function(tt,i){if(i>0){tt.dest=d;var e=document.getElementById('td'+i);if(e)e.value=d;}});}
 var isPasting=false;
@@ -2203,15 +2222,13 @@ async function confirmarAceite(token,status){
 async function abrirTermo(id){
   if(!sb)return;
   try{
-    var r=await sb.from('termos').select('html_content,pdf_url,pdf_path,aceite_status,aceite_por,aceite_em,aceite_assinatura').eq('id',id).single();
+    var r=await sb.from('termos').select('html_content,pdf_url,pdf_path,aceite_status,aceite_por,aceite_em,aceite_assinatura,remetente,destino,data_termo').eq('id',id).single();
     if(r.error)throw r.error;
     var t=r.data;
     var html='';
-    // Preferência: html_content salvo no banco
     if(t.html_content){
       html=t.html_content;
     } else if(t.pdf_url&&/\.html?(\?|$)/i.test(t.pdf_url)){
-      // Fallback: busca do Storage
       try{
         var resp=await fetch(t.pdf_url+'?t='+Date.now());
         if(resp.ok)html=await resp.text();
@@ -2219,9 +2236,23 @@ async function abrirTermo(id){
     }
     if(html){
       var w=window.open('','_blank');
+      // Injeta barra de ações no topo antes de fechar o </body>
+      var nomeArq='Termo_'+(t.remetente||'').replace(/[^a-zA-Z0-9]/g,'_')+'_'+(t.data_termo||'').replace(/\//g,'-')+'.html';
+      var toolbar='<div style="position:fixed;top:0;left:0;right:0;background:#1B3A6B;color:#fff;padding:8px 20px;display:flex;align-items:center;gap:10px;z-index:9999;font-family:Inter,sans-serif;font-size:13px">'+
+        '<span style="font-weight:700;color:#E86A00;font-size:16px">SolarGrid</span>'+
+        '<span style="flex:1;color:rgba(255,255,255,.7)">'+(t.remetente||'')+(t.destino?' → '+t.destino:'')+' &nbsp;|&nbsp; '+(t.data_termo||'')+'</span>'+
+        '<button onclick="window.print()" style="background:#E86A00;color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600">🖨️ Imprimir / Salvar PDF</button>'+
+        '<button onclick="downloadTermo()" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">⬇️ Baixar HTML</button>'+
+        '</div>'+
+        '<div style="height:48px"></div>';
+      var dlScript='<script>function downloadTermo(){'+
+        'var blob=new Blob([document.documentElement.outerHTML],{type:"text/html"});'+
+        'var a=document.createElement("a");a.href=URL.createObjectURL(blob);'+
+        'a.download="'+nomeArq+'";a.click();'+
+        '}<\/script>';
+      html=html.replace('<body>','<body>'+toolbar).replace('</body>',dlScript+'</body>');
       w.document.open();w.document.write(html);w.document.close();
     } else if(t.pdf_url){
-      // PDF real ou outro arquivo — abre direto
       window.open(t.pdf_url,'_blank');
     } else {
       showToast('Arquivo não encontrado.',false);
