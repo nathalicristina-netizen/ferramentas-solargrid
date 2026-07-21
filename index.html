@@ -635,7 +635,7 @@ function openStatusPicker(id){
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button></div>';
   showM(h);
 }
-function setToolStatus(id,novoStatus){
+async function setToolStatus(id,novoStatus){
   if(!CU||(CU.role!=='Admin'&&CU.role!=='Coordenador'&&CU.role!=='Supervisor')){
     showToast('Sem permissão para alterar o status.',false);return;
   }
@@ -644,20 +644,21 @@ function setToolStatus(id,novoStatus){
   if(t.status===novoStatus){closeM();return;}
   var antigo=t.status;
   t.status=novoStatus;
-  dbSaveTool(t);
-  dbSaveHist(t._id,'🔄 Status alterado: '+antigo+' → '+novoStatus,CU?CU.name:'—');
   saveTols();closeM();renderAll();
   showToast(t.patrimonio+': status → '+novoStatus,true);
+  await dbSaveTool(t); // garante a ferramenta no banco antes do histórico (foreign key)
+  dbSaveHist(t._id,'🔄 Status alterado: '+antigo+' → '+novoStatus,CU?CU.name:'—');
 }
-function toggleDisponib(id){
+async function toggleDisponib(id){
   if(!CU||CU.role==='Comum'){showToast('Usuários Comuns não podem alterar disponibilidade.',false);return;}
-  if(!CU||CU.role==='Comum'){showToast('Sem permissão para esta ação.',false);return;}
   var t=tools.find(function(x){return x._id===id;});
   if(!t)return;
   t.disponibilidade=t.disponibilidade==='Em uso'?'Liberada':'Em uso';
   var msg='🔧 Disponibilidade: '+t.disponibilidade;
-  dbSaveTool(t);dbSaveHist(t._id,msg,CU?CU.name:'—');saveTols();renderTable();
+  saveTols();renderTable();
   showToast(t.patrimonio+': '+t.disponibilidade,true);
+  await dbSaveTool(t);
+  dbSaveHist(t._id,msg,CU?CU.name:'—');
 }
 function calSt(t){
   var d=isNaN(parseFloat(t.diasProxCal))||t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);
@@ -762,6 +763,16 @@ async function dbSaveHist(id,msg,user){
   catch(e){}
 }
 async function dbDelHist(id){if(!sb)return;try{await sb.from('historico').delete().eq('ferramenta_id',id);}catch(e){}}
+// Exclui uma ferramenta do banco na ordem correta: histórico PRIMEIRO (por causa da foreign key), depois a ferramenta.
+async function dbDeleteToolCompletely(id){
+  if(!sb||id==null)return {ok:true};
+  try{
+    await sb.from('historico').delete().eq('ferramenta_id',id);
+    var f=await sb.from('ferramentas').delete().eq('id',id);
+    if(f&&f.error)return {ok:false,error:f.error};
+    return {ok:true};
+  }catch(e){return {ok:false,error:e};}
+}
 async function dbLoad(){
   if(!sb){renderAll();return;}
   await loadUsersFB();
@@ -1617,16 +1628,16 @@ function clearHist(tid){
 }
 
 // ── EDITAR ──
-function delTool(id){
+async function delTool(id){
   if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem excluir ferramentas.',false);return;}
   var t=tools.find(function(x){return x._id===id;});
   if(!t)return;
   if(!confirm('Excluir "'+t.ferramenta+'" ('+t.patrimonio+')?\n\nEsta ação não pode ser desfeita.'))return;
-  dbSaveHist(id,'Ferramenta excluída: '+t.ferramenta+' ('+t.patrimonio+')',CU.name);
   tools=tools.filter(function(x){return x._id!==id;});
-  saveTols();
-  if(sb){try{sb.from('ferramentas').delete().eq('id',id).then(function(){});sb.from('historico').delete().eq('ferramenta_id',id).then(function(){});}catch(e){}}
-  page=1;renderAll();
+  saveTols();page=1;renderAll();
+  var r=await dbDeleteToolCompletely(id);
+  if(!r.ok){showToast('⚠️ Não foi possível excluir do banco: '+(r.error&&r.error.message?r.error.message:'erro'),false);}
+  else{showToast('Ferramenta excluída.',true);}
 }
 function buildLocalOptions(currentVal, inputId){
   // Merge ALL_LOCAIS + dynamic locals from tools
@@ -1981,10 +1992,10 @@ function importXLSX(e){
           added++;
         }
       });
-      // Apaga os duplicados removidos também no banco
+      // Apaga os duplicados removidos também no banco (histórico antes da ferramenta)
       if(sb&&idsRemover.length){
         idsRemover.forEach(function(rid){
-          try{sb.from('ferramentas').delete().eq('id',rid).then(function(){});sb.from('historico').delete().eq('ferramenta_id',rid).then(function(){});}catch(e){}
+          if(rid!=null)dbDeleteToolCompletely(rid);
         });
       }
 
@@ -2000,7 +2011,7 @@ function importXLSX(e){
           '\n\nDeseja REMOVER essas '+orphans.length+' ferramenta(s) da base, deixando apenas o que está na planilha?\n\n⚠️ Esta ação não pode ser desfeita.';
         if(confirm(msgOrf)){
           var toDelete=orphans.slice();
-          tools=tools.filter(function(t){return patSet[t.patrimonio];});
+          tools=tools.filter(function(t){return patSet[normPat(t.patrimonio)];});
           removidasOrfas=toDelete.length;
           saveTols();page=1;renderAll();
           if(sb){
@@ -2009,15 +2020,12 @@ function importXLSX(e){
               var delErros=0,delOk=0;
               for(var j=0;j<toDelete.length;j++){
                 var o=toDelete[j];
-                try{
-                  var dr=await sb.from('ferramentas').delete().eq('patrimonio',o.patrimonio);
-                  if(dr&&dr.error){delErros++;console.warn('Falha ao remover órfã',o.patrimonio,dr.error);}
-                  else{delOk++;}
-                  if(o._id!=null){try{await sb.from('historico').delete().eq('ferramenta_id',o._id);}catch(e){}}
-                }catch(e){delErros++;console.warn('Exceção ao remover órfã',o.patrimonio,e);}
+                var r=await dbDeleteToolCompletely(o._id);
+                if(r.ok){delOk++;}
+                else{delErros++;console.warn('Falha ao remover órfã',o.patrimonio,r.error);}
               }
               if(delErros){
-                showToast('⚠️ '+delErros+' de '+toDelete.length+' não puderam ser removidas do banco. Provável bloqueio de permissão de exclusão (RLS) na tabela ferramentas.',false);
+                showToast('⚠️ '+delErros+' de '+toDelete.length+' não puderam ser removidas do banco. Verifique as permissões/constraints no Supabase.',false);
               } else {
                 showToast('✅ '+delOk+' ferramenta(s) removida(s) do banco definitivamente.',true);
               }
