@@ -614,6 +614,41 @@ function fmtDateCal(s){
   if(!d)return s||'';
   return d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getFullYear();
 }
+function openStatusPicker(id){
+  if(!CU||(CU.role!=='Admin'&&CU.role!=='Coordenador'&&CU.role!=='Supervisor')){
+    showToast('Sem permissão para alterar o status.',false);return;
+  }
+  var t=tools.find(function(x){return x._id===id;});
+  if(!t)return;
+  var opts=['OK','Inoperante','Atenção','Furtado','Procurar','Descartado','Reciclagem'];
+  var h='<div class="mh"><div><div class="mtt">🔄 Alterar Status</div><div class="msub">'+t.ferramenta+' · '+t.patrimonio+'</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
+  h+='<div style="padding:6px 4px">';
+  h+='<div style="display:flex;flex-direction:column;gap:8px">';
+  opts.forEach(function(s){
+    var sel=t.status===s;
+    h+='<button onclick="setToolStatus('+id+',\''+s+'\')" style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:2px solid '+(sel?'var(--nv)':'var(--bd)')+';background:'+(sel?'rgba(27,58,107,.05)':'var(--bg2)')+';border-radius:8px;padding:10px 14px;cursor:pointer;font-size:13px;text-align:left">'+
+      '<span>'+stBadge(s)+'</span>'+
+      (sel?'<span style="font-size:11px;color:var(--nv);font-weight:600">atual</span>':'')+
+    '</button>';
+  });
+  h+='</div></div>';
+  h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button></div>';
+  showM(h);
+}
+function setToolStatus(id,novoStatus){
+  if(!CU||(CU.role!=='Admin'&&CU.role!=='Coordenador'&&CU.role!=='Supervisor')){
+    showToast('Sem permissão para alterar o status.',false);return;
+  }
+  var t=tools.find(function(x){return x._id===id;});
+  if(!t)return;
+  if(t.status===novoStatus){closeM();return;}
+  var antigo=t.status;
+  t.status=novoStatus;
+  dbSaveTool(t);
+  dbSaveHist(t._id,'🔄 Status alterado: '+antigo+' → '+novoStatus,CU?CU.name:'—');
+  saveTols();closeM();renderAll();
+  showToast(t.patrimonio+': status → '+novoStatus,true);
+}
 function toggleDisponib(id){
   if(!CU||CU.role==='Comum'){showToast('Usuários Comuns não podem alterar disponibilidade.',false);return;}
   if(!CU||CU.role==='Comum'){showToast('Sem permissão para esta ação.',false);return;}
@@ -1069,7 +1104,11 @@ function renderTable(){
           '<br>'+(t.setor||'');
         return'<td><div class="td-wrap"><div class="td-nm">'+t.ferramenta+dot+'<\/div><div class="td-sub">'+sub+'<\/div>'+tip+'<\/div><\/td>';
       })()+
-      '<td>'+stBadge(t.status)+'<\/td>'+
+      (function(){
+        var podeEditar=CU&&(CU.role==='Admin'||CU.role==='Coordenador'||CU.role==='Supervisor');
+        if(podeEditar)return'<td><span style="cursor:pointer" title="Clique para alterar o status" onclick="openStatusPicker('+t._id+')">'+stBadge(t.status)+'</span></td>';
+        return'<td>'+stBadge(t.status)+'</td>';
+      })()+
       (function(){
         var d=t.disponibilidade||'Liberada';
         var bg=d==='Em uso'?'#FFF7ED':'#F0FDF4';
@@ -1455,6 +1494,7 @@ function renderHistGeral(){
     el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">Nenhuma movimentação encontrada.</div>';
     return;
   }
+  var isAdm=CU&&CU.role==='Admin';
   var rows=list.map(function(h){
     var t=tools.find(function(x){return x._id===h.ferramenta_id;});
     var pat=t?'<span style="font-family:monospace;font-size:11px;color:var(--nv);font-weight:700">'+t.patrimonio+'</span>':'<span style="color:var(--tx3);font-size:11px">—</span>';
@@ -1469,6 +1509,7 @@ function renderHistGeral(){
         '<span style="font-size:12px">'+h.msg+'</span>'+
       '</td>'+
       '<td style="padding:9px 10px;font-size:12px;color:var(--tx3)">'+( h.usuario||'—')+'</td>'+
+      (isAdm?'<td style="padding:9px 10px;text-align:center"><button onclick="delHistGeral('+(h.id!=null?h.id:'null')+')" title="Excluir este registro" style="background:var(--rd-bg);border:1px solid rgba(220,38,38,.25);color:var(--rd);border-radius:5px;padding:2px 8px;font-size:11px;cursor:pointer">✕</button></td>':'')+
     '</tr>';
   }).join('');
   el.innerHTML='<table style="width:100%;border-collapse:collapse">'+
@@ -1477,9 +1518,24 @@ function renderHistGeral(){
       '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Ferramenta</th>'+
       '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Ação</th>'+
       '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Usuário</th>'+
+      (isAdm?'<th style="text-align:center;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Excluir</th>':'')+
     '</tr></thead>'+
     '<tbody>'+rows+'</tbody></table>'+
     '<div style="font-size:11px;color:var(--tx3);text-align:right;margin-top:8px">Exibindo '+list.length+' registro(s)</div>';
+}
+
+async function delHistGeral(hid){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem excluir registros do histórico.',false);return;}
+  if(hid==null){showToast('Registro sem identificador, não é possível excluir.',false);return;}
+  if(!confirm('Excluir este registro do histórico geral?\n\nEsta ação não pode ser desfeita.'))return;
+  if(!sb){showToast('Sem conexão com o banco.',false);return;}
+  try{
+    var r=await sb.from('historico').delete().eq('id',hid);
+    if(r.error){showToast('Erro ao excluir: '+r.error.message,false);return;}
+    histGeralData=histGeralData.filter(function(h){return h.id!==hid;});
+    renderHistGeral();
+    showToast('Registro excluído.',true);
+  }catch(e){showToast('Erro ao excluir registro.',false);}
 }
 
 function showTab(id,btn){
@@ -1790,40 +1846,6 @@ function exportPDF(){
     '<table><thead><tr><th>Patrimônio<\/th><th>Ferramenta<\/th><th>Status<\/th><th>Local<\/th><th>Responsável<\/th><th>Data Cal.<\/th><\/tr><\/thead><tbody>'+rows+'<\/tbody><\/table><\/body><\/html>');
   w.document.close();setTimeout(function(){w.print();},600);
 }
-// ── IMPORTAÇÃO DE EXCEL: normalização de cabeçalhos ──
-// Remove acentos, espaços e pontuação para comparar nomes de coluna com folga
-// (ex.: "Nº Série", "N Serie", "  serie " e "SERIE" viram todos "serie").
-function normHeader(h){
-  return String(h||'')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g,'');
-}
-// Lista de variações aceitas (já normalizadas) para cada campo do sistema.
-var FIELD_ALIASES={
-  patrimonio:['patrimonio','patr','pat','npatrimonio','numeropatrimonio'],
-  ferramenta:['ferramenta','descricao','equipamento','item','descricaoferramenta'],
-  marca:['marca'],
-  modelo:['modelo'],
-  serie:['serie','nserie','numserie','noserie','nrserie'],
-  status:['status','situacao'],
-  siglaLocal:['siglalocal','sigla'],
-  local:['local'],
-  cidade:['cidade'],
-  estado:['estado','uf'],
-  responsavel:['responsavel','nomeresponsavel'],
-  setor:['setor'],
-  valor:['valor'],
-  certCal:['certcal','ncertcalibracao','certcalibracao','ncert','certificado','certificadocalibracao','ncertificado'],
-  laboratorio:['laboratorio','lab'],
-  dataCal:['datacalibracao','datacal','datadecalibracao'],
-  dataManut:['datamanutencao','datamanut','ultimamanutencao','datadamanutencao'],
-  obs:['obs','observacao','observacoes'],
-  disponibilidade:['disponibilidade'],
-  corretiva:['corretiva','manutencaocorretiva'],
-  prevCorretiva:['prevcorretiva','previsaocorretiva','previsaoderetorno'],
-  cicloConf:['ciclo','cicloconf','cicloconfirmacao','ciclodeconfirmacao']
-};
 function importXLSX(e){
   if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem importar Excel.',false);e.target.value='';return;}
   var file=e.target.files[0];
@@ -1832,223 +1854,148 @@ function importXLSX(e){
   var reader=new FileReader();
   reader.onload=function(ev){
     try{
-      var wbFull=XLSX.read(ev.target.result,{type:'array',cellDates:false,raw:false,dateNF:'yyyy-mm-dd'});
-      // Aceita a aba "Controle" com qualquer variação de maiúsculas/espaços; se não existir, usa a primeira aba do arquivo
-      var sheetName=wbFull.SheetNames.find(function(n){return n.trim().toLowerCase()==='controle';});
-      if(!sheetName)sheetName=wbFull.SheetNames[0];
-      var ws=sheetName?wbFull.Sheets[sheetName]:null;
-      if(!ws){showToast('Não foi possível ler nenhuma aba da planilha.',false);return;}
-      var rows=XLSX.utils.sheet_to_json(ws,{raw:false,dateNF:'yyyy-mm-dd',defval:''});
-      if(!rows.length){showToast('Nenhuma linha encontrada na aba "'+sheetName+'".',false);return;}
-
-      // mapa: nome de coluna normalizado -> nome de coluna real usado no arquivo
-      var headerMap={};
-      rows.forEach(function(r){Object.keys(r).forEach(function(k){var nk=normHeader(k);if(!(nk in headerMap))headerMap[nk]=k;});});
-      function colFound(field){return(FIELD_ALIASES[field]||[]).some(function(a){return headerMap[a]!==undefined;});}
-      function rawVal(row,field){
-        var aliases=FIELD_ALIASES[field]||[];
-        for(var i=0;i<aliases.length;i++){
-          var raw=headerMap[aliases[i]];
-          if(raw!==undefined&&row[raw]!==undefined&&row[raw]!=='')return row[raw];
-        }
-        return'';
-      }
+      var wb=XLSX.read(ev.target.result,{type:'array',cellDates:false,raw:false,dateNF:'yyyy-mm-dd',sheets:'Controle'});
+      var ws=wb.Sheets['Controle'];
+      if(!ws){showToast('Aba "Controle" não encontrada no arquivo!',false);return;}
+      var rows=XLSX.utils.sheet_to_json(ws,{raw:false,dateNF:'yyyy-mm-dd'});
+      if(!rows.length){showToast('Nenhuma ferramenta encontrada na aba Controle.',false);return;}
+      // Leitura em modo array para pegar a coluna M (Local) por posição — alinhada às linhas de dados
+      var aoaM=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'yyyy-mm-dd',blankrows:false});
+      var dataM=aoaM.slice(1); // remove o cabeçalho; dataM[i] alinha com rows[i]
 
       function cleanStr(v){
         if(v===null||v===undefined)return'';
         var s=String(v).trim();
-        if(s==='nan'||s==='None'||s==='NaT'||s==='undefined')return'';
+        if(s==='nan'||s==='None'||s==='NaT')return'';
         if(/^\d+\.0$/.test(s))s=s.replace(/\.0$/,'');
         return s;
       }
-      // Limpa valores monetários vindos da planilha para um número puro que o app entende.
-      // Aceita "R$ 2,000.00" (americano), "2.000,00" (brasileiro), "687.21", "1946,9", "Não Encontrada" etc.
-      function parseValor(v){
-        if(v===null||v===undefined)return'';
-        var s=String(v).trim();
-        if(s===''||/[a-zA-Z]/.test(s.replace(/r\$/i,'')))return cleanStr(v); // texto tipo "Não Encontrada": mantém como está
-        s=s.replace(/r\$/i,'').replace(/\s/g,'');
-        if(s==='')return'';
-        var hasComma=s.indexOf(',')>=0,hasDot=s.indexOf('.')>=0;
-        if(hasComma&&hasDot){
-          // o separador decimal é o que aparece por último
-          if(s.lastIndexOf(',')>s.lastIndexOf('.')){s=s.replace(/\./g,'').replace(',','.');} // brasileiro: 2.000,00
-          else{s=s.replace(/,/g,'');} // americano: 2,000.00
-        } else if(hasComma){
-          s=s.replace(',','.'); // 1946,9 -> 1946.9
-        }
-        var n=parseFloat(s);
-        return isNaN(n)?cleanStr(v):String(n);
-      }
-      // Detecta se as datas com barra na planilha estão em MM/DD/AAAA ou DD/MM/AAAA,
-      // olhando toda a coluna: se em ALGUMA data o 1º número passa de 12, o arquivo é DD/MM;
-      // se o 2º número passa de 12, é MM/DD. Sem pistas, assume DD/MM (padrão brasileiro).
-      function detectDateOrder(vals){
-        var firstGt12=0,secondGt12=0;
-        vals.forEach(function(v){
-          if(!v)return;
-          var m=String(v).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-          if(!m)return;
-          var a=parseInt(m[1]),b=parseInt(m[2]);
-          if(a>12&&b<=12)firstGt12++;
-          if(b>12&&a<=12)secondGt12++;
-        });
-        if(secondGt12>0&&firstGt12===0)return'MDY'; // americano
-        if(firstGt12>0&&secondGt12===0)return'DMY'; // brasileiro
-        if(firstGt12>0&&secondGt12>0)return'MIXED'; // planilha inconsistente (avisar)
-        return'DMY';
-      }
-      function fmtDate(v,order,warnList,pat,label){
+      function fmtDate(v){
         if(!v||String(v).trim()==='')return'';
-        var s=String(v).trim();
         try{
-          // já em YYYY-MM-DD
+          var s=String(v).trim();
+          // already YYYY-MM-DD
           if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.substring(0,10);
-          // número de série de data do Excel/SheetJS
-          if(/^\d{4,6}$/.test(s)){
+          // SheetJS date serial number
+          if(/^\d{5}$/.test(s)){
             var d=XLSX.SSF.parse_date_code(parseInt(s));
             if(d)return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0');
           }
+          // MM/DD/YYYY (Excel US format from SheetJS raw:false)
           var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
           if(m){
-            var p1=parseInt(m[1]),p2=parseInt(m[2]),year=parseInt(m[3]);
-            var day,month;
-            if(order==='MDY'){month=p1;day=p2;}
-            else{day=p1;month=p2;}
-            // se a ordem detectada não bate (ex.: mês>12), inverte como fallback
-            if(month>12&&day<=12){var tmp=day;day=month;month=tmp;}
-            if(month>=1&&month<=12&&day>=1&&day<=31)return year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+            var month=parseInt(m[1]),day=parseInt(m[2]),year=parseInt(m[3]);
+            // if month > 12 it's actually DD/MM/YYYY
+            if(month>12)return year+'-'+String(day).padStart(2,'0')+'-'+String(month).padStart(2,'0');
+            return year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
           }
-          // tentativa genérica
+          // try generic parse
           var dt=new Date(s);
           if(!isNaN(dt))return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
-        }catch(err){}
-        if(warnList)warnList.push((pat||'—')+': '+label+' "'+s+'" não reconhecida');
-        return'';
+          return'';
+        }catch(e){return'';}
       }
 
-      var STATUS_VALID=['OK','Inoperante','Atenção','Furtado','Procurar','Descartado','Reciclagem'];
-      var statusMap={'ok':'OK','operante':'OK','inoperante':'Inoperante','atenção':'Atenção','atencao':'Atenção','procurar':'Procurar','furtado':'Furtado','descartado':'Descartado','reciclagem':'Reciclagem'};
-
-      var warnDates=[],warnStatus=[],skippedNoPat=0,dupInFile={},dupList=[];
-      // Campos administrados dentro do próprio app (normalmente não fazem parte da planilha mestre).
-      // Só sobrescrevemos esses campos se a coluna realmente existir no arquivo importado —
-      // caso contrário, uma importação de rotina apagaria silenciosamente o que foi ajustado manualmente no app.
-      var hasDisp=colFound('disponibilidade'),hasCorr=colFound('corretiva'),hasPrevCorr=colFound('prevCorretiva'),hasCiclo=colFound('cicloConf');
-
-      // detecta o formato das datas com barra (MM/DD vs DD/MM) analisando cada coluna inteira
-      var orderCal=detectDateOrder(rows.map(function(r){return rawVal(r,'dataCal');}));
-      var orderManut=detectDateOrder(rows.map(function(r){return rawVal(r,'dataManut');}));
-
-      var imported=rows.map(function(row){
-        var pat=cleanStr(rawVal(row,'patrimonio'));
-        if(!pat){skippedNoPat++;return null;}
-        if(dupInFile[pat])dupList.push(pat);
-        dupInFile[pat]=(dupInFile[pat]||0)+1;
-
-        var statusRaw=cleanStr(rawVal(row,'status'))||'OK';
-        var status=statusMap[statusRaw.toLowerCase()]||statusRaw;
-        if(STATUS_VALID.indexOf(status)===-1)warnStatus.push(pat+': status "'+statusRaw+'" desconhecido, mantido como texto');
-
-        var siglaLocal=cleanStr(rawVal(row,'siglaLocal'));
-        var local=cleanStr(rawVal(row,'local'))||siglaLocal;
-
-        var imp={
+      var imported=rows.map(function(row,rowIdx){
+        // Try all possible column name variations
+        var pat=cleanStr(row['Patr']||row['Patrimônio']||row['Patrimonio']||row['patrimonio']||row['PAT']||row['pat']||'');
+        if(!pat||pat==='nan'||pat==='None')return null;
+        // Coluna M (Local) por posição — fonte autoritativa do Local/siglaLocal
+        var colM=(dataM[rowIdx]&&dataM[rowIdx][12]!=null)?cleanStr(dataM[rowIdx][12]):'';
+        var siglaLocalHdr=cleanStr(row['Sigla Local']||row['SiglaLocal']||row['siglaLocal']||row['Sigla']||row['SIGLA']||'');
+        var localHdr=cleanStr(row['Local']||row['LOCAL']||row['local']||'');
+        // Prioridade: coluna M → header "Local" → header "Sigla Local"
+        var localFinal=colM||localHdr||siglaLocalHdr;
+        var status=cleanStr(row['Status']||row['STATUS']||row['status']||'')||'OK';
+        // normalize status
+        var statusMap={'ok':'OK','operante':'OK','inoperante':'Inoperante','atenção':'Atenção','atencao':'Atenção','procurar':'Procurar','furtado':'Furtado'};
+        status=statusMap[status.toLowerCase()]||status||'OK';
+        var disponibilidade=cleanStr(row['Disponibilidade']||row['disponibilidade']||'Liberada');
+        if(disponibilidade!=='Em uso')disponibilidade='Liberada';
+        var ciclo=cleanStr(row['Ciclo']||row['cicloConf']||row['Ciclo Conf']||'quinzenal').toLowerCase();
+        if(ciclo!=='mensal'&&ciclo!=='anual')ciclo='quinzenal';
+        return{
           patrimonio:pat,
-          ferramenta:cleanStr(rawVal(row,'ferramenta')),
-          marca:cleanStr(rawVal(row,'marca')),
-          modelo:cleanStr(rawVal(row,'modelo')),
-          serie:cleanStr(rawVal(row,'serie')),
+          ferramenta:cleanStr(row['Ferramenta']||row['FERRAMENTA']||row['ferramenta']||row['Descrição']||''),
+          marca:cleanStr(row['Marca']||row['MARCA']||row['marca']||''),
+          modelo:cleanStr(row['Modelo']||row['MODELO']||row['modelo']||''),
+          serie:cleanStr(row['Nº Série']||row['Nº Serie']||row['Série']||row['Serie']||row['serie']||row['SERIE']||''),
           status:status,
-          local:local,
-          siglaLocal:siglaLocal||local,
-          cidade:cleanStr(rawVal(row,'cidade')),
-          estado:cleanStr(rawVal(row,'estado')),
-          responsavel:cleanStr(rawVal(row,'responsavel')),
-          setor:cleanStr(rawVal(row,'setor')),
-          valor:parseValor(rawVal(row,'valor')),
-          certCal:cleanStr(rawVal(row,'certCal')),
-          laboratorio:cleanStr(rawVal(row,'laboratorio')),
-          dataCal:fmtDate(rawVal(row,'dataCal'),orderCal,warnDates,pat,'Data de calibração'),
+          local:localFinal,
+          siglaLocal:localFinal,
+          cidade:cleanStr(row['Cidade']||row['CIDADE']||row['cidade']||''),
+          estado:cleanStr(row['Estado']||row['ESTADO']||row['estado']||row['UF']||''),
+          responsavel:cleanStr(row['Responsável']||row['Responsavel']||row['RESPONSAVEL']||row['responsavel']||''),
+          setor:cleanStr(row['Setor']||row['SETOR']||row['setor']||''),
+          valor:cleanStr(row['Valor']||row['VALOR']||row['valor']||''),
+          certCal:cleanStr(row['Nº Cert. Calibração']||row['Cert. Calibração']||row['CertCal']||row['Nº Cert']||''),
+          laboratorio:cleanStr(row['Laboratório']||row['Laboratorio']||row['Lab']||row['LAB']||''),
+          dataCal:fmtDate(row['Data de calibração']||row['Data Calibração']||row['DataCal']||row['Data Cal']||''),
           diasProxCal:'-',
-          dataManut:fmtDate(rawVal(row,'dataManut'),orderManut,warnDates,pat,'Data de manutenção'),
+          dataManut:fmtDate(row['Ultima Manutenção ']||row['Ultima Manutenção']||row['Última Manutenção']||row['DataManut']||row['Data Manut']||''),
           diasProxManut:'-',
-          obs:cleanStr(rawVal(row,'obs'))
+          obs:cleanStr(row['OBS']||row['Obs']||row['Observação']||row['Observacao']||''),
+          disponibilidade:disponibilidade,
+          corretiva:cleanStr(row['Corretiva']||row['corretiva']||''),
+          prevCorretiva:cleanStr(row['Prev Corretiva']||row['prevCorretiva']||row['Previsão Corretiva']||''),
+          cicloConf:ciclo
         };
-        if(hasDisp){var disp=cleanStr(rawVal(row,'disponibilidade'));imp.disponibilidade=disp==='Em uso'?'Em uso':'Liberada';}
-        if(hasCorr)imp.corretiva=cleanStr(rawVal(row,'corretiva'));
-        if(hasPrevCorr)imp.prevCorretiva=cleanStr(rawVal(row,'prevCorretiva'));
-        if(hasCiclo){var ciclo=cleanStr(rawVal(row,'cicloConf')).toLowerCase();imp.cicloConf=(ciclo==='mensal'||ciclo==='anual')?ciclo:'quinzenal';}
-        return imp;
       }).filter(Boolean);
 
-      if(!imported.length){showToast('Nenhuma ferramenta com patrimônio válido encontrada na aba "'+sheetName+'".',false);return;}
+      if(!imported.length){showToast('Nenhuma ferramenta válida encontrada.',false);return;}
 
-      // colunas do arquivo que não bateram com nenhum campo conhecido (ajuda a achar erro de nome de coluna)
-      var recognizedNorms={};
-      Object.keys(FIELD_ALIASES).forEach(function(f){FIELD_ALIASES[f].forEach(function(a){recognizedNorms[a]=1;});});
-      var unknownCols=Object.keys(headerMap).filter(function(nk){return!recognizedNorms[nk];}).map(function(nk){return headerMap[nk];});
+      // Dedup do próprio Excel: patrimônio repetido → mantém a última linha (última vence)
+      var byPat={},order=[];
+      imported.forEach(function(imp){
+        if(!(imp.patrimonio in byPat))order.push(imp.patrimonio);
+        byPat[imp.patrimonio]=imp;
+      });
+      var dedup=order.map(function(p){return byPat[p];});
 
-      // Merge:
-      //  • 1ª vez que um patrimônio aparece no arquivo: atualiza a ferramenta já existente na base (ou cria, se não existir)
-      //  • ocorrências seguintes do MESMO patrimônio no arquivo: cria ferramentas separadas (duplicados são importados, nada é descartado)
-      //  • ferramentas que estão na base mas não no arquivo: permanecem intactas (nada é apagado)
-      var updated=0,added=0,dupCreated=0,seenInFile={},touchedIds=[];
-      imported.forEach(function(imp,i){
-        var firstTimeInFile=!seenInFile[imp.patrimonio];
-        seenInFile[imp.patrimonio]=true;
-        var existing=firstTimeInFile?tools.find(function(t){return t.patrimonio===imp.patrimonio;}):null;
-        if(existing){
-          // preserva campos controlados pelo app (id, histórico, última confirmação)
-          var preserve={_id:existing._id,hist:existing.hist,lastConfirm:existing.lastConfirm,_mod:existing._mod};
-          Object.assign(existing,imp,preserve);
+      // Merge: atualiza existentes, adiciona novas, e colapsa duplicados já existentes na base
+      var updated=0,added=0,removidosDup=0,idsRemover=[];
+      dedup.forEach(function(imp){
+        var matches=tools.filter(function(t){return t.patrimonio===imp.patrimonio;});
+        if(matches.length){
+          var keep=matches[0];
+          // remove quaisquer duplicados extras da base (deixa só um com aquele patrimônio)
+          for(var k=1;k<matches.length;k++){
+            var extra=matches[k];
+            if(extra._id!=null)idsRemover.push(extra._id);
+            tools=tools.filter(function(x){return x!==extra;});
+            removidosDup++;
+          }
+          var preserve={_id:keep._id,hist:keep.hist,lastConfirm:keep.lastConfirm,_mod:keep._mod};
+          Object.assign(keep,imp,preserve);
+          keep._mod=true;
           updated++;
-          touchedIds.push(existing._id);
         } else {
-          imp._id=Date.now()+i;
+          imp._id=Date.now()+added;
           imp.hist=[];imp.lastConfirm=null;imp._mod=true;
-          if(!('disponibilidade' in imp))imp.disponibilidade='Liberada';
-          if(!('cicloConf' in imp))imp.cicloConf='quinzenal';
-          if(!('corretiva' in imp))imp.corretiva='';
-          if(!('prevCorretiva' in imp))imp.prevCorretiva='';
-          imp.notaFiscal='';imp.notaFiscalNome='';
           tools.unshift(imp);
           added++;
-          touchedIds.push(imp._id);
-          if(!firstTimeInFile)dupCreated++; // era duplicado dentro do arquivo
         }
       });
+      // Apaga os duplicados removidos também no banco
+      if(sb&&idsRemover.length){
+        idsRemover.forEach(function(rid){
+          try{sb.from('ferramentas').delete().eq('id',rid).then(function(){});sb.from('historico').delete().eq('ferramenta_id',rid).then(function(){});}catch(e){}
+        });
+      }
 
       saveTols();page=1;renderAll();
-
-      // ── Relatório de importação (mostra o que foi lido e possíveis problemas) ──
-      function repRow(lbl,val,color){return'<div style="display:flex;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:12.5px"><span style="color:var(--tx3)">'+lbl+'<\/span><span style="font-weight:600;text-align:right'+(color?';color:'+color:'')+'">'+val+'<\/span><\/div>';}
-      var repH='<div class="mh"><div><div class="mtt">📥 Relatório da importação<\/div><div class="msub">Aba lida: '+sheetName+'<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>';
-      repH+='<div style="margin-bottom:4px">';
-      repH+=repRow('Linhas lidas na planilha',rows.length);
-      repH+=repRow('Ferramentas atualizadas',updated,'#16a34a');
-      repH+=repRow('Ferramentas novas',added,'#2563eb');
-      if(skippedNoPat)repH+=repRow('Ignoradas (sem patrimônio)',skippedNoPat,'#dc2626');
-      if(dupList.length)repH+=repRow('Patrimônio duplicado no arquivo',[...new Set(dupList)].join(', ')+' — importado como ferramentas separadas','#d97706');
-      repH+='<\/div>';
-      var ordLbl={'MDY':'Mês/Dia/Ano (formato americano detectado)','DMY':'Dia/Mês/Ano (formato brasileiro)','MIXED':'MISTO'};
-      if(orderCal==='MIXED'||orderManut==='MIXED')repH+='<div style="margin-top:12px;background:#FEF3C7;border:1px solid #d97706;border-radius:8px;padding:9px 11px;font-size:12px;color:#92400e"><b>⚠ Datas em formato inconsistente na planilha.<\/b> Algumas parecem Dia/Mês e outras Mês/Dia. Confira as datas de calibração/manutenção após importar.<\/div>';
-      else repH+='<div style="margin-top:10px;font-size:11px;color:var(--tx3)">Datas com barra lidas como: '+ordLbl[orderCal]+'<\/div>';
-      if(warnDates.length)repH+='<div style="margin-top:12px"><b style="font-size:12px;color:#d97706">⚠ Datas não reconhecidas ('+warnDates.length+') — campo ficou em branco<\/b><div style="max-height:130px;overflow-y:auto;font-size:11.5px;color:var(--tx2);margin-top:5px;background:var(--bg3);border-radius:8px;padding:8px 10px">'+warnDates.map(function(w){return'<div>'+w+'<\/div>';}).join('')+'<\/div><\/div>';
-      if(warnStatus.length)repH+='<div style="margin-top:12px"><b style="font-size:12px;color:#d97706">⚠ Status fora do padrão ('+warnStatus.length+')<\/b><div style="max-height:130px;overflow-y:auto;font-size:11.5px;color:var(--tx2);margin-top:5px;background:var(--bg3);border-radius:8px;padding:8px 10px">'+warnStatus.map(function(w){return'<div>'+w+'<\/div>';}).join('')+'<\/div><\/div>';
-      if(unknownCols.length)repH+='<div style="margin-top:12px"><b style="font-size:12px;color:var(--tx3)">Colunas do arquivo não reconhecidas pelo sistema (foram ignoradas)<\/b><div style="font-size:11.5px;color:var(--tx2);margin-top:5px">'+unknownCols.join(', ')+'<\/div><\/div>';
-      repH+='<div class="mb-btns"><button class="b-sv" onclick="closeM()">Fechar<\/button><\/div>';
-      showM(repH);
-
-      // sync com Supabase em sequência controlada (por _id, para cobrir duplicados criados)
+      // sync to Supabase using dbSaveTool in controlled sequence
       if(sb){
-        var toSync=touchedIds.map(function(id){
-          return tools.find(function(x){return x._id===id;});
+        showToast('Sincronizando com o banco... aguarde ⏳',true);
+        var toSync=dedup.map(function(imp){
+          return tools.find(function(x){return x.patrimonio===imp.patrimonio;});
         }).filter(Boolean);
         var i=0;
         function nextSave(){
           if(i>=toSync.length){
-            showToast('✅ Salvo no banco: '+updated+' atualizadas, '+added+' novas.',true);
+            var msg='✅ Salvo no banco: '+updated+' atualizadas, '+added+' novas';
+            if(removidosDup)msg+=', '+removidosDup+' duplicada(s) mesclada(s)';
+            showToast(msg+'.',true);
             return;
           }
           if(i%50===0)showToast('Sincronizando... '+i+'/'+toSync.length+' ⏳',true);
@@ -2058,7 +2005,9 @@ function importXLSX(e){
         }
         nextSave();
       } else {
-        showToast('Importado: '+updated+' atualizadas, '+added+' novas.',true);
+        var msgOff='Importado: '+updated+' atualizadas, '+added+' novas';
+        if(removidosDup)msgOff+=', '+removidosDup+' duplicada(s) mesclada(s)';
+        showToast(msgOff+'.',true);
       }
     }catch(err){
       showToast('Erro ao ler arquivo: '+err.message,false);
