@@ -2521,11 +2521,21 @@ async function salvarTermoPDF(){
 }
 async function importTermoPDF(e){openImportTermo();}
 
-async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin,aguardandoRemetente){
+async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin,aguardandoRemetente,htmlDireto){
   if(!sb)return;
   try{
     var pdfUrl='';var pdfPath='';var htmlContent='';
-    if(printWin){
+    if(htmlDireto){
+      // HTML passado diretamente (modo enviar link)
+      htmlContent=htmlDireto;
+      try{
+        var blob=new Blob([htmlContent],{type:'text/html'});
+        pdfPath='termo_'+Date.now()+'.html';
+        var up=await sb.storage.from('termos').upload(pdfPath,blob,{contentType:'text/html',upsert:true});
+        if(!up.error){pdfUrl=sb.storage.from('termos').getPublicUrl(pdfPath).data.publicUrl;}
+      }catch(e){console.warn('termo upload err:',e);}
+    } else if(printWin){
+      // HTML capturado da janela de impressão
       try{
         await new Promise(function(res){setTimeout(res,800);});
         htmlContent=printWin.document.documentElement.outerHTML;
@@ -2562,7 +2572,20 @@ async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin,agua
     // Gera e salva o código usando o id real do banco
     if(ins_r.data&&ins_r.data.id){
       var codigo=gerarCodigoTermo(remetente,destino,ins_r.data.id);
-      await sb.from('termos').update({codigo:codigo}).eq('id',ins_r.data.id);
+      // Injeta o código no HTML (substitui o placeholder)
+      var upd={codigo:codigo};
+      if(htmlContent){
+        htmlContent=htmlContent.replace('<!--CODIGO_TERMO-->',codigo);
+        upd.html_content=htmlContent;
+        // Atualiza também no Storage
+        if(pdfPath){
+          try{
+            var blobUpd=new Blob([htmlContent],{type:'text/html'});
+            await sb.storage.from('termos').upload(pdfPath,blobUpd,{contentType:'text/html',upsert:true});
+          }catch(e){console.warn('update storage codigo:',e);}
+        }
+      }
+      await sb.from('termos').update(upd).eq('id',ins_r.data.id);
     }
     if(aguardandoRemetente){
       setTimeout(function(){showToast('✅ Termo salvo! Copie o link do remetente na aba Termos Salvos.',true);},2000);
@@ -2729,7 +2752,7 @@ function _gerarTermoComAssinaturaRemetente(nomeRem,sigDataRem,agoraRem,validTool
     '<div class="logo">SolarGrid<\/div>'+
     '<p class="sub">CNPJ nº 21.481.886-0001/02<\/p>'+
     '<h2>Termo de Empréstimo e Responsabilidade<\/h2>'+
-    '<div style="text-align:center;margin:-8px 0 10px"><span style="font-family:monospace;font-size:9pt;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:4px;padding:2px 10px;color:#475569;letter-spacing:.08em">'+codigo+'<\/span><\/div>'+
+    '<div style="text-align:center;margin:-8px 0 10px"><span style="font-family:monospace;font-size:9pt;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:4px;padding:2px 10px;color:#475569;letter-spacing:.08em"><!--CODIGO_TERMO--><\/span><\/div>'+
     '<div class="grid">'+
       '<div class="box"><h3>Responsável (SolarGrid)<\/h3>'+
         '<div class="pf"><span>Nome:<\/span> '+(tg('tPN')||'___')+'<\/div>'+
@@ -2765,9 +2788,17 @@ function _gerarTermoComAssinaturaRemetente(nomeRem,sigDataRem,agoraRem,validTool
     '<div class="note"><!--ACEITE_STAMP-->'+(aguardandoRemetente?'⏳ Aguardando assinatura do remetente via SolarGrid.':'⏳ Aguardando aceite eletrônico do destinatário via SolarGrid.')+'<\/div>'+
     '<\/body><\/html>');
   w.document.close();
-  setTimeout(function(){w.print();},600);
+  if(!aguardandoRemetente){
+    // Só abre o diálogo de impressão quando o remetente já assinou
+    setTimeout(function(){w.print();},600);
+  } else {
+    // Modo link: fecha a janela em branco imediatamente, não precisa imprimir
+    setTimeout(function(){try{w.close();}catch(e){}},300);
+  }
   var patsList=validTools.map(function(t){return t.pat;});
-  saveTermoSB(tg('tPN')||'\u2014',tg('tRN')||'\u2014',tg('tData')||new Date().toLocaleDateString('pt-BR'),patsList,w,aguardandoRemetente);
+  // No modo aguardandoRemetente passa o HTML diretamente (não precisa da janela)
+  var htmlParaSalvar=aguardandoRemetente?w.document.documentElement.outerHTML:w;
+  saveTermoSB(tg('tPN')||'\u2014',tg('tRN')||'\u2014',tg('tData')||new Date().toLocaleDateString('pt-BR'),patsList,aguardandoRemetente?null:w,aguardandoRemetente,aguardandoRemetente?htmlParaSalvar:null);
 }
 
 // ── MODAL ──
