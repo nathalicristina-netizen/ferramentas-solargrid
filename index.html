@@ -763,15 +763,17 @@ async function dbSaveHist(id,msg,user){
   catch(e){}
 }
 async function dbDelHist(id){if(!sb)return;try{await sb.from('historico').delete().eq('ferramenta_id',id);}catch(e){}}
-// Exclui uma ferramenta do banco na ordem correta: histórico PRIMEIRO (por causa da foreign key), depois a ferramenta.
+// Exclui uma ferramenta do banco na ordem correta: histórico PRIMEIRO (foreign key), depois a ferramenta.
+// Usa .select() para saber quantas linhas foram realmente apagadas.
 async function dbDeleteToolCompletely(id){
-  if(!sb||id==null)return {ok:true};
+  if(!sb||id==null)return {ok:true,count:0};
   try{
     await sb.from('historico').delete().eq('ferramenta_id',id);
-    var f=await sb.from('ferramentas').delete().eq('id',id);
-    if(f&&f.error)return {ok:false,error:f.error};
-    return {ok:true};
-  }catch(e){return {ok:false,error:e};}
+    var f=await sb.from('ferramentas').delete().eq('id',id).select('id');
+    if(f&&f.error)return {ok:false,error:f.error,count:0};
+    var n=(f&&f.data)?f.data.length:0;
+    return {ok:n>0,count:n,error:(n===0?{message:'Nenhuma linha apagada (id '+id+' não encontrado ou bloqueado por RLS)'}:null)};
+  }catch(e){return {ok:false,error:e,count:0};}
 }
 async function dbLoad(){
   if(!sb){renderAll();return;}
@@ -1636,8 +1638,12 @@ async function delTool(id){
   tools=tools.filter(function(x){return x._id!==id;});
   saveTols();page=1;renderAll();
   var r=await dbDeleteToolCompletely(id);
-  if(!r.ok){showToast('⚠️ Não foi possível excluir do banco: '+(r.error&&r.error.message?r.error.message:'erro'),false);}
-  else{showToast('Ferramenta excluída.',true);}
+  if(r.ok){showToast('✅ Excluída do banco ('+r.count+' linha).',true);}
+  else{
+    var det=r.error&&r.error.message?r.error.message:'erro desconhecido';
+    showToast('⚠️ NÃO removida do banco. '+det,false);
+    console.warn('delTool falhou. id=',id,'resultado=',r);
+  }
 }
 function buildLocalOptions(currentVal, inputId){
   // Merge ALL_LOCAIS + dynamic locals from tools
