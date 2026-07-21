@@ -451,8 +451,9 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         <div class="sign-row">
           <div class="sign-box"><div class="sign-line"></div><div class="sign-lbl">Remetente</div></div>
           <div class="sign-box"><div class="sign-line"></div><div class="sign-lbl">Destinatário</div></div>
-          <div class="sign-box"><div class="sign-line"></div><div class="sign-lbl">Testemunha 1</div></div>
-          <div class="sign-box"><div class="sign-line"></div><div class="sign-lbl">Testemunha 2</div></div>
+        </div>
+        <div style="background:rgba(22,163,74,.07);border:1px solid rgba(22,163,74,.25);border-radius:var(--rs);padding:9px 12px;margin-top:10px;font-size:12px;color:#15803d">
+          ✍️ A assinatura do destinatário é feita eletronicamente pelo link de aceite, gerado automaticamente ao exportar o termo (aba Termos Salvos).
         </div>
       </div>
     </div>
@@ -2026,7 +2027,7 @@ async function loadTermosSB(){
       // aceite badge
       var aceiteStatus=t.aceite_status||'pendente';
       var badgeColor={'pendente':'#FFF7ED','aceito':'#F0FDF4','rejeitado':'#FEF2F2'}[aceiteStatus]||'#F3F4F6';
-      var badgeText={'pendente':'⏳ Aguardando aceite','aceito':'✅ Aceito por '+( t.aceite_por||'—'),'rejeitado':'❌ Rejeitado'}[aceiteStatus]||'—';
+      var badgeText={'pendente':'⏳ Aguardando aceite','aceito':'✅ Aceito e assinado por '+( t.aceite_por||'—')+(t.aceite_em?' em '+t.aceite_em:''),'rejeitado':'❌ Rejeitado'}[aceiteStatus]||'—';
       var badgeFg={'pendente':'#c2410c','aceito':'#15803d','rejeitado':'#dc2626'}[aceiteStatus]||'#6B7280';
       // link de aceite
       var linkAceite=t.aceite_token?window.location.origin+window.location.pathname+'?aceite='+t.aceite_token:'';
@@ -2051,7 +2052,7 @@ async function loadTermosSB(){
             '</div>'+
           '</div>'+
           '<div style="display:flex;gap:6px;flex-shrink:0">'+
-            (t.pdf_url?'<button class="bs ok" onclick="window.open(\''+t.pdf_url+'\',\'_blank\')" style="font-size:11px;padding:5px 10px">📄 Abrir</button>':'<span style="font-size:11px;color:var(--tx3)">Sem arquivo</span>')+
+            (t.pdf_url?'<button class="bs ok" onclick="window.open(\''+t.pdf_url+'?v=\'+Date.now(),\'_blank\')" style="font-size:11px;padding:5px 10px">📄 Abrir</button>':'<span style="font-size:11px;color:var(--tx3)">Sem arquivo</span>')+
             '<button class="bs rd" onclick="delTermo('+t.id+')" style="font-size:11px;padding:5px 8px">✕</button>'+
           '</div>'+
         '</div>'+
@@ -2109,34 +2110,110 @@ async function processarAceite(){
         (t.aceite_status==='aceito'?
           '<div style="background:#F0FDF4;border:1.5px solid #86efac;border-radius:8px;padding:14px;text-align:center">'+
             '<div style="font-size:24px">✅</div>'+
-            '<div style="font-weight:700;color:#15803d;margin-top:4px">Termo já aceito por '+( t.aceite_por||'—')+'</div>'+
+            '<div style="font-weight:700;color:#15803d;margin-top:4px">Termo já aceito e assinado por '+( t.aceite_por||'—')+'</div>'+
             '<div style="font-size:12px;color:#6B7280;margin-top:4px">em '+(t.aceite_em||'—')+'</div>'+
+            (t.aceite_assinatura?'<img src="'+t.aceite_assinatura+'" style="max-height:70px;margin-top:10px;border-bottom:1px solid #9ca3af"/>':'')+
           '</div>':
           '<div style="border-top:1px solid #e5e7eb;padding-top:16px">'+
-            '<p style="color:#374151;font-size:14px;margin-bottom:12px">Você confirma que recebeu todas as ferramentas listadas acima?</p>'+
-            '<div style="display:flex;gap:10px;justify-content:center">'+
-              '<button onclick="confirmarAceite(\''+token+'\',\'aceito\')" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">✅ Confirmar recebimento</button>'+
+            '<p style="color:#374151;font-size:14px;margin-bottom:12px">Você confirma que recebeu todas as ferramentas listadas acima? Preencha seu nome, assine no quadro abaixo e confirme.</p>'+
+            '<div style="margin-bottom:12px">'+
+              '<label style="display:block;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Nome completo</label>'+
+              '<input id="aceiteNome" placeholder="Seu nome completo" style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:11px 13px;font-size:14px;font-family:inherit;box-sizing:border-box"/>'+
+            '</div>'+
+            '<div style="margin-bottom:12px">'+
+              '<label style="display:block;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Assinatura ✍️ (desenhe abaixo)</label>'+
+              '<canvas id="sigCanvas" width="640" height="160" style="width:100%;height:160px;border:1.5px dashed #9ca3af;border-radius:8px;background:#fff;touch-action:none;cursor:crosshair"></canvas>'+
+              '<button onclick="limparAssinatura()" style="margin-top:6px;background:none;border:none;color:#6B7280;font-size:12px;cursor:pointer;text-decoration:underline">🗑️ Limpar assinatura</button>'+
+            '</div>'+
+            '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">'+
+              '<button onclick="confirmarAceite(\''+token+'\',\'aceito\')" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">✅ Confirmar recebimento e assinar</button>'+
               '<button onclick="confirmarAceite(\''+token+'\',\'rejeitado\')" style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer">❌ Não recebi</button>'+
             '</div>'+
           '</div>'
         )+
       '</div>'+
     '</div>';
+    if(t.aceite_status!=='aceito')initSigCanvas();
   }catch(e){alert('Erro ao carregar termo.');}
 }
 
+// ── ASSINATURA (canvas) ──
+var sigDirty=false;
+function initSigCanvas(){
+  var c=document.getElementById('sigCanvas');if(!c)return;
+  var ctx=c.getContext('2d');
+  ctx.lineWidth=2.2;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#1B3A6B';
+  var drawing=false;
+  function pos(e){
+    var r=c.getBoundingClientRect();
+    var sx=c.width/r.width,sy=c.height/r.height;
+    var p=e.touches?e.touches[0]:e;
+    return{x:(p.clientX-r.left)*sx,y:(p.clientY-r.top)*sy};
+  }
+  function start(e){e.preventDefault();drawing=true;var p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);}
+  function move(e){if(!drawing)return;e.preventDefault();var p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();sigDirty=true;}
+  function end(){drawing=false;}
+  c.addEventListener('mousedown',start);c.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',end);
+  c.addEventListener('touchstart',start,{passive:false});c.addEventListener('touchmove',move,{passive:false});
+  c.addEventListener('touchend',end);
+}
+function limparAssinatura(){
+  var c=document.getElementById('sigCanvas');if(!c)return;
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+  sigDirty=false;
+}
+
 async function confirmarAceite(token,status){
-  var nome=prompt('Seu nome completo:')||'Anônimo';
-  if(!nome.trim())return;
+  var nomeEl=document.getElementById('aceiteNome');
+  var nome=nomeEl?nomeEl.value.trim():'';
+  if(!nome){alert('Preencha seu nome completo.');if(nomeEl)nomeEl.focus();return;}
+  var sigData='';
+  if(status==='aceito'){
+    if(!sigDirty){alert('Faça sua assinatura no quadro antes de confirmar.');return;}
+    var c=document.getElementById('sigCanvas');
+    if(c)sigData=c.toDataURL('image/png');
+  }
   var agora=new Date().toLocaleString('pt-BR');
   try{
-    await sb.from('termos').update({aceite_status:status,aceite_por:nome,aceite_em:agora}).eq('aceite_token',token);
+    // grava aceite no banco (com fallback caso a coluna de assinatura não exista)
+    var upd={aceite_status:status,aceite_por:nome,aceite_em:agora};
+    if(sigData)upd.aceite_assinatura=sigData;
+    var r=await sb.from('termos').update(upd).eq('aceite_token',token);
+    if(r.error&&sigData){
+      delete upd.aceite_assinatura;
+      r=await sb.from('termos').update(upd).eq('aceite_token',token);
+    }
+    if(r.error)throw r.error;
+    // injeta assinatura no documento salvo (HTML) para o PDF já sair assinado
+    if(status==='aceito'){
+      try{await assinarDocumentoTermo(token,nome,agora,sigData);}catch(e){console.warn('assinatura doc:',e);}
+    }
     document.body.innerHTML='<div style="font-family:Inter,sans-serif;text-align:center;padding:80px 20px">'+
       '<div style="font-size:60px">'+(status==='aceito'?'✅':'❌')+'</div>'+
-      '<h2 style="color:'+(status==='aceito'?'#15803d':'#dc2626')+';margin:20px 0">'+(status==='aceito'?'Recebimento confirmado!':'Não recebimento registrado')+'</h2>'+
-      '<p style="color:#6B7280">Registrado em: '+agora+'</p>'+
+      '<h2 style="color:'+(status==='aceito'?'#15803d':'#dc2626')+';margin:20px 0">'+(status==='aceito'?'Recebimento confirmado e termo assinado!':'Não recebimento registrado')+'</h2>'+
+      '<p style="color:#6B7280">'+nome+' — '+agora+'</p>'+
+      (sigData?'<img src="'+sigData+'" style="max-height:80px;margin-top:14px;border-bottom:1px solid #9ca3af"/>':'')+
     '</div>';
   }catch(e){alert('Erro ao registrar aceite.');}
+}
+
+// Busca o HTML do termo no storage, injeta a assinatura e regrava o arquivo
+async function assinarDocumentoTermo(token,nome,agora,sigData){
+  var r=await sb.from('termos').select('pdf_url,pdf_path').eq('aceite_token',token).single();
+  if(r.error||!r.data||!r.data.pdf_path)return;
+  if(!/\.html?$/i.test(r.data.pdf_path))return; // só documentos HTML gerados pela plataforma
+  var resp=await fetch(r.data.pdf_url+'?t='+Date.now());
+  if(!resp.ok)return;
+  var html=await resp.text();
+  var sigImg=sigData?'<img src="'+sigData+'" style="max-height:42px;max-width:90%"/>':'';
+  var stamp='✅ Aceito e assinado eletronicamente por <strong>'+nome+'</strong> em '+agora+' via SolarGrid.';
+  var info='<div style="font-size:7.5pt;color:#15803d;margin-top:2px">Assinado eletronicamente em '+agora+'</div>';
+  html=html.replace('<!--SIG_DEST-->',sigImg)
+           .replace('<!--SIG_DEST_INFO-->',info)
+           .replace(/<!--ACEITE_STAMP-->[^<]*/,stamp);
+  var blob=new Blob([html],{type:'text/html'});
+  await sb.storage.from('termos').upload(r.data.pdf_path,blob,{contentType:'text/html',upsert:true});
 }
 
 
@@ -2203,13 +2280,15 @@ async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin){
         if(!up.error){pdfUrl=sb.storage.from('termos').getPublicUrl(pdfPath).data.publicUrl;}
       }catch(e){console.warn('termo upload err:',e);}
     }
+    var token=Math.random().toString(36).substring(2)+Math.random().toString(36).substring(2);
     await sb.from('termos').insert({
       remetente:remetente||'—',destino:destino||'—',data_termo:dataTermo||'',
       ferramentas:JSON.stringify(ferramentas),
       pdf_url:pdfUrl,pdf_path:pdfPath,
-      criado_por:CU?CU.name:'—'
+      criado_por:CU?CU.name:'—',
+      aceite_token:token,aceite_status:'pendente'
     });
-    showToast('Termo salvo!',true);
+    setTimeout(function(){showToast('✅ Termo salvo! Copie o link de aceite na aba Termos Salvos e envie ao destinatário.',true);},2000);
   }catch(e){console.warn('saveTermoSB:',e);}
 }
 
@@ -2286,17 +2365,15 @@ function exportTermo(){
     (tg('tObsTermo')?'<div style="margin:10px 0;padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:5px;font-size:10pt"><strong>Observações:</strong> '+tg('tObsTermo')+'<\/div>':'')+
     '<div class="sg">'+
       '<div class="sb"><div class="sl"><\/div><div class="slb">Remetente<\/div><div style="font-size:8pt;color:#555">'+(tg('tPN')||'')+'<\/div><\/div>'+
-      '<div class="sb"><div class="sl"><\/div><div class="slb">Destinatário<\/div><div style="font-size:8pt;color:#555">'+(tg('tRN')||'')+'<\/div><\/div>'+
-      '<div class="sb"><div class="sl"><\/div><div class="slb">Testemunha 1<\/div><\/div>'+
-      '<div class="sb"><div class="sl"><\/div><div class="slb">Testemunha 2<\/div><\/div>'+
+      '<div class="sb"><div class="sl" style="display:flex;align-items:flex-end;justify-content:center"><!--SIG_DEST--><\/div><div class="slb">Destinatário<\/div><div style="font-size:8pt;color:#555">'+(tg('tRN')||'')+'<\/div><!--SIG_DEST_INFO--><\/div>'+
     '<\/div>'+
-    '<div class="note">📱 Pronto para upload no Autentique para assinatura digital.<\/div>'+
+    '<div class="note"><!--ACEITE_STAMP-->⏳ Aguardando aceite eletrônico do destinatário via SolarGrid.<\/div>'+
     '<\/body><\/html>');
   w.document.close();
   setTimeout(function(){w.print();},600);
-  // save to Supabase
-  // Termo exported — user can import the PDF manually in Termos Salvos tab
-  setTimeout(function(){showToast('Após salvar o PDF, importe-o na aba Termos Salvos 📎',true);},1500);
+  // save to Supabase automatically with aceite link
+  var patsList=validTools.map(function(t){return t.pat;});
+  saveTermoSB(tg('tPN')||'—',tg('tRN')||'—',tg('tData')||new Date().toLocaleDateString('pt-BR'),patsList,w);
 }
 
 // ── MODAL ──
