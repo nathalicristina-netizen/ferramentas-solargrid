@@ -1811,7 +1811,7 @@ var FIELD_ALIASES={
   local:['local'],
   cidade:['cidade'],
   estado:['estado','uf'],
-  responsavel:['responsavel'],
+  responsavel:['responsavel','nomeresponsavel'],
   setor:['setor'],
   valor:['valor'],
   certCal:['certcal','ncertcalibracao','certcalibracao','ncert','certificado','certificadocalibracao','ncertificado'],
@@ -1861,7 +1861,44 @@ function importXLSX(e){
         if(/^\d+\.0$/.test(s))s=s.replace(/\.0$/,'');
         return s;
       }
-      function fmtDate(v,warnList,pat,label){
+      // Limpa valores monetários vindos da planilha para um número puro que o app entende.
+      // Aceita "R$ 2,000.00" (americano), "2.000,00" (brasileiro), "687.21", "1946,9", "Não Encontrada" etc.
+      function parseValor(v){
+        if(v===null||v===undefined)return'';
+        var s=String(v).trim();
+        if(s===''||/[a-zA-Z]/.test(s.replace(/r\$/i,'')))return cleanStr(v); // texto tipo "Não Encontrada": mantém como está
+        s=s.replace(/r\$/i,'').replace(/\s/g,'');
+        if(s==='')return'';
+        var hasComma=s.indexOf(',')>=0,hasDot=s.indexOf('.')>=0;
+        if(hasComma&&hasDot){
+          // o separador decimal é o que aparece por último
+          if(s.lastIndexOf(',')>s.lastIndexOf('.')){s=s.replace(/\./g,'').replace(',','.');} // brasileiro: 2.000,00
+          else{s=s.replace(/,/g,'');} // americano: 2,000.00
+        } else if(hasComma){
+          s=s.replace(',','.'); // 1946,9 -> 1946.9
+        }
+        var n=parseFloat(s);
+        return isNaN(n)?cleanStr(v):String(n);
+      }
+      // Detecta se as datas com barra na planilha estão em MM/DD/AAAA ou DD/MM/AAAA,
+      // olhando toda a coluna: se em ALGUMA data o 1º número passa de 12, o arquivo é DD/MM;
+      // se o 2º número passa de 12, é MM/DD. Sem pistas, assume DD/MM (padrão brasileiro).
+      function detectDateOrder(vals){
+        var firstGt12=0,secondGt12=0;
+        vals.forEach(function(v){
+          if(!v)return;
+          var m=String(v).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+          if(!m)return;
+          var a=parseInt(m[1]),b=parseInt(m[2]);
+          if(a>12&&b<=12)firstGt12++;
+          if(b>12&&a<=12)secondGt12++;
+        });
+        if(secondGt12>0&&firstGt12===0)return'MDY'; // americano
+        if(firstGt12>0&&secondGt12===0)return'DMY'; // brasileiro
+        if(firstGt12>0&&secondGt12>0)return'MIXED'; // planilha inconsistente (avisar)
+        return'DMY';
+      }
+      function fmtDate(v,order,warnList,pat,label){
         if(!v||String(v).trim()==='')return'';
         var s=String(v).trim();
         try{
@@ -1872,10 +1909,13 @@ function importXLSX(e){
             var d=XLSX.SSF.parse_date_code(parseInt(s));
             if(d)return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0');
           }
-          // DD/MM/YYYY (padrão brasileiro) — só assume MM/DD se o "mês" for inválido (>12)
           var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
           if(m){
-            var day=parseInt(m[1]),month=parseInt(m[2]),year=parseInt(m[3]);
+            var p1=parseInt(m[1]),p2=parseInt(m[2]),year=parseInt(m[3]);
+            var day,month;
+            if(order==='MDY'){month=p1;day=p2;}
+            else{day=p1;month=p2;}
+            // se a ordem detectada não bate (ex.: mês>12), inverte como fallback
             if(month>12&&day<=12){var tmp=day;day=month;month=tmp;}
             if(month>=1&&month<=12&&day>=1&&day<=31)return year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
           }
@@ -1895,6 +1935,10 @@ function importXLSX(e){
       // Só sobrescrevemos esses campos se a coluna realmente existir no arquivo importado —
       // caso contrário, uma importação de rotina apagaria silenciosamente o que foi ajustado manualmente no app.
       var hasDisp=colFound('disponibilidade'),hasCorr=colFound('corretiva'),hasPrevCorr=colFound('prevCorretiva'),hasCiclo=colFound('cicloConf');
+
+      // detecta o formato das datas com barra (MM/DD vs DD/MM) analisando cada coluna inteira
+      var orderCal=detectDateOrder(rows.map(function(r){return rawVal(r,'dataCal');}));
+      var orderManut=detectDateOrder(rows.map(function(r){return rawVal(r,'dataManut');}));
 
       var imported=rows.map(function(row){
         var pat=cleanStr(rawVal(row,'patrimonio'));
@@ -1922,12 +1966,12 @@ function importXLSX(e){
           estado:cleanStr(rawVal(row,'estado')),
           responsavel:cleanStr(rawVal(row,'responsavel')),
           setor:cleanStr(rawVal(row,'setor')),
-          valor:cleanStr(rawVal(row,'valor')),
+          valor:parseValor(rawVal(row,'valor')),
           certCal:cleanStr(rawVal(row,'certCal')),
           laboratorio:cleanStr(rawVal(row,'laboratorio')),
-          dataCal:fmtDate(rawVal(row,'dataCal'),warnDates,pat,'Data de calibração'),
+          dataCal:fmtDate(rawVal(row,'dataCal'),orderCal,warnDates,pat,'Data de calibração'),
           diasProxCal:'-',
-          dataManut:fmtDate(rawVal(row,'dataManut'),warnDates,pat,'Data de manutenção'),
+          dataManut:fmtDate(rawVal(row,'dataManut'),orderManut,warnDates,pat,'Data de manutenção'),
           diasProxManut:'-',
           obs:cleanStr(rawVal(row,'obs'))
         };
@@ -1940,25 +1984,26 @@ function importXLSX(e){
 
       if(!imported.length){showToast('Nenhuma ferramenta com patrimônio válido encontrada na aba "'+sheetName+'".',false);return;}
 
-      // se o mesmo patrimônio aparece mais de uma vez no arquivo, mantém só a última linha (evita contar/salvar 2x)
-      var byPat={};
-      imported.forEach(function(imp){byPat[imp.patrimonio]=imp;});
-      imported=Object.keys(byPat).map(function(k){return byPat[k];});
-
       // colunas do arquivo que não bateram com nenhum campo conhecido (ajuda a achar erro de nome de coluna)
       var recognizedNorms={};
       Object.keys(FIELD_ALIASES).forEach(function(f){FIELD_ALIASES[f].forEach(function(a){recognizedNorms[a]=1;});});
       var unknownCols=Object.keys(headerMap).filter(function(nk){return!recognizedNorms[nk];}).map(function(nk){return headerMap[nk];});
 
-      // Merge: atualiza ferramentas existentes, adiciona novas
-      var updated=0,added=0;
+      // Merge:
+      //  • 1ª vez que um patrimônio aparece no arquivo: atualiza a ferramenta já existente na base (ou cria, se não existir)
+      //  • ocorrências seguintes do MESMO patrimônio no arquivo: cria ferramentas separadas (duplicados são importados, nada é descartado)
+      //  • ferramentas que estão na base mas não no arquivo: permanecem intactas (nada é apagado)
+      var updated=0,added=0,dupCreated=0,seenInFile={},touchedIds=[];
       imported.forEach(function(imp,i){
-        var existing=tools.find(function(t){return t.patrimonio===imp.patrimonio;});
+        var firstTimeInFile=!seenInFile[imp.patrimonio];
+        seenInFile[imp.patrimonio]=true;
+        var existing=firstTimeInFile?tools.find(function(t){return t.patrimonio===imp.patrimonio;}):null;
         if(existing){
           // preserva campos controlados pelo app (id, histórico, última confirmação)
           var preserve={_id:existing._id,hist:existing.hist,lastConfirm:existing.lastConfirm,_mod:existing._mod};
           Object.assign(existing,imp,preserve);
           updated++;
+          touchedIds.push(existing._id);
         } else {
           imp._id=Date.now()+i;
           imp.hist=[];imp.lastConfirm=null;imp._mod=true;
@@ -1969,6 +2014,8 @@ function importXLSX(e){
           imp.notaFiscal='';imp.notaFiscalNome='';
           tools.unshift(imp);
           added++;
+          touchedIds.push(imp._id);
+          if(!firstTimeInFile)dupCreated++; // era duplicado dentro do arquivo
         }
       });
 
@@ -1982,18 +2029,21 @@ function importXLSX(e){
       repH+=repRow('Ferramentas atualizadas',updated,'#16a34a');
       repH+=repRow('Ferramentas novas',added,'#2563eb');
       if(skippedNoPat)repH+=repRow('Ignoradas (sem patrimônio)',skippedNoPat,'#dc2626');
-      if(dupList.length)repH+=repRow('Patrimônio duplicado no arquivo',dupList.join(', ')+' — a última linha prevaleceu','#d97706');
+      if(dupList.length)repH+=repRow('Patrimônio duplicado no arquivo',[...new Set(dupList)].join(', ')+' — importado como ferramentas separadas','#d97706');
       repH+='<\/div>';
+      var ordLbl={'MDY':'Mês/Dia/Ano (formato americano detectado)','DMY':'Dia/Mês/Ano (formato brasileiro)','MIXED':'MISTO'};
+      if(orderCal==='MIXED'||orderManut==='MIXED')repH+='<div style="margin-top:12px;background:#FEF3C7;border:1px solid #d97706;border-radius:8px;padding:9px 11px;font-size:12px;color:#92400e"><b>⚠ Datas em formato inconsistente na planilha.<\/b> Algumas parecem Dia/Mês e outras Mês/Dia. Confira as datas de calibração/manutenção após importar.<\/div>';
+      else repH+='<div style="margin-top:10px;font-size:11px;color:var(--tx3)">Datas com barra lidas como: '+ordLbl[orderCal]+'<\/div>';
       if(warnDates.length)repH+='<div style="margin-top:12px"><b style="font-size:12px;color:#d97706">⚠ Datas não reconhecidas ('+warnDates.length+') — campo ficou em branco<\/b><div style="max-height:130px;overflow-y:auto;font-size:11.5px;color:var(--tx2);margin-top:5px;background:var(--bg3);border-radius:8px;padding:8px 10px">'+warnDates.map(function(w){return'<div>'+w+'<\/div>';}).join('')+'<\/div><\/div>';
       if(warnStatus.length)repH+='<div style="margin-top:12px"><b style="font-size:12px;color:#d97706">⚠ Status fora do padrão ('+warnStatus.length+')<\/b><div style="max-height:130px;overflow-y:auto;font-size:11.5px;color:var(--tx2);margin-top:5px;background:var(--bg3);border-radius:8px;padding:8px 10px">'+warnStatus.map(function(w){return'<div>'+w+'<\/div>';}).join('')+'<\/div><\/div>';
       if(unknownCols.length)repH+='<div style="margin-top:12px"><b style="font-size:12px;color:var(--tx3)">Colunas do arquivo não reconhecidas pelo sistema (foram ignoradas)<\/b><div style="font-size:11.5px;color:var(--tx2);margin-top:5px">'+unknownCols.join(', ')+'<\/div><\/div>';
       repH+='<div class="mb-btns"><button class="b-sv" onclick="closeM()">Fechar<\/button><\/div>';
       showM(repH);
 
-      // sync com Supabase em sequência controlada
+      // sync com Supabase em sequência controlada (por _id, para cobrir duplicados criados)
       if(sb){
-        var toSync=imported.map(function(imp){
-          return tools.find(function(x){return x.patrimonio===imp.patrimonio;});
+        var toSync=touchedIds.map(function(id){
+          return tools.find(function(x){return x._id===id;});
         }).filter(Boolean);
         var i=0;
         function nextSave(){
