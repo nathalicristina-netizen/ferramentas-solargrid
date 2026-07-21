@@ -1790,6 +1790,40 @@ function exportPDF(){
     '<table><thead><tr><th>Patrimônio<\/th><th>Ferramenta<\/th><th>Status<\/th><th>Local<\/th><th>Responsável<\/th><th>Data Cal.<\/th><\/tr><\/thead><tbody>'+rows+'<\/tbody><\/table><\/body><\/html>');
   w.document.close();setTimeout(function(){w.print();},600);
 }
+// ── IMPORTAÇÃO DE EXCEL: normalização de cabeçalhos ──
+// Remove acentos, espaços e pontuação para comparar nomes de coluna com folga
+// (ex.: "Nº Série", "N Serie", "  serie " e "SERIE" viram todos "serie").
+function normHeader(h){
+  return String(h||'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'');
+}
+// Lista de variações aceitas (já normalizadas) para cada campo do sistema.
+var FIELD_ALIASES={
+  patrimonio:['patrimonio','patr','pat','npatrimonio','numeropatrimonio'],
+  ferramenta:['ferramenta','descricao','equipamento','item','descricaoferramenta'],
+  marca:['marca'],
+  modelo:['modelo'],
+  serie:['serie','nserie','numserie','noserie','nrserie'],
+  status:['status','situacao'],
+  siglaLocal:['siglalocal','sigla'],
+  local:['local'],
+  cidade:['cidade'],
+  estado:['estado','uf'],
+  responsavel:['responsavel'],
+  setor:['setor'],
+  valor:['valor'],
+  certCal:['certcal','ncertcalibracao','certcalibracao','ncert','certificado','certificadocalibracao','ncertificado'],
+  laboratorio:['laboratorio','lab'],
+  dataCal:['datacalibracao','datacal','datadecalibracao'],
+  dataManut:['datamanutencao','datamanut','ultimamanutencao','datadamanutencao'],
+  obs:['obs','observacao','observacoes'],
+  disponibilidade:['disponibilidade'],
+  corretiva:['corretiva','manutencaocorretiva'],
+  prevCorretiva:['prevcorretiva','previsaocorretiva','previsaoderetorno'],
+  cicloConf:['ciclo','cicloconf','cicloconfirmacao','ciclodeconfirmacao']
+};
 function importXLSX(e){
   if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem importar Excel.',false);e.target.value='';return;}
   var file=e.target.files[0];
@@ -1798,110 +1832,166 @@ function importXLSX(e){
   var reader=new FileReader();
   reader.onload=function(ev){
     try{
-      var wb=XLSX.read(ev.target.result,{type:'array',cellDates:false,raw:false,dateNF:'yyyy-mm-dd',sheets:'Controle'});
-      var ws=wb.Sheets['Controle'];
-      if(!ws){showToast('Aba "Controle" não encontrada no arquivo!',false);return;}
-      var rows=XLSX.utils.sheet_to_json(ws,{raw:false,dateNF:'yyyy-mm-dd'});
-      if(!rows.length){showToast('Nenhuma ferramenta encontrada na aba Controle.',false);return;}
+      var wbFull=XLSX.read(ev.target.result,{type:'array',cellDates:false,raw:false,dateNF:'yyyy-mm-dd'});
+      // Aceita a aba "Controle" com qualquer variação de maiúsculas/espaços; se não existir, usa a primeira aba do arquivo
+      var sheetName=wbFull.SheetNames.find(function(n){return n.trim().toLowerCase()==='controle';});
+      if(!sheetName)sheetName=wbFull.SheetNames[0];
+      var ws=sheetName?wbFull.Sheets[sheetName]:null;
+      if(!ws){showToast('Não foi possível ler nenhuma aba da planilha.',false);return;}
+      var rows=XLSX.utils.sheet_to_json(ws,{raw:false,dateNF:'yyyy-mm-dd',defval:''});
+      if(!rows.length){showToast('Nenhuma linha encontrada na aba "'+sheetName+'".',false);return;}
+
+      // mapa: nome de coluna normalizado -> nome de coluna real usado no arquivo
+      var headerMap={};
+      rows.forEach(function(r){Object.keys(r).forEach(function(k){var nk=normHeader(k);if(!(nk in headerMap))headerMap[nk]=k;});});
+      function colFound(field){return(FIELD_ALIASES[field]||[]).some(function(a){return headerMap[a]!==undefined;});}
+      function rawVal(row,field){
+        var aliases=FIELD_ALIASES[field]||[];
+        for(var i=0;i<aliases.length;i++){
+          var raw=headerMap[aliases[i]];
+          if(raw!==undefined&&row[raw]!==undefined&&row[raw]!=='')return row[raw];
+        }
+        return'';
+      }
 
       function cleanStr(v){
         if(v===null||v===undefined)return'';
         var s=String(v).trim();
-        if(s==='nan'||s==='None'||s==='NaT')return'';
+        if(s==='nan'||s==='None'||s==='NaT'||s==='undefined')return'';
         if(/^\d+\.0$/.test(s))s=s.replace(/\.0$/,'');
         return s;
       }
-      function fmtDate(v){
+      function fmtDate(v,warnList,pat,label){
         if(!v||String(v).trim()==='')return'';
+        var s=String(v).trim();
         try{
-          var s=String(v).trim();
-          // already YYYY-MM-DD
+          // já em YYYY-MM-DD
           if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.substring(0,10);
-          // SheetJS date serial number
-          if(/^\d{5}$/.test(s)){
+          // número de série de data do Excel/SheetJS
+          if(/^\d{4,6}$/.test(s)){
             var d=XLSX.SSF.parse_date_code(parseInt(s));
             if(d)return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0');
           }
-          // MM/DD/YYYY (Excel US format from SheetJS raw:false)
+          // DD/MM/YYYY (padrão brasileiro) — só assume MM/DD se o "mês" for inválido (>12)
           var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
           if(m){
-            var month=parseInt(m[1]),day=parseInt(m[2]),year=parseInt(m[3]);
-            // if month > 12 it's actually DD/MM/YYYY
-            if(month>12)return year+'-'+String(day).padStart(2,'0')+'-'+String(month).padStart(2,'0');
-            return year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+            var day=parseInt(m[1]),month=parseInt(m[2]),year=parseInt(m[3]);
+            if(month>12&&day<=12){var tmp=day;day=month;month=tmp;}
+            if(month>=1&&month<=12&&day>=1&&day<=31)return year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
           }
-          // try generic parse
+          // tentativa genérica
           var dt=new Date(s);
           if(!isNaN(dt))return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
-          return'';
-        }catch(e){return'';}
+        }catch(err){}
+        if(warnList)warnList.push((pat||'—')+': '+label+' "'+s+'" não reconhecida');
+        return'';
       }
 
+      var STATUS_VALID=['OK','Inoperante','Atenção','Furtado','Procurar','Descartado','Reciclagem'];
+      var statusMap={'ok':'OK','operante':'OK','inoperante':'Inoperante','atenção':'Atenção','atencao':'Atenção','procurar':'Procurar','furtado':'Furtado','descartado':'Descartado','reciclagem':'Reciclagem'};
+
+      var warnDates=[],warnStatus=[],skippedNoPat=0,dupInFile={},dupList=[];
+      // Campos administrados dentro do próprio app (normalmente não fazem parte da planilha mestre).
+      // Só sobrescrevemos esses campos se a coluna realmente existir no arquivo importado —
+      // caso contrário, uma importação de rotina apagaria silenciosamente o que foi ajustado manualmente no app.
+      var hasDisp=colFound('disponibilidade'),hasCorr=colFound('corretiva'),hasPrevCorr=colFound('prevCorretiva'),hasCiclo=colFound('cicloConf');
+
       var imported=rows.map(function(row){
-        // Try all possible column name variations
-        var pat=cleanStr(row['Patr']||row['Patrimônio']||row['Patrimonio']||row['patrimonio']||row['PAT']||row['pat']||'');
-        if(!pat||pat==='nan'||pat==='None')return null;
-        var siglaLocal=cleanStr(row['Sigla Local']||row['SiglaLocal']||row['siglaLocal']||row['Sigla']||row['SIGLA']||'');
-        var local=cleanStr(row['Local']||row['LOCAL']||row['local']||'')||siglaLocal;
-        var status=cleanStr(row['Status']||row['STATUS']||row['status']||'')||'OK';
-        // normalize status
-        var statusMap={'ok':'OK','operante':'OK','inoperante':'Inoperante','atenção':'Atenção','atencao':'Atenção','procurar':'Procurar','furtado':'Furtado'};
-        status=statusMap[status.toLowerCase()]||status||'OK';
-        var disponibilidade=cleanStr(row['Disponibilidade']||row['disponibilidade']||'Liberada');
-        if(disponibilidade!=='Em uso')disponibilidade='Liberada';
-        var ciclo=cleanStr(row['Ciclo']||row['cicloConf']||row['Ciclo Conf']||'quinzenal').toLowerCase();
-        if(ciclo!=='mensal'&&ciclo!=='anual')ciclo='quinzenal';
-        return{
+        var pat=cleanStr(rawVal(row,'patrimonio'));
+        if(!pat){skippedNoPat++;return null;}
+        if(dupInFile[pat])dupList.push(pat);
+        dupInFile[pat]=(dupInFile[pat]||0)+1;
+
+        var statusRaw=cleanStr(rawVal(row,'status'))||'OK';
+        var status=statusMap[statusRaw.toLowerCase()]||statusRaw;
+        if(STATUS_VALID.indexOf(status)===-1)warnStatus.push(pat+': status "'+statusRaw+'" desconhecido, mantido como texto');
+
+        var siglaLocal=cleanStr(rawVal(row,'siglaLocal'));
+        var local=cleanStr(rawVal(row,'local'))||siglaLocal;
+
+        var imp={
           patrimonio:pat,
-          ferramenta:cleanStr(row['Ferramenta']||row['FERRAMENTA']||row['ferramenta']||row['Descrição']||''),
-          marca:cleanStr(row['Marca']||row['MARCA']||row['marca']||''),
-          modelo:cleanStr(row['Modelo']||row['MODELO']||row['modelo']||''),
-          serie:cleanStr(row['Nº Série']||row['Nº Serie']||row['Série']||row['Serie']||row['serie']||row['SERIE']||''),
+          ferramenta:cleanStr(rawVal(row,'ferramenta')),
+          marca:cleanStr(rawVal(row,'marca')),
+          modelo:cleanStr(rawVal(row,'modelo')),
+          serie:cleanStr(rawVal(row,'serie')),
           status:status,
           local:local,
           siglaLocal:siglaLocal||local,
-          cidade:cleanStr(row['Cidade']||row['CIDADE']||row['cidade']||''),
-          estado:cleanStr(row['Estado']||row['ESTADO']||row['estado']||row['UF']||''),
-          responsavel:cleanStr(row['Responsável']||row['Responsavel']||row['RESPONSAVEL']||row['responsavel']||''),
-          setor:cleanStr(row['Setor']||row['SETOR']||row['setor']||''),
-          valor:cleanStr(row['Valor']||row['VALOR']||row['valor']||''),
-          certCal:cleanStr(row['Nº Cert. Calibração']||row['Cert. Calibração']||row['CertCal']||row['Nº Cert']||''),
-          laboratorio:cleanStr(row['Laboratório']||row['Laboratorio']||row['Lab']||row['LAB']||''),
-          dataCal:fmtDate(row['Data de calibração']||row['Data Calibração']||row['DataCal']||row['Data Cal']||''),
+          cidade:cleanStr(rawVal(row,'cidade')),
+          estado:cleanStr(rawVal(row,'estado')),
+          responsavel:cleanStr(rawVal(row,'responsavel')),
+          setor:cleanStr(rawVal(row,'setor')),
+          valor:cleanStr(rawVal(row,'valor')),
+          certCal:cleanStr(rawVal(row,'certCal')),
+          laboratorio:cleanStr(rawVal(row,'laboratorio')),
+          dataCal:fmtDate(rawVal(row,'dataCal'),warnDates,pat,'Data de calibração'),
           diasProxCal:'-',
-          dataManut:fmtDate(row['Ultima Manutenção ']||row['Ultima Manutenção']||row['Última Manutenção']||row['DataManut']||row['Data Manut']||''),
+          dataManut:fmtDate(rawVal(row,'dataManut'),warnDates,pat,'Data de manutenção'),
           diasProxManut:'-',
-          obs:cleanStr(row['OBS']||row['Obs']||row['Observação']||row['Observacao']||''),
-          disponibilidade:disponibilidade,
-          corretiva:cleanStr(row['Corretiva']||row['corretiva']||''),
-          prevCorretiva:cleanStr(row['Prev Corretiva']||row['prevCorretiva']||row['Previsão Corretiva']||''),
-          cicloConf:ciclo
+          obs:cleanStr(rawVal(row,'obs'))
         };
+        if(hasDisp){var disp=cleanStr(rawVal(row,'disponibilidade'));imp.disponibilidade=disp==='Em uso'?'Em uso':'Liberada';}
+        if(hasCorr)imp.corretiva=cleanStr(rawVal(row,'corretiva'));
+        if(hasPrevCorr)imp.prevCorretiva=cleanStr(rawVal(row,'prevCorretiva'));
+        if(hasCiclo){var ciclo=cleanStr(rawVal(row,'cicloConf')).toLowerCase();imp.cicloConf=(ciclo==='mensal'||ciclo==='anual')?ciclo:'quinzenal';}
+        return imp;
       }).filter(Boolean);
 
-      if(!imported.length){showToast('Nenhuma ferramenta válida encontrada.',false);return;}
+      if(!imported.length){showToast('Nenhuma ferramenta com patrimônio válido encontrada na aba "'+sheetName+'".',false);return;}
 
-      // Merge: update existing tools, add new ones
+      // se o mesmo patrimônio aparece mais de uma vez no arquivo, mantém só a última linha (evita contar/salvar 2x)
+      var byPat={};
+      imported.forEach(function(imp){byPat[imp.patrimonio]=imp;});
+      imported=Object.keys(byPat).map(function(k){return byPat[k];});
+
+      // colunas do arquivo que não bateram com nenhum campo conhecido (ajuda a achar erro de nome de coluna)
+      var recognizedNorms={};
+      Object.keys(FIELD_ALIASES).forEach(function(f){FIELD_ALIASES[f].forEach(function(a){recognizedNorms[a]=1;});});
+      var unknownCols=Object.keys(headerMap).filter(function(nk){return!recognizedNorms[nk];}).map(function(nk){return headerMap[nk];});
+
+      // Merge: atualiza ferramentas existentes, adiciona novas
       var updated=0,added=0;
-      imported.forEach(function(imp){
+      imported.forEach(function(imp,i){
         var existing=tools.find(function(t){return t.patrimonio===imp.patrimonio;});
         if(existing){
-          // preserve fields managed by the app
+          // preserva campos controlados pelo app (id, histórico, última confirmação)
           var preserve={_id:existing._id,hist:existing.hist,lastConfirm:existing.lastConfirm,_mod:existing._mod};
           Object.assign(existing,imp,preserve);
           updated++;
         } else {
-          imp._id=Date.now()+added;
+          imp._id=Date.now()+i;
           imp.hist=[];imp.lastConfirm=null;imp._mod=true;
+          if(!('disponibilidade' in imp))imp.disponibilidade='Liberada';
+          if(!('cicloConf' in imp))imp.cicloConf='quinzenal';
+          if(!('corretiva' in imp))imp.corretiva='';
+          if(!('prevCorretiva' in imp))imp.prevCorretiva='';
+          imp.notaFiscal='';imp.notaFiscalNome='';
           tools.unshift(imp);
           added++;
         }
       });
 
       saveTols();page=1;renderAll();
-      // sync to Supabase using dbSaveTool in controlled sequence
+
+      // ── Relatório de importação (mostra o que foi lido e possíveis problemas) ──
+      function repRow(lbl,val,color){return'<div style="display:flex;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:12.5px"><span style="color:var(--tx3)">'+lbl+'<\/span><span style="font-weight:600;text-align:right'+(color?';color:'+color:'')+'">'+val+'<\/span><\/div>';}
+      var repH='<div class="mh"><div><div class="mtt">📥 Relatório da importação<\/div><div class="msub">Aba lida: '+sheetName+'<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>';
+      repH+='<div style="margin-bottom:4px">';
+      repH+=repRow('Linhas lidas na planilha',rows.length);
+      repH+=repRow('Ferramentas atualizadas',updated,'#16a34a');
+      repH+=repRow('Ferramentas novas',added,'#2563eb');
+      if(skippedNoPat)repH+=repRow('Ignoradas (sem patrimônio)',skippedNoPat,'#dc2626');
+      if(dupList.length)repH+=repRow('Patrimônio duplicado no arquivo',dupList.join(', ')+' — a última linha prevaleceu','#d97706');
+      repH+='<\/div>';
+      if(warnDates.length)repH+='<div style="margin-top:12px"><b style="font-size:12px;color:#d97706">⚠ Datas não reconhecidas ('+warnDates.length+') — campo ficou em branco<\/b><div style="max-height:130px;overflow-y:auto;font-size:11.5px;color:var(--tx2);margin-top:5px;background:var(--bg3);border-radius:8px;padding:8px 10px">'+warnDates.map(function(w){return'<div>'+w+'<\/div>';}).join('')+'<\/div><\/div>';
+      if(warnStatus.length)repH+='<div style="margin-top:12px"><b style="font-size:12px;color:#d97706">⚠ Status fora do padrão ('+warnStatus.length+')<\/b><div style="max-height:130px;overflow-y:auto;font-size:11.5px;color:var(--tx2);margin-top:5px;background:var(--bg3);border-radius:8px;padding:8px 10px">'+warnStatus.map(function(w){return'<div>'+w+'<\/div>';}).join('')+'<\/div><\/div>';
+      if(unknownCols.length)repH+='<div style="margin-top:12px"><b style="font-size:12px;color:var(--tx3)">Colunas do arquivo não reconhecidas pelo sistema (foram ignoradas)<\/b><div style="font-size:11.5px;color:var(--tx2);margin-top:5px">'+unknownCols.join(', ')+'<\/div><\/div>';
+      repH+='<div class="mb-btns"><button class="b-sv" onclick="closeM()">Fechar<\/button><\/div>';
+      showM(repH);
+
+      // sync com Supabase em sequência controlada
       if(sb){
-        showToast('Sincronizando com o banco... aguarde ⏳',true);
         var toSync=imported.map(function(imp){
           return tools.find(function(x){return x.patrimonio===imp.patrimonio;});
         }).filter(Boolean);
