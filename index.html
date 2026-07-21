@@ -2161,6 +2161,7 @@ async function processarAssinaturaRemetente(){
     var r=await sb.from('termos').select('*').eq('remetente_token',token).single();
     if(r.error||!r.data){alert('Termo não encontrado ou link inválido.');return;}
     var t=r.data;
+    window._termoRemAtual=t;
     var ferrs=[];try{ferrs=JSON.parse(t.ferramentas||'[]');}catch(e){}
     document.body.innerHTML='<div style="font-family:Inter,sans-serif;max-width:700px;margin:40px auto;padding:20px">'+
       '<div style="text-align:center;margin-bottom:24px">'+
@@ -2172,9 +2173,10 @@ async function processarAssinaturaRemetente(){
         '<p style="color:#6B7280;font-size:13px;margin-bottom:4px"><strong>Para:</strong> '+(t.destino||'—')+'</p>'+
         '<p style="color:#6B7280;font-size:13px;margin-bottom:14px"><strong>Data:</strong> '+(t.data_termo||'—')+'</p>'+
         '<p style="font-size:13px;color:#374151;margin-bottom:8px"><strong>Ferramentas:</strong></p>'+
-        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px">'+
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">'+
           ferrs.map(function(f){return'<span style="background:#EEF2FF;color:#1B3A6B;border:1px solid #a5b4fc;border-radius:5px;padding:3px 10px;font-family:monospace;font-size:12px">'+f+'</span>';}).join('')+
         '</div>'+
+        ((t.html_content||t.pdf_url)?'<p style="margin-bottom:16px"><button onclick="abrirTermoRemLink()" style="background:none;border:none;color:#1B3A6B;font-size:13px;cursor:pointer;text-decoration:underline;padding:0">📎 Ver PDF do termo</button></p>':'')+
         (t.remetente_status==='assinado'?
           '<div style="background:#F0FDF4;border:1.5px solid #86efac;border-radius:8px;padding:14px;text-align:center">'+
             '<div style="font-size:24px">✅</div>'+
@@ -2288,8 +2290,8 @@ async function processarAceite(){
     var r=await sb.from('termos').select('*').eq('aceite_token',token).single();
     if(r.error||!r.data){alert('Termo não encontrado ou link inválido.');return;}
     var t=r.data;
+    window._termoRemAtual=t;
     var ferrs=[];try{ferrs=JSON.parse(t.ferramentas||'[]');}catch(e){}
-    // show aceite page
     document.body.innerHTML='<div style="font-family:Inter,sans-serif;max-width:700px;margin:40px auto;padding:20px">'+
       '<div style="text-align:center;margin-bottom:30px">'+
         '<div style="font-size:32px;font-weight:800;color:#E86A00">SolarGrid</div>'+
@@ -2303,7 +2305,7 @@ async function processarAceite(){
         '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px">'+
           ferrs.map(function(f){return'<span style="background:#EEF2FF;color:#1B3A6B;border:1px solid #a5b4fc;border-radius:5px;padding:3px 10px;font-family:monospace;font-size:12px">'+f+'</span>';}).join('')+
         '</div>'+
-        (t.pdf_url?'<p style="margin-bottom:16px"><a href="'+t.pdf_url+'" target="_blank" style="color:#1B3A6B;font-size:13px">📎 Ver PDF do termo</a></p>':'')+
+        ((t.html_content||t.pdf_url)?'<p style="margin-bottom:16px"><button onclick="abrirTermoAceite()" style="background:none;border:none;color:#1B3A6B;font-size:13px;cursor:pointer;text-decoration:underline;padding:0">📎 Ver PDF do termo</button></p>':'')+
         (t.aceite_status==='aceito'?
           '<div style="background:#F0FDF4;border:1.5px solid #86efac;border-radius:8px;padding:14px;text-align:center">'+
             '<div style="font-size:24px">✅</div>'+
@@ -2359,6 +2361,29 @@ function limparAssinatura(){
   var c=document.getElementById('sigCanvas');if(!c)return;
   c.getContext('2d').clearRect(0,0,c.width,c.height);
   sigDirty=false;
+}
+
+function abrirTermoRemLink(){
+  var t=window._termoRemAtual;
+  if(!t)return;
+  if(t.html_content){
+    var w=window.open('','_blank');
+    w.document.open();w.document.write(t.html_content);w.document.close();
+  } else if(t.pdf_url){
+    window.open(t.pdf_url,'_blank');
+  }
+}
+
+function abrirTermoAceite(){
+  var t=window._termoAceiteAtual;
+  if(!t)return;
+  if(t.html_content){
+    var w=window.open('','_blank');
+    w.document.open();w.document.write(t.html_content);w.document.close();
+  } else if(t.pdf_url){
+    // PDF real — abre direto (não tem como renderizar melhor)
+    window.open(t.pdf_url,'_blank');
+  }
 }
 
 async function confirmarAceite(token,status){
@@ -2562,22 +2587,27 @@ async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin,agua
     // Insert e pega o id retornado para gerar o código único
     var ins_r=await sb.from('termos').insert(ins).select('id').single();
     if(ins_r.error&&htmlContent){
+      console.warn('insert falhou com html_content, tentando sem:',ins_r.error);
       delete ins.html_content;
       ins_r=await sb.from('termos').insert(ins).select('id').single();
     }
     if(ins_r.error){
+      console.warn('insert falhou com colunas novas, tentando fallback:',ins_r.error);
       delete ins.remetente_token;delete ins.remetente_status;
       ins_r=await sb.from('termos').insert(ins).select('id').single();
+    }
+    if(ins_r.error){
+      showToast('Erro ao salvar termo: '+ins_r.error.message,false);
+      console.error('saveTermoSB insert definitivo falhou:',ins_r.error);
+      return;
     }
     // Gera e salva o código usando o id real do banco
     if(ins_r.data&&ins_r.data.id){
       var codigo=gerarCodigoTermo(remetente,destino,ins_r.data.id);
-      // Injeta o código no HTML (substitui o placeholder)
       var upd={codigo:codigo};
       if(htmlContent){
         htmlContent=htmlContent.replace('<!--CODIGO_TERMO-->',codigo);
         upd.html_content=htmlContent;
-        // Atualiza também no Storage
         if(pdfPath){
           try{
             var blobUpd=new Blob([htmlContent],{type:'text/html'});
@@ -2585,7 +2615,8 @@ async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin,agua
           }catch(e){console.warn('update storage codigo:',e);}
         }
       }
-      await sb.from('termos').update(upd).eq('id',ins_r.data.id);
+      var upd_r=await sb.from('termos').update(upd).eq('id',ins_r.data.id);
+      if(upd_r.error)console.warn('update codigo falhou:',upd_r.error);
     }
     if(aguardandoRemetente){
       setTimeout(function(){showToast('✅ Termo salvo! Copie o link do remetente na aba Termos Salvos.',true);},2000);
