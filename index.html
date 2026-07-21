@@ -1994,13 +1994,29 @@ function importXLSX(e){
           orphans.length+' ferramenta(s) na base NÃO estão nesta planilha:\n'+amostra+(orphans.length>12?' … (+'+(orphans.length-12)+')':'')+
           '\n\nDeseja REMOVER essas '+orphans.length+' ferramenta(s) da base, deixando apenas o que está na planilha?\n\n⚠️ Esta ação não pode ser desfeita.';
         if(confirm(msgOrf)){
-          var orphanIds=orphans.map(function(t){return t._id;});
+          var toDelete=orphans.slice();
           tools=tools.filter(function(t){return patSet[t.patrimonio];});
-          removidasOrfas=orphans.length;
+          removidasOrfas=toDelete.length;
+          saveTols();page=1;renderAll();
           if(sb){
-            orphanIds.forEach(function(oid){
-              if(oid!=null){try{sb.from('ferramentas').delete().eq('id',oid).then(function(){});sb.from('historico').delete().eq('ferramenta_id',oid).then(function(){});}catch(e){}}
-            });
+            showToast('Removendo '+toDelete.length+' do banco… ⏳',true);
+            (async function(){
+              var delErros=0,delOk=0;
+              for(var j=0;j<toDelete.length;j++){
+                var o=toDelete[j];
+                try{
+                  var dr=await sb.from('ferramentas').delete().eq('patrimonio',o.patrimonio);
+                  if(dr&&dr.error){delErros++;console.warn('Falha ao remover órfã',o.patrimonio,dr.error);}
+                  else{delOk++;}
+                  if(o._id!=null){try{await sb.from('historico').delete().eq('ferramenta_id',o._id);}catch(e){}}
+                }catch(e){delErros++;console.warn('Exceção ao remover órfã',o.patrimonio,e);}
+              }
+              if(delErros){
+                showToast('⚠️ '+delErros+' de '+toDelete.length+' não puderam ser removidas do banco. Provável bloqueio de permissão de exclusão (RLS) na tabela ferramentas.',false);
+              } else {
+                showToast('✅ '+delOk+' ferramenta(s) removida(s) do banco definitivamente.',true);
+              }
+            })();
           }
         }
       }
