@@ -1945,17 +1945,22 @@ function importXLSX(e){
       if(!imported.length){showToast('Nenhuma ferramenta válida encontrada.',false);return;}
 
       // Dedup do próprio Excel: patrimônio repetido → mantém a última linha (última vence)
+      // Normaliza patrimônio para comparação (ignora espaços e maiúsc/minúsc)
+      function normPat(p){return String(p==null?'':p).trim().toUpperCase().replace(/\.0$/,'');}
+
       var byPat={},order=[];
       imported.forEach(function(imp){
-        if(!(imp.patrimonio in byPat))order.push(imp.patrimonio);
-        byPat[imp.patrimonio]=imp;
+        var k=normPat(imp.patrimonio);
+        if(!(k in byPat))order.push(k);
+        byPat[k]=imp;
       });
       var dedup=order.map(function(p){return byPat[p];});
 
       // Merge: atualiza existentes, adiciona novas, e colapsa duplicados já existentes na base
       var updated=0,added=0,removidosDup=0,idsRemover=[];
       dedup.forEach(function(imp){
-        var matches=tools.filter(function(t){return t.patrimonio===imp.patrimonio;});
+        var np=normPat(imp.patrimonio);
+        var matches=tools.filter(function(t){return normPat(t.patrimonio)===np;});
         if(matches.length){
           var keep=matches[0];
           // remove quaisquer duplicados extras da base (deixa só um com aquele patrimônio)
@@ -1985,8 +1990,8 @@ function importXLSX(e){
 
       // Detecta ferramentas na base que NÃO estão na planilha importada (órfãs)
       var patSet={};
-      dedup.forEach(function(imp){patSet[imp.patrimonio]=true;});
-      var orphans=tools.filter(function(t){return !patSet[t.patrimonio];});
+      dedup.forEach(function(imp){patSet[normPat(imp.patrimonio)]=true;});
+      var orphans=tools.filter(function(t){return !patSet[normPat(t.patrimonio)];});
       var removidasOrfas=0;
       if(orphans.length){
         var amostra=orphans.slice(0,12).map(function(t){return t.patrimonio;}).join(', ');
