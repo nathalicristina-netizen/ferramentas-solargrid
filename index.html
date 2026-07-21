@@ -520,12 +520,18 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
   <!-- TAB TERMOS SALVOS -->
   <div id="tabTermos" class="tab-content">
     <div style="max-width:900px;margin:0 auto;padding:20px 16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
         <div>
           <h2 style="font-size:17px;font-weight:700;color:var(--nv)">🗂️ Termos de Transferência Salvos</h2>
           <p style="font-size:12px;color:var(--tx3);margin-top:3px">Histórico de todos os termos gerados</p>
         </div>
         <button class="btn-or" onclick="openImportTermo()" style="font-size:12px;padding:7px 16px">📎 Importar Termo (PDF)</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <div class="srch" style="flex:1">
+          <span class="srch-ico">🔍</span>
+          <input type="text" id="termoBusca" placeholder="Buscar por código, remetente, destinatário ou ferramenta…" oninput="filtrarTermos(this.value)" style="width:100%"/>
+        </div>
       </div>
       <div id="termosList"></div>
     </div>
@@ -2030,6 +2036,36 @@ function previewTTPhoto(idx){
   document.body.appendChild(ov);
 }
 // ===== TERMOS SALVOS =====
+// Gera código único: 5 dígitos sequenciais + iniciais remetente x destinatário
+function gerarCodigoTermo(remetente, destino, sequencial){
+  var pad=String(sequencial).padStart(5,'0');
+  function iniciais(nome){
+    if(!nome||nome==='—')return'XX';
+    var partes=nome.trim().split(/\s+/).filter(Boolean);
+    if(partes.length===1)return partes[0].substring(0,2).toUpperCase();
+    return (partes[0][0]+(partes[partes.length-1][0])).toUpperCase();
+  }
+  return pad+(iniciais(remetente)+iniciais(destino)).replace(/[^A-Z0-9]/g,'');
+}
+
+var _termosCache=[]; // cache para filtro local
+
+function filtrarTermos(q){
+  var el=document.getElementById('termosList');if(!el)return;
+  if(!q||!q.trim()){renderTermosCards(_termosCache,el);return;}
+  var ql=q.toLowerCase();
+  var filtrados=_termosCache.filter(function(t){
+    var ferrs=[];try{ferrs=JSON.parse(t.ferramentas||'[]');}catch(e){}
+    return (t.codigo||'').toLowerCase().includes(ql)||
+           (t.remetente||'').toLowerCase().includes(ql)||
+           (t.destino||'').toLowerCase().includes(ql)||
+           (t.data_termo||'').includes(ql)||
+           (t.criado_por||'').toLowerCase().includes(ql)||
+           ferrs.some(function(f){return f.toLowerCase().includes(ql);});
+  });
+  renderTermosCards(filtrados,el);
+}
+
 async function loadTermosSB(){
   var el=document.getElementById('termosList');if(!el)return;
   if(!sb){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">Sem conexão.</div>';return;}
@@ -2038,23 +2074,50 @@ async function loadTermosSB(){
     var r=await sb.from('termos').select('*').order('id',{ascending:false});
     if(r.error)throw r.error;
     if(!r.data.length){
-      el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3);font-size:13px">Nenhum termo salvo ainda.<br>Importe um PDF de termo usando o botão acima.</div>';
+      _termosCache=[];
+      el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3);font-size:13px">Nenhum termo salvo ainda.</div>';
       return;
     }
-    var cards=r.data.map(function(t){
+    _termosCache=r.data;
+    var busca=document.getElementById('termoBusca');
+    if(busca&&busca.value.trim()){filtrarTermos(busca.value);}
+    else{renderTermosCards(_termosCache,el);}
+  }catch(e){
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--rd)">Erro ao carregar termos.</div>';
+  }
+}
+
+function renderTermosCards(lista,el){
+  if(!lista.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3);font-size:13px">Nenhum termo encontrado.</div>';return;}
+  var cards=lista.map(function(t){
       var ferrs=[];try{ferrs=JSON.parse(t.ferramentas||'[]');}catch(e){}
-      // aceite badge
+      var remStatus=t.remetente_status||'assinado'; // termos antigos já estão assinados
       var aceiteStatus=t.aceite_status||'pendente';
-      var badgeColor={'pendente':'#FFF7ED','aceito':'#F0FDF4','rejeitado':'#FEF2F2'}[aceiteStatus]||'#F3F4F6';
-      var badgeText={'pendente':'⏳ Aguardando aceite','aceito':'✅ Aceito e assinado por '+( t.aceite_por||'—')+(t.aceite_em?' em '+t.aceite_em:''),'rejeitado':'❌ Rejeitado'}[aceiteStatus]||'—';
-      var badgeFg={'pendente':'#c2410c','aceito':'#15803d','rejeitado':'#dc2626'}[aceiteStatus]||'#6B7280';
-      // link de aceite
-      var linkAceite=t.aceite_token?window.location.origin+window.location.pathname+'?aceite='+t.aceite_token:'';
+      // Status geral do termo
+      var statusGeral=aceiteStatus==='aceito'?'concluido':remStatus==='pendente'?'aguardando_remetente':'pendente';
+      var badgeColor={'aguardando_remetente':'#EEF2FF','pendente':'#FFF7ED','concluido':'#F0FDF4','rejeitado':'#FEF2F2'}[statusGeral]||'#F3F4F6';
+      var badgeFg={'aguardando_remetente':'#3730a3','pendente':'#c2410c','concluido':'#15803d','rejeitado':'#dc2626'}[statusGeral]||'#6B7280';
+      var badgeText={'aguardando_remetente':'🖊️ Aguardando assinatura do remetente','pendente':'⏳ Aguardando aceite do destinatário','concluido':'✅ Concluído — assinado pelos dois','rejeitado':'❌ Destinatário rejeitou'}[statusGeral]||'—';
+      // Links
+      var base=window.location.origin+window.location.pathname;
+      var linkRem=t.remetente_token?base+'?assinar_rem='+t.remetente_token:'';
+      var linkDest=t.aceite_token?base+'?aceite='+t.aceite_token:'';
+      var botoesLinks='';
+      if(remStatus==='pendente'&&linkRem){
+        botoesLinks+='<button class="bs gh" onclick="copyLink(\''+linkRem+'\',\'remetente\')" style="font-size:11px;padding:4px 10px">🖊️ Copiar link do remetente</button>';
+      }
+      if(remStatus!=='pendente'&&aceiteStatus==='pendente'&&linkDest){
+        botoesLinks+='<button class="bs gh" onclick="copyLink(\''+linkDest+'\',\'destinatário\')" style="font-size:11px;padding:4px 10px">🔗 Copiar link do destinatário</button>';
+      }
+      // Mini status de cada parte
+      var statusRem=remStatus==='pendente'?'<span style="color:#3730a3;font-size:10px">🖊️ Remetente: aguardando</span>':'<span style="color:#15803d;font-size:10px">✅ Remetente: '+( t.remetente_por||'assinado')+'</span>';
+      var statusDest=aceiteStatus==='aceito'?'<span style="color:#15803d;font-size:10px">✅ Destinatário: '+(t.aceite_por||'aceito')+'</span>':aceiteStatus==='rejeitado'?'<span style="color:#dc2626;font-size:10px">❌ Destinatário: rejeitou</span>':'<span style="color:#c2410c;font-size:10px">⏳ Destinatário: aguardando</span>';
       return '<div style="background:var(--bg2);border:1.5px solid var(--bd);border-radius:10px;padding:14px 16px;margin-bottom:10px">'+
         '<div style="display:flex;align-items:flex-start;gap:12px">'+
           '<div style="font-size:28px">📄</div>'+
           '<div style="flex:1;min-width:0">'+
-            '<div style="font-weight:700;color:var(--nv);font-size:13px;margin-bottom:4px">'+
+            '<div style="font-weight:700;color:var(--nv);font-size:13px;margin-bottom:4px;display:flex;align-items:center;gap:8px">'+
+              (t.codigo?'<span style="font-family:monospace;background:var(--bg3);border:1px solid var(--bd);border-radius:5px;padding:2px 8px;font-size:11px;color:var(--tx2);font-weight:600;letter-spacing:.05em">'+t.codigo+'</span>':'')+
               (t.remetente||'Sem título')+(t.destino?' → '+t.destino:'')+
             '</div>'+
             '<div style="font-size:11px;color:var(--tx3);margin-bottom:6px">'+
@@ -2064,11 +2127,11 @@ async function loadTermosSB(){
               ferrs.slice(0,5).map(function(f){return'<span style="background:var(--bg3);border:1px solid var(--bd);border-radius:4px;padding:1px 6px;margin-right:4px;font-family:monospace">'+f+'</span>';}).join('')+
               (ferrs.length>5?'<span style="color:var(--tx3)">+'+(ferrs.length-5)+' mais</span>':'')+
             '</div>'+
-            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+            '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+
               '<span style="background:'+badgeColor+';color:'+badgeFg+';border:1px solid '+badgeFg+'40;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:600">'+badgeText+'</span>'+
-              (linkAceite&&aceiteStatus==='pendente'?'<button class="bs gh" onclick="copyAceiteLink(\''+linkAceite+'\')" style="font-size:11px;padding:4px 10px">🔗 Copiar link de aceite</button>':'')+
-              (aceiteStatus==='pendente'&&!t.aceite_token?'<button class="bs gh" onclick="gerarLinkAceite('+t.id+')" style="font-size:11px;padding:4px 10px">🔗 Gerar link de aceite</button>':'')+
             '</div>'+
+            '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px">'+statusRem+'&nbsp;&nbsp;'+statusDest+'</div>'+
+            '<div style="display:flex;gap:6px;flex-wrap:wrap">'+botoesLinks+'</div>'+
           '</div>'+
           '<div style="display:flex;gap:6px;flex-shrink:0">'+
             (t.pdf_url||t.html_content?'<button class="bs ok" onclick="abrirTermo('+t.id+')" style="font-size:11px;padding:5px 10px">📄 Abrir</button>':'<span style="font-size:11px;color:var(--tx3)">Sem arquivo</span>')+
@@ -2077,18 +2140,133 @@ async function loadTermosSB(){
         '</div>'+
       '</div>';
     }).join('');
-    el.innerHTML=cards;
-  }catch(e){
-    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--rd)">Erro ao carregar termos.</div>';
-  }
+  el.innerHTML=cards;
 }
 
-function copyAceiteLink(link){
+function copyLink(link,quem){
   navigator.clipboard.writeText(link).then(function(){
-    showToast('Link de aceite copiado! Envie para o destinatário.',true);
+    showToast('Link do '+quem+' copiado!',true);
   }).catch(function(){
     prompt('Copie o link abaixo:',link);
   });
+}
+
+function copyAceiteLink(link){copyLink(link,'destinatário');}
+
+async function processarAssinaturaRemetente(){
+  var params=new URLSearchParams(window.location.search);
+  var token=params.get('assinar_rem');
+  if(!token||!sb)return;
+  try{
+    var r=await sb.from('termos').select('*').eq('remetente_token',token).single();
+    if(r.error||!r.data){alert('Termo não encontrado ou link inválido.');return;}
+    var t=r.data;
+    var ferrs=[];try{ferrs=JSON.parse(t.ferramentas||'[]');}catch(e){}
+    document.body.innerHTML='<div style="font-family:Inter,sans-serif;max-width:700px;margin:40px auto;padding:20px">'+
+      '<div style="text-align:center;margin-bottom:24px">'+
+        '<div style="font-size:32px;font-weight:800;color:#E86A00">SolarGrid</div>'+
+        '<div style="font-size:13px;color:#6B7280">Assinatura de Termo — Remetente</div>'+
+      '</div>'+
+      '<div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;padding:24px;margin-bottom:20px">'+
+        '<h2 style="font-size:16px;color:#1B3A6B;margin-bottom:8px">📄 Termo de Transferência</h2>'+
+        '<p style="color:#6B7280;font-size:13px;margin-bottom:4px"><strong>Para:</strong> '+(t.destino||'—')+'</p>'+
+        '<p style="color:#6B7280;font-size:13px;margin-bottom:14px"><strong>Data:</strong> '+(t.data_termo||'—')+'</p>'+
+        '<p style="font-size:13px;color:#374151;margin-bottom:8px"><strong>Ferramentas:</strong></p>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px">'+
+          ferrs.map(function(f){return'<span style="background:#EEF2FF;color:#1B3A6B;border:1px solid #a5b4fc;border-radius:5px;padding:3px 10px;font-family:monospace;font-size:12px">'+f+'</span>';}).join('')+
+        '</div>'+
+        (t.remetente_status==='assinado'?
+          '<div style="background:#F0FDF4;border:1.5px solid #86efac;border-radius:8px;padding:14px;text-align:center">'+
+            '<div style="font-size:24px">✅</div>'+
+            '<div style="font-weight:700;color:#15803d;margin-top:4px">Você já assinou este termo</div>'+
+            '<div style="font-size:12px;color:#6B7280;margin-top:4px">'+(t.remetente_em||'')+'</div>'+
+          '</div>':
+          '<div style="border-top:1px solid #e5e7eb;padding-top:16px">'+
+            '<p style="color:#374151;font-size:14px;margin-bottom:12px">Confirme que você está enviando as ferramentas listadas e assine abaixo.</p>'+
+            '<div style="margin-bottom:12px">'+
+              '<label style="display:block;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Seu nome completo</label>'+
+              '<input id="remNomeLnk" value="'+(t.remetente||'')+'" placeholder="Seu nome" style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:11px 13px;font-size:14px;font-family:inherit;box-sizing:border-box"/>'+
+            '</div>'+
+            '<div style="margin-bottom:16px">'+
+              '<label style="display:block;font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Assinatura ✍️</label>'+
+              '<canvas id="remLnkCanvas" width="640" height="150" style="width:100%;height:150px;border:1.5px dashed #9ca3af;border-radius:8px;background:#fff;touch-action:none;cursor:crosshair;display:block"></canvas>'+
+              '<button onclick="limparRemLnkSig()" style="margin-top:5px;background:none;border:none;color:#6B7280;font-size:12px;cursor:pointer;text-decoration:underline">🗑️ Limpar</button>'+
+            '</div>'+
+            '<div style="text-align:center">'+
+              '<button onclick="confirmarAssinaturaRemLink(\''+token+'\')" style="background:#1B3A6B;color:#fff;border:none;border-radius:8px;padding:12px 32px;font-size:15px;font-weight:700;cursor:pointer">✅ Assinar como remetente</button>'+
+            '</div>'+
+          '</div>'
+        )+
+      '</div>'+
+    '</div>';
+    if(t.remetente_status!=='assinado')initRemLnkCanvas();
+  }catch(e){alert('Erro ao carregar termo.');}
+}
+
+var remLnkDirty=false;
+function initRemLnkCanvas(){
+  var c=document.getElementById('remLnkCanvas');if(!c)return;
+  var ctx=c.getContext('2d');
+  ctx.lineWidth=2.2;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#1B3A6B';
+  var drawing=false;
+  function pos(e){var r=c.getBoundingClientRect();var sx=c.width/r.width,sy=c.height/r.height;var p=e.touches?e.touches[0]:e;return{x:(p.clientX-r.left)*sx,y:(p.clientY-r.top)*sy};}
+  function start(e){e.preventDefault();drawing=true;var p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);}
+  function move(e){if(!drawing)return;e.preventDefault();var p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();remLnkDirty=true;}
+  function end(){drawing=false;}
+  c.addEventListener('mousedown',start);c.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',end);
+  c.addEventListener('touchstart',start,{passive:false});c.addEventListener('touchmove',move,{passive:false});
+  c.addEventListener('touchend',end);
+}
+function limparRemLnkSig(){
+  var c=document.getElementById('remLnkCanvas');if(!c)return;
+  c.getContext('2d').clearRect(0,0,c.width,c.height);remLnkDirty=false;
+}
+
+async function confirmarAssinaturaRemLink(token){
+  var nEl=document.getElementById('remNomeLnk');
+  var nome=nEl?nEl.value.trim():'';
+  if(!nome){alert('Preencha seu nome.');if(nEl)nEl.focus();return;}
+  if(!remLnkDirty){alert('Faça sua assinatura antes de confirmar.');return;}
+  var c=document.getElementById('remLnkCanvas');
+  var sigData=c?c.toDataURL('image/png'):'';
+  var agora=new Date().toLocaleString('pt-BR');
+  try{
+    var upd={remetente_status:'assinado',remetente_por:nome,remetente_em:agora,aceite_status:'pendente'};
+    if(sigData)upd.remetente_assinatura=sigData;
+    var r=await sb.from('termos').update(upd).eq('remetente_token',token);
+    if(r.error&&sigData){delete upd.remetente_assinatura;r=await sb.from('termos').update(upd).eq('remetente_token',token);}
+    // Injeta assinatura no documento
+    if(sigData){
+      try{await assinarDocumentoRemetente(token,nome,agora,sigData);}catch(e){console.warn('rem doc sig:',e);}
+    }
+    document.body.innerHTML='<div style="font-family:Inter,sans-serif;text-align:center;padding:80px 20px">'+
+      '<div style="font-size:60px">✅</div>'+
+      '<h2 style="color:#15803d;margin:20px 0">Termo assinado como remetente!</h2>'+
+      '<p style="color:#6B7280">'+nome+' — '+agora+'</p>'+
+      '<p style="color:#6B7280;margin-top:12px;font-size:13px">O link de aceite já está disponível para o destinatário.</p>'+
+      (sigData?'<img src="'+sigData+'" style="max-height:80px;margin-top:14px;border-bottom:1px solid #9ca3af"/>':'')+
+    '</div>';
+  }catch(e){alert('Erro ao registrar assinatura.');}
+}
+
+async function assinarDocumentoRemetente(token,nome,agora,sigData){
+  var r=await sb.from('termos').select('pdf_url,pdf_path,html_content').eq('remetente_token',token).single();
+  if(r.error||!r.data)return;
+  var t=r.data;
+  var html=t.html_content||'';
+  if(!html&&t.pdf_url&&/\.html?$/i.test(t.pdf_path||'')){
+    try{var resp=await fetch(t.pdf_url+'?t='+Date.now());if(resp.ok)html=await resp.text();}catch(e){}
+  }
+  if(!html)return;
+  var sigImg=sigData?'<img src="'+sigData+'" style="max-height:42px;max-width:90%;display:block;margin:0 auto"/>':'';
+  var info='<div style="font-size:7.5pt;color:#15803d;margin-top:2px">Assinado eletronicamente em '+agora+'</div>';
+  html=html.replace('<!--SIG_REM-->',sigImg).replace('<!--SIG_REM_INFO-->',info)
+           .replace('⏳ Aguardando assinatura do remetente via SolarGrid.','✅ Remetente assinou. Aguardando aceite do destinatário via SolarGrid.');
+  try{await sb.from('termos').update({html_content:html}).eq('remetente_token',token);}catch(e){}
+  if(t.pdf_path&&/\.html?$/i.test(t.pdf_path)){
+    try{var blob=new Blob([html],{type:'text/html'});await sb.storage.from('termos').upload(t.pdf_path,blob,{contentType:'text/html',upsert:true});}catch(e){}
+  }
 }
 
 async function gerarLinkAceite(id){
@@ -2343,43 +2521,58 @@ async function salvarTermoPDF(){
 }
 async function importTermoPDF(e){openImportTermo();}
 
-async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin){
+async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin,aguardandoRemetente){
   if(!sb)return;
   try{
     var pdfUrl='';var pdfPath='';var htmlContent='';
     if(printWin){
       try{
-        // Espera a janela carregar antes de capturar
         await new Promise(function(res){setTimeout(res,800);});
         htmlContent=printWin.document.documentElement.outerHTML;
-        // Tenta salvar no Storage também (fallback)
         var blob=new Blob([htmlContent],{type:'text/html'});
         pdfPath='termo_'+Date.now()+'.html';
         var up=await sb.storage.from('termos').upload(pdfPath,blob,{contentType:'text/html',upsert:true});
         if(!up.error){pdfUrl=sb.storage.from('termos').getPublicUrl(pdfPath).data.publicUrl;}
       }catch(e){console.warn('termo upload err:',e);}
     }
-    var token=Math.random().toString(36).substring(2)+Math.random().toString(36).substring(2);
+    // Descobre próximo sequencial contando os termos existentes
+    var aceiteToken=Math.random().toString(36).substring(2)+Math.random().toString(36).substring(2);
+    var remToken=aguardandoRemetente?(Math.random().toString(36).substring(2)+Math.random().toString(36).substring(2)):'';
     var ins={
       remetente:remetente||'—',destino:destino||'—',data_termo:dataTermo||'',
       ferramentas:JSON.stringify(ferramentas),
       pdf_url:pdfUrl,pdf_path:pdfPath,
       criado_por:CU?CU.name:'—',
-      aceite_token:token,aceite_status:'pendente'
+      aceite_token:aceiteToken,
+      aceite_status:aguardandoRemetente?'aguardando_remetente':'pendente',
+      remetente_token:remToken,
+      remetente_status:aguardandoRemetente?'pendente':'assinado'
     };
     if(htmlContent)ins.html_content=htmlContent;
-    var ins_r=await sb.from('termos').insert(ins);
+    // Insert e pega o id retornado para gerar o código único
+    var ins_r=await sb.from('termos').insert(ins).select('id').single();
     if(ins_r.error&&htmlContent){
-      // Fallback: tenta sem html_content caso coluna não exista ainda
       delete ins.html_content;
-      await sb.from('termos').insert(ins);
+      ins_r=await sb.from('termos').insert(ins).select('id').single();
     }
-    setTimeout(function(){showToast('✅ Termo salvo! Copie o link de aceite na aba Termos Salvos e envie ao destinatário.',true);},2000);
+    if(ins_r.error){
+      delete ins.remetente_token;delete ins.remetente_status;
+      ins_r=await sb.from('termos').insert(ins).select('id').single();
+    }
+    // Gera e salva o código usando o id real do banco
+    if(ins_r.data&&ins_r.data.id){
+      var codigo=gerarCodigoTermo(remetente,destino,ins_r.data.id);
+      await sb.from('termos').update({codigo:codigo}).eq('id',ins_r.data.id);
+    }
+    if(aguardandoRemetente){
+      setTimeout(function(){showToast('✅ Termo salvo! Copie o link do remetente na aba Termos Salvos.',true);},2000);
+    } else {
+      setTimeout(function(){showToast('✅ Termo salvo! Copie o link de aceite na aba Termos Salvos e envie ao destinatário.',true);},2000);
+    }
   }catch(e){console.warn('saveTermoSB:',e);}
 }
 
 function exportTermo(){
-  // Validação antes de abrir o modal
   var validTools=[];
   termTools.forEach(function(tt,i){
     var patEl=document.getElementById('tp'+i);
@@ -2393,20 +2586,31 @@ function exportTermo(){
     validTools.push({pat:pat,nome:data.nome||'',marca:data.marca||'',modelo:data.modelo||'',serie:data.serie||'',status:data.status||'',dest:data.dest||termTools[0].dest||''});
   });
   if(!validTools.length){showToast('Adicione pelo menos uma ferramenta ao termo.',false);return;}
-  // Abre modal de assinatura do remetente
+  window._exportValidTools=validTools;
+  // Modal: escolher modo de assinatura do remetente
   var nomeRem=tg('tPN')||'';
-  var h='<div class="mh"><div><div class="mtt">\u270d\ufe0f Assinar como Remetente<\/div><div class="mts">Assine antes de enviar o link ao destinat\u00e1rio<\/div><\/div><button class="mcb" onclick="closeM()">\u2715<\/button><\/div>';
-  h+='<div style="padding:0 4px">';
-  h+='<div class="mf"><label>Seu nome completo<\/label><input id="remNome" value="'+nomeRem+'" placeholder="Nome do remetente"\/><\/div>';
-  h+='<div class="mf"><label>Assinatura \u270d\ufe0f (desenhe abaixo)<\/label>';
-  h+='<canvas id="remSigCanvas" width="640" height="150" style="width:100%;height:150px;border:1.5px dashed #9ca3af;border-radius:8px;background:#fff;touch-action:none;cursor:crosshair;display:block"><\/canvas>';
-  h+='<button onclick="limparRemSig()" style="margin-top:5px;background:none;border:none;color:#6B7280;font-size:12px;cursor:pointer;text-decoration:underline">\ud83d\uddd1\ufe0f Limpar<\/button>';
-  h+='<\/div><\/div>';
-  h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar<\/button><button class="b-sv" onclick="confirmarAssinaturaRemetente()">\u2705 Confirmar e gerar termo<\/button><\/div>';
+  var h='<div class="mh"><div><div class="mtt">📄 Gerar Termo</div><div class="mts">Como o remetente vai assinar?</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
+  h+='<div style="padding:4px 4px 0">';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px">';
+  // Opção 1: assinar agora
+  h+='<div onclick="modoAssinaturaRem(\'agora\')" style="border:2px solid var(--bd);border-radius:10px;padding:16px 14px;cursor:pointer;text-align:center;transition:border-color .15s" id="optAgora" onmouseover="this.style.borderColor=\'var(--nv)\'" onmouseout="if(!this.classList.contains(\'sel\'))this.style.borderColor=\'var(--bd)\'">'+
+    '<div style="font-size:28px;margin-bottom:8px">✍️</div>'+
+    '<div style="font-weight:700;color:var(--nv);font-size:13px;margin-bottom:4px">Assinar agora</div>'+
+    '<div style="font-size:11px;color:var(--tx3)">Você assina aqui mesmo, na hora</div>'+
+  '</div>';
+  // Opção 2: enviar link
+  h+='<div onclick="modoAssinaturaRem(\'link\')" style="border:2px solid var(--bd);border-radius:10px;padding:16px 14px;cursor:pointer;text-align:center;transition:border-color .15s" id="optLink" onmouseover="this.style.borderColor=\'var(--nv)\'" onmouseout="if(!this.classList.contains(\'sel\'))this.style.borderColor=\'var(--bd)\'">'+
+    '<div style="font-size:28px;margin-bottom:8px">🔗</div>'+
+    '<div style="font-weight:700;color:var(--nv);font-size:13px;margin-bottom:4px">Enviar link</div>'+
+    '<div style="font-size:11px;color:var(--tx3)">Gera um link para o remetente assinar depois</div>'+
+  '</div>';
+  h+='</div>';
+  // Área dinâmica (assinatura ou confirmação)
+  h+='<div id="remModoArea"></div>';
+  h+='</div>';
+  h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button><button class="b-sv" id="btnGerarTermo" onclick="confirmarExportTermo()" style="display:none">✅ Gerar termo</button></div>';
   document.getElementById('mbody').innerHTML=h;
   document.getElementById('mo').style.display='flex';
-  window._exportValidTools=validTools;
-  setTimeout(function(){initRemSigCanvas();var n=document.getElementById('remNome');if(n)n.focus();},80);
 }
 
 var remSigDirty=false;
@@ -2429,19 +2633,69 @@ function limparRemSig(){
   var c=document.getElementById('remSigCanvas');if(!c)return;
   c.getContext('2d').clearRect(0,0,c.width,c.height);remSigDirty=false;
 }
-function confirmarAssinaturaRemetente(){
-  var nEl=document.getElementById('remNome');
-  var nome=nEl?nEl.value.trim():'';
-  if(!nome){showToast('Informe o nome do remetente.',false);if(nEl)nEl.focus();return;}
-  if(!remSigDirty){showToast('Fa\u00e7a sua assinatura antes de confirmar.',false);return;}
-  var c=document.getElementById('remSigCanvas');
-  var sigData=c?c.toDataURL('image/png'):'';
-  var agora=new Date().toLocaleString('pt-BR');
-  closeM();
-  _gerarTermoComAssinaturaRemetente(nome,sigData,agora,window._exportValidTools);
+var _remModo='agora';
+function modoAssinaturaRem(modo){
+  _remModo=modo;
+  // highlight selecionado
+  ['optAgora','optLink'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    el.classList.remove('sel');
+    el.style.borderColor='var(--bd)';
+    el.style.background='';
+  });
+  var sel=document.getElementById(modo==='agora'?'optAgora':'optLink');
+  if(sel){sel.classList.add('sel');sel.style.borderColor='var(--nv)';sel.style.background='rgba(27,58,107,.05)';}
+  var area=document.getElementById('remModoArea');
+  var btn=document.getElementById('btnGerarTermo');
+  if(!area)return;
+  if(modo==='agora'){
+    var nomeRem=tg('tPN')||'';
+    area.innerHTML=
+      '<div style="margin-top:12px">'+
+      '<div class="mf"><label>Seu nome completo</label><input id="remNome" value="'+nomeRem+'" placeholder="Nome do remetente"/></div>'+
+      '<div class="mf"><label>Assinatura ✍️ (desenhe abaixo)</label>'+
+      '<canvas id="remSigCanvas" width="640" height="140" style="width:100%;height:140px;border:1.5px dashed #9ca3af;border-radius:8px;background:#fff;touch-action:none;cursor:crosshair;display:block"></canvas>'+
+      '<button onclick="limparRemSig()" style="margin-top:5px;background:none;border:none;color:#6B7280;font-size:12px;cursor:pointer;text-decoration:underline">🗑️ Limpar</button>'+
+      '</div></div>';
+    if(btn){btn.style.display='';btn.textContent='✅ Assinar e gerar termo';}
+    setTimeout(function(){initRemSigCanvas();var n=document.getElementById('remNome');if(n)n.focus();},80);
+  } else {
+    area.innerHTML=
+      '<div style="margin-top:12px;background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.2);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--bl-tx)">'+
+      '🔗 O termo será salvo e um <strong>link de assinatura do remetente</strong> será gerado.<br>'+
+      'Envie esse link para o remetente. O link de aceite do destinatário só aparecerá depois que o remetente assinar.'+
+      '</div>';
+    if(btn){btn.style.display='';btn.textContent='📄 Gerar termo e link do remetente';}
+  }
 }
 
-function _gerarTermoComAssinaturaRemetente(nomeRem,sigDataRem,agoraRem,validTools){
+function confirmarExportTermo(){
+  if(_remModo==='agora'){
+    var nEl=document.getElementById('remNome');
+    var nome=nEl?nEl.value.trim():'';
+    if(!nome){showToast('Informe o nome do remetente.',false);if(nEl)nEl.focus();return;}
+    if(!remSigDirty){showToast('Faça sua assinatura antes de confirmar.',false);return;}
+    var c=document.getElementById('remSigCanvas');
+    var sigData=c?c.toDataURL('image/png'):'';
+    var agora=new Date().toLocaleString('pt-BR');
+    closeM();
+    _gerarTermoComAssinaturaRemetente(nome,sigData,agora,window._exportValidTools);
+  } else {
+    // Modo link: gera o termo sem assinatura do remetente e cria remetente_token
+    closeM();
+    _gerarTermoSemAssinaturaRemetente(window._exportValidTools);
+  }
+}
+
+function confirmarAssinaturaRemetente(){confirmarExportTermo();}
+
+function _gerarTermoSemAssinaturaRemetente(validTools){
+  // Gera o documento com espaço em branco para o remetente (será assinado pelo link)
+  _gerarTermoComAssinaturaRemetente('','',null,validTools,true);
+}
+
+function _gerarTermoComAssinaturaRemetente(nomeRem,sigDataRem,agoraRem,validTools,aguardandoRemetente){
   var toolsRows=validTools.map(function(tt){return'<tr><td style="font-family:monospace">'+tt.pat+'<\/td><td>'+tt.nome+'<\/td><td>'+tt.marca+'<\/td><td>'+tt.modelo+'<\/td><td>'+tt.serie+'<\/td><td>'+tt.status+'<\/td><td>'+tt.dest+'<\/td><\/tr>';}).join('');
   var photoCards=termTools.map(function(tt,i){
     if(!termPhotos[i]||!tt.pat||!tt.pat.trim())return'';
@@ -2453,8 +2707,8 @@ function _gerarTermoComAssinaturaRemetente(nomeRem,sigDataRem,agoraRem,validTool
       '<img src="'+termPhotos[i]+'" style="width:100%;height:180px;object-fit:cover;display:block"\/>'+'<\/div>';
   }).filter(Boolean).join('');
   var photoSection=photoCards?'<div style="margin-top:20px;border-top:1.5px solid #1B3A6B;padding-top:14px"><div style="font-size:10pt;font-weight:700;color:#1B3A6B;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">\ud83d\udcf7 Registro Fotogr\u00e1fico<\/div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">'+photoCards+'<\/div><\/div>':'';
-  var remSigHtml=sigDataRem?'<img src="'+sigDataRem+'" style="max-height:42px;max-width:90%;display:block;margin:0 auto"\/>'  :'';
-  var remSigInfo='<div style="font-size:7.5pt;color:#15803d;margin-top:2px">Assinado eletronicamente em '+agoraRem+'<\/div>';
+  var remSigHtml=sigDataRem?'<img src="'+sigDataRem+'" style="max-height:42px;max-width:90%;display:block;margin:0 auto"\/>':'<!--SIG_REM-->';
+  var remSigInfo=agoraRem?'<div style="font-size:7.5pt;color:#15803d;margin-top:2px">Assinado eletronicamente em '+agoraRem+'<\/div>':'<!--SIG_REM_INFO-->';
   if(!validTools.length){return;}
   var toolsRows=validTools.map(function(tt){return'<tr><td style="font-family:monospace">'+tt.pat+'<\/td><td>'+tt.nome+'<\/td><td>'+tt.marca+'<\/td><td>'+tt.modelo+'<\/td><td>'+tt.serie+'<\/td><td>'+tt.status+'<\/td><td>'+tt.dest+'<\/td><\/tr>';}).join('');
   // Photo section — only ferramentas that have photos
@@ -2475,6 +2729,7 @@ function _gerarTermoComAssinaturaRemetente(nomeRem,sigDataRem,agoraRem,validTool
     '<div class="logo">SolarGrid<\/div>'+
     '<p class="sub">CNPJ nº 21.481.886-0001/02<\/p>'+
     '<h2>Termo de Empréstimo e Responsabilidade<\/h2>'+
+    '<div style="text-align:center;margin:-8px 0 10px"><span style="font-family:monospace;font-size:9pt;background:#F1F5F9;border:1px solid #CBD5E1;border-radius:4px;padding:2px 10px;color:#475569;letter-spacing:.08em">'+codigo+'<\/span><\/div>'+
     '<div class="grid">'+
       '<div class="box"><h3>Responsável (SolarGrid)<\/h3>'+
         '<div class="pf"><span>Nome:<\/span> '+(tg('tPN')||'___')+'<\/div>'+
@@ -2507,12 +2762,12 @@ function _gerarTermoComAssinaturaRemetente(nomeRem,sigDataRem,agoraRem,validTool
       '<div class="sb"><div class="sl" style="display:flex;align-items:flex-end;justify-content:center">'+remSigHtml+'<\/div><div class="slb">Remetente<\/div><div style="font-size:8pt;color:#555">'+nomeRem+'<\/div>'+remSigInfo+'<\/div>'+
       '<div class="sb"><div class="sl" style="display:flex;align-items:flex-end;justify-content:center"><!--SIG_DEST--><\/div><div class="slb">Destinatário<\/div><div style="font-size:8pt;color:#555">'+(tg('tRN')||'')+'<\/div><!--SIG_DEST_INFO--><\/div>'+
     '<\/div>'+
-    '<div class="note"><!--ACEITE_STAMP-->⏳ Aguardando aceite eletrônico do destinatário via SolarGrid.<\/div>'+
+    '<div class="note"><!--ACEITE_STAMP-->'+(aguardandoRemetente?'⏳ Aguardando assinatura do remetente via SolarGrid.':'⏳ Aguardando aceite eletrônico do destinatário via SolarGrid.')+'<\/div>'+
     '<\/body><\/html>');
   w.document.close();
   setTimeout(function(){w.print();},600);
   var patsList=validTools.map(function(t){return t.pat;});
-  saveTermoSB(tg('tPN')||'\u2014',tg('tRN')||'\u2014',tg('tData')||new Date().toLocaleDateString('pt-BR'),patsList,w);
+  saveTermoSB(tg('tPN')||'\u2014',tg('tRN')||'\u2014',tg('tData')||new Date().toLocaleDateString('pt-BR'),patsList,w,aguardandoRemetente);
 }
 
 // ── MODAL ──
@@ -2556,7 +2811,8 @@ document.addEventListener('DOMContentLoaded',function(){
       if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='Entrar →';}
     });
   }
-  // check for aceite token in URL
+  // check for tokens in URL
+  processarAssinaturaRemetente();
   processarAceite();
   if(!loadSession()){/* stay on login */}
   var tUso=document.getElementById('tUso');
