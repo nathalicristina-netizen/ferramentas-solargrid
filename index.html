@@ -701,6 +701,7 @@ function showApp(){
 // ── SUPABASE ──
 function showBanner(type,msg){
   var b=document.getElementById('dbB');
+  if(!b)return; // página de aceite/remetente não tem este elemento
   b.className='dbb show '+type;
   b.textContent=(type==='ok'?'✓ ':type==='err'?'⚠ ':'⟳ ')+msg;
   if(type==='ok')setTimeout(function(){b.classList.remove('show');},3000);
@@ -2290,7 +2291,7 @@ async function processarAceite(){
     var r=await sb.from('termos').select('*').eq('aceite_token',token).single();
     if(r.error||!r.data){alert('Termo não encontrado ou link inválido.');return;}
     var t=r.data;
-    window._termoRemAtual=t;
+    window._termoAceiteAtual=t;
     var ferrs=[];try{ferrs=JSON.parse(t.ferramentas||'[]');}catch(e){}
     document.body.innerHTML='<div style="font-family:Inter,sans-serif;max-width:700px;margin:40px auto;padding:20px">'+
       '<div style="text-align:center;margin-bottom:30px">'+
