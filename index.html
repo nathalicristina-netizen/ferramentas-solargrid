@@ -795,7 +795,16 @@ async function dbLoad(){
   await loadCertsFB();
   showBanner('connecting','Conectando…');
   try{
-    var r=await sb.from('ferramentas').select('*');
+    // Busca TODAS as ferramentas em blocos (o Supabase limita cada select a 1000 linhas)
+    var todas=[],deErro=null,offset=0,bloco=1000;
+    while(true){
+      var rr=await sb.from('ferramentas').select('*').range(offset,offset+bloco-1);
+      if(rr.error){deErro=rr.error;break;}
+      if(rr.data&&rr.data.length){todas=todas.concat(rr.data);}
+      if(!rr.data||rr.data.length<bloco)break; // acabou
+      offset+=bloco;
+    }
+    var r={data:todas,error:deErro};
     if(r.error){showBanner('err','Banco offline. Dados locais.');renderAll();return;}
 
     // Se o banco JÁ tem ferramentas → usa SÓ o banco (ignora o RAW embutido)
@@ -839,9 +848,16 @@ async function dbLoad(){
       showBanner('ok',seedOk+' ferramentas enviadas ao banco!');
     }
 
-    // Carrega histórico e associa por ferramenta_id (= id do banco)
-    var r2=await sb.from('historico').select('*').order('created_at',{ascending:false});
-    if(r2.data)r2.data.forEach(function(row){
+    // Carrega histórico (em blocos, também limitado a 1000) e associa por ferramenta_id (= id do banco)
+    var todoHist=[],ho=0;
+    while(true){
+      var hr=await sb.from('historico').select('*').order('created_at',{ascending:false}).range(ho,ho+999);
+      if(hr.error)break;
+      if(hr.data&&hr.data.length)todoHist=todoHist.concat(hr.data);
+      if(!hr.data||hr.data.length<1000)break;
+      ho+=1000;
+    }
+    todoHist.forEach(function(row){
       var t=tools.find(function(x){return x._id===row.ferramenta_id;});
       if(!t)return;
       if(!t.hist.some(function(h){return h.dbId===row.id;}))
@@ -1518,7 +1534,7 @@ async function loadHistGeral(){
   if(!el)return;
   if(!sb){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">Sem conexão com o banco.</div>';return;}
   try{
-    var r=await sb.from('historico').select('*').order('created_at',{ascending:false}).limit(500);
+    var r=await sb.from('historico').select('*').order('created_at',{ascending:false}).limit(1000);
     if(r.error)throw r.error;
     histGeralData=r.data||[];
     renderHistGeral();
