@@ -712,7 +712,7 @@ function loadSession(){
   try{
     var raw=localStorage.getItem('sg_s');if(!raw)return false;
     CU=JSON.parse(raw);if(!CU||!CU.name)return false;
-    loadTols();
+    // Não aplica loadTols aqui: o dbLoad vai trazer a verdade do banco logo em seguida
     showApp();
     var tab=CU._tab||'tabFerr';
     document.querySelectorAll('.tab-content').forEach(function(e){e.classList.remove('on');});
@@ -763,16 +763,30 @@ async function dbSaveHist(id,msg,user){
   catch(e){}
 }
 async function dbDelHist(id){if(!sb)return;try{await sb.from('historico').delete().eq('ferramenta_id',id);}catch(e){}}
-// Exclui uma ferramenta do banco na ordem correta: histórico PRIMEIRO (foreign key), depois a ferramenta.
-// Usa .select() para saber quantas linhas foram realmente apagadas.
-async function dbDeleteToolCompletely(id){
-  if(!sb||id==null)return {ok:true,count:0};
+// Exclui uma ferramenta do banco de forma robusta: busca os ids REAIS pelo patrimônio
+// (resolve descompasso entre _id local e id do banco), apaga histórico primeiro, depois a ferramenta.
+async function dbDeleteToolCompletely(tool){
+  if(!sb||!tool)return {ok:true,count:0};
+  var pat=(typeof tool==='object')?tool.patrimonio:null;
+  var lid=(typeof tool==='object')?tool._id:tool; // aceita objeto ou id puro
   try{
-    await sb.from('historico').delete().eq('ferramenta_id',id);
-    var f=await sb.from('ferramentas').delete().eq('id',id).select('id');
-    if(f&&f.error)return {ok:false,error:f.error,count:0};
-    var n=(f&&f.data)?f.data.length:0;
-    return {ok:n>0,count:n,error:(n===0?{message:'Nenhuma linha apagada (id '+id+' não encontrado ou bloqueado por RLS)'}:null)};
+    var ids=[];
+    if(pat){
+      var sel=await sb.from('ferramentas').select('id').eq('patrimonio',pat);
+      if(sel&&sel.data)ids=sel.data.map(function(r){return r.id;});
+    }
+    if(lid!=null&&ids.indexOf(lid)<0)ids.push(lid);
+    if(!ids.length)return {ok:false,count:0,error:{message:'Nenhum id encontrado no banco para "'+(pat||lid)+'"'}};
+    // Apaga histórico de todos esses ids primeiro (foreign key)
+    for(var i=0;i<ids.length;i++){try{await sb.from('historico').delete().eq('ferramenta_id',ids[i]);}catch(e){}}
+    // Apaga as ferramentas por id
+    var total=0,lastErr=null;
+    for(var j=0;j<ids.length;j++){
+      var f=await sb.from('ferramentas').delete().eq('id',ids[j]).select('id');
+      if(f&&f.error)lastErr=f.error;
+      else if(f&&f.data)total+=f.data.length;
+    }
+    return {ok:total>0,count:total,error:(total>0?null:(lastErr||{message:'Nenhuma linha apagada (ids testados: '+ids.join(', ')+')'}))};
   }catch(e){return {ok:false,error:e,count:0};}
 }
 async function dbLoad(){
@@ -783,25 +797,49 @@ async function dbLoad(){
   try{
     var r=await sb.from('ferramentas').select('*');
     if(r.error){showBanner('err','Banco offline. Dados locais.');renderAll();return;}
-    if(r.data)r.data.forEach(function(row){
-      var t=tools.find(function(x){return x._id===row.id||x._id===Number(row.id);});
+
+    // Se o banco JÁ tem ferramentas → usa SÓ o banco (ignora o RAW embutido)
+    if(r.data&&r.data.length>0){
+      tools=[]; // descarta a lista fixa do código; a verdade é o banco
       var map={status:'status',local:'local',sigla_local:'siglaLocal',responsavel:'responsavel',
         cidade:'cidade',estado:'estado',obs:'obs',last_confirm:'lastConfirm',
         data_cal:'dataCal',dias_prox_cal:'diasProxCal',cert_cal:'certCal',data_manut:'dataManut',dias_prox_manut:'diasProxManut',disponibilidade:'disponibilidade',corretiva:'corretiva',prev_corretiva:'prevCorretiva',ciclo_conf:'cicloConf',nota_fiscal_url:'notaFiscalUrl',nota_fiscal_path:'notaFiscalPath',nota_fiscal_nome:'notaFiscalNome',
         laboratorio:'laboratorio',ferramenta:'ferramenta',patrimonio:'patrimonio',
         marca:'marca',modelo:'modelo',serie:'serie',setor:'setor',valor:'valor'};
-      if(!t){
-        t={_id:row.id,_mod:true,hist:[],
+      r.data.forEach(function(row){
+        var t={_id:row.id,_mod:false,hist:[],
           patrimonio:'',ferramenta:'',marca:'',modelo:'',serie:'',
           status:'OK',local:'',siglaLocal:'',cidade:'',estado:'',responsavel:'',
           setor:'',valor:'',certCal:'',laboratorio:'',dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',disponibilidade:'Liberada',corretiva:'',prevCorretiva:'',cicloConf:'quinzenal',obs:'',lastConfirm:null};
-        tools.unshift(t);
+        Object.keys(map).forEach(function(k){if(row[k]!==null&&row[k]!==undefined)t[map[k]]=row[k];});
+        if(t.serie)t.serie=t.serie.toString().replace(/\.0$/,'');
+        if(t.certCal)t.certCal=t.certCal.toString().replace(/\.0$/,'');
+        tools.push(t);
+      });
+    } else {
+      // Banco VAZIO → faz o seed único: envia o RAW embutido para o Supabase, uma vez
+      showBanner('connecting','Primeira carga: enviando ferramentas ao banco…');
+      var seedOk=0;
+      for(var i=0;i<tools.length;i++){
+        var t=tools[i];
+        try{
+          var ins=await sb.from('ferramentas').insert({
+            patrimonio:t.patrimonio,ferramenta:t.ferramenta,marca:t.marca,modelo:t.modelo,serie:t.serie,
+            status:t.status,local:t.local,sigla_local:t.siglaLocal,responsavel:t.responsavel,
+            cidade:t.cidade,estado:t.estado,setor:t.setor,valor:t.valor,cert_cal:t.certCal,
+            laboratorio:t.laboratorio,data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),
+            data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),
+            disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',
+            ciclo_conf:t.cicloConf||'quinzenal',obs:t.obs||''
+          }).select('id').single();
+          if(ins.data&&ins.data.id!=null){t._id=ins.data.id;seedOk++;}
+        }catch(e){console.warn('seed falhou',t.patrimonio,e);}
+        if(i%50===0)showBanner('connecting','Enviando ferramentas… '+i+'/'+tools.length);
       }
-      Object.keys(map).forEach(function(k){if(row[k]!==null&&row[k]!==undefined)t[map[k]]=row[k];});
-      if(t.serie)t.serie=t.serie.toString().replace(/\.0$/,'');
-      if(t.certCal)t.certCal=t.certCal.toString().replace(/\.0$/,'');
-      t._mod=true;
-    });
+      showBanner('ok',seedOk+' ferramentas enviadas ao banco!');
+    }
+
+    // Carrega histórico e associa por ferramenta_id (= id do banco)
     var r2=await sb.from('historico').select('*').order('created_at',{ascending:false});
     if(r2.data)r2.data.forEach(function(row){
       var t=tools.find(function(x){return x._id===row.ferramenta_id;});
@@ -1637,12 +1675,12 @@ async function delTool(id){
   if(!confirm('Excluir "'+t.ferramenta+'" ('+t.patrimonio+')?\n\nEsta ação não pode ser desfeita.'))return;
   tools=tools.filter(function(x){return x._id!==id;});
   saveTols();page=1;renderAll();
-  var r=await dbDeleteToolCompletely(id);
+  var r=await dbDeleteToolCompletely(t);
   if(r.ok){showToast('✅ Excluída do banco ('+r.count+' linha).',true);}
   else{
     var det=r.error&&r.error.message?r.error.message:'erro desconhecido';
     showToast('⚠️ NÃO removida do banco. '+det,false);
-    console.warn('delTool falhou. id=',id,'resultado=',r);
+    console.warn('delTool falhou. id=',id,'patrimonio=',t.patrimonio,'resultado=',r);
   }
 }
 function buildLocalOptions(currentVal, inputId){
@@ -2026,7 +2064,7 @@ function importXLSX(e){
               var delErros=0,delOk=0;
               for(var j=0;j<toDelete.length;j++){
                 var o=toDelete[j];
-                var r=await dbDeleteToolCompletely(o._id);
+                var r=await dbDeleteToolCompletely(o);
                 if(r.ok){delOk++;}
                 else{delErros++;console.warn('Falha ao remover órfã',o.patrimonio,r.error);}
               }
