@@ -1983,6 +1983,28 @@ function importXLSX(e){
         });
       }
 
+      // Detecta ferramentas na base que NÃO estão na planilha importada (órfãs)
+      var patSet={};
+      dedup.forEach(function(imp){patSet[imp.patrimonio]=true;});
+      var orphans=tools.filter(function(t){return !patSet[t.patrimonio];});
+      var removidasOrfas=0;
+      if(orphans.length){
+        var amostra=orphans.slice(0,12).map(function(t){return t.patrimonio;}).join(', ');
+        var msgOrf='A planilha contém '+dedup.length+' ferramenta(s).\n\n'+
+          orphans.length+' ferramenta(s) na base NÃO estão nesta planilha:\n'+amostra+(orphans.length>12?' … (+'+(orphans.length-12)+')':'')+
+          '\n\nDeseja REMOVER essas '+orphans.length+' ferramenta(s) da base, deixando apenas o que está na planilha?\n\n⚠️ Esta ação não pode ser desfeita.';
+        if(confirm(msgOrf)){
+          var orphanIds=orphans.map(function(t){return t._id;});
+          tools=tools.filter(function(t){return patSet[t.patrimonio];});
+          removidasOrfas=orphans.length;
+          if(sb){
+            orphanIds.forEach(function(oid){
+              if(oid!=null){try{sb.from('ferramentas').delete().eq('id',oid).then(function(){});sb.from('historico').delete().eq('ferramenta_id',oid).then(function(){});}catch(e){}}
+            });
+          }
+        }
+      }
+
       saveTols();page=1;renderAll();
       // sync to Supabase using dbSaveTool in controlled sequence
       if(sb){
@@ -1995,6 +2017,7 @@ function importXLSX(e){
           if(i>=toSync.length){
             var msg='✅ Salvo no banco: '+updated+' atualizadas, '+added+' novas';
             if(removidosDup)msg+=', '+removidosDup+' duplicada(s) mesclada(s)';
+            if(removidasOrfas)msg+=', '+removidasOrfas+' removida(s) por não estar na planilha';
             showToast(msg+'.',true);
             return;
           }
@@ -2007,6 +2030,7 @@ function importXLSX(e){
       } else {
         var msgOff='Importado: '+updated+' atualizadas, '+added+' novas';
         if(removidosDup)msgOff+=', '+removidosDup+' duplicada(s) mesclada(s)';
+        if(removidasOrfas)msgOff+=', '+removidasOrfas+' removida(s) por não estar na planilha';
         showToast(msgOff+'.',true);
       }
     }catch(err){
