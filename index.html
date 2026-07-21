@@ -2379,29 +2379,83 @@ async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin){
 }
 
 function exportTermo(){
-  // sync termTools from DOM inputs first, then lookup tool data
+  // Validação antes de abrir o modal
   var validTools=[];
   termTools.forEach(function(tt,i){
     var patEl=document.getElementById('tp'+i);
     var pat=patEl?patEl.value.trim():(tt.pat||'').trim();
     if(!pat)return;
-    // if data is missing, try to lookup from tools array
     var data=tt;
     if(!tt.nome&&pat){
       var f=tools.find(function(t){return t.patrimonio.trim().toUpperCase()===pat.toUpperCase();});
       if(f)data={pat:f.patrimonio,nome:f.ferramenta,marca:f.marca,modelo:f.modelo,serie:f.serie,status:f.status,dest:tt.dest||termTools[0].dest||''};
     }
-    validTools.push({
-      pat:pat,
-      nome:data.nome||'',
-      marca:data.marca||'',
-      modelo:data.modelo||'',
-      serie:data.serie||'',
-      status:data.status||'',
-      dest:data.dest||termTools[0].dest||''
-    });
+    validTools.push({pat:pat,nome:data.nome||'',marca:data.marca||'',modelo:data.modelo||'',serie:data.serie||'',status:data.status||'',dest:data.dest||termTools[0].dest||''});
   });
   if(!validTools.length){showToast('Adicione pelo menos uma ferramenta ao termo.',false);return;}
+  // Abre modal de assinatura do remetente
+  var nomeRem=tg('tPN')||'';
+  var h='<div class="mh"><div><div class="mtt">\u270d\ufe0f Assinar como Remetente<\/div><div class="mts">Assine antes de enviar o link ao destinat\u00e1rio<\/div><\/div><button class="mcb" onclick="closeM()">\u2715<\/button><\/div>';
+  h+='<div style="padding:0 4px">';
+  h+='<div class="mf"><label>Seu nome completo<\/label><input id="remNome" value="'+nomeRem+'" placeholder="Nome do remetente"\/><\/div>';
+  h+='<div class="mf"><label>Assinatura \u270d\ufe0f (desenhe abaixo)<\/label>';
+  h+='<canvas id="remSigCanvas" width="640" height="150" style="width:100%;height:150px;border:1.5px dashed #9ca3af;border-radius:8px;background:#fff;touch-action:none;cursor:crosshair;display:block"><\/canvas>';
+  h+='<button onclick="limparRemSig()" style="margin-top:5px;background:none;border:none;color:#6B7280;font-size:12px;cursor:pointer;text-decoration:underline">\ud83d\uddd1\ufe0f Limpar<\/button>';
+  h+='<\/div><\/div>';
+  h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar<\/button><button class="b-sv" onclick="confirmarAssinaturaRemetente()">\u2705 Confirmar e gerar termo<\/button><\/div>';
+  document.getElementById('mbody').innerHTML=h;
+  document.getElementById('mo').style.display='flex';
+  window._exportValidTools=validTools;
+  setTimeout(function(){initRemSigCanvas();var n=document.getElementById('remNome');if(n)n.focus();},80);
+}
+
+var remSigDirty=false;
+function initRemSigCanvas(){
+  var c=document.getElementById('remSigCanvas');if(!c)return;
+  var ctx=c.getContext('2d');
+  ctx.lineWidth=2.2;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#1B3A6B';
+  var drawing=false;
+  function pos(e){var r=c.getBoundingClientRect();var sx=c.width/r.width,sy=c.height/r.height;var p=e.touches?e.touches[0]:e;return{x:(p.clientX-r.left)*sx,y:(p.clientY-r.top)*sy};}
+  function start(e){e.preventDefault();drawing=true;var p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);}
+  function move(e){if(!drawing)return;e.preventDefault();var p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();remSigDirty=true;}
+  function end(){drawing=false;}
+  c.addEventListener('mousedown',start);c.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',end);
+  c.addEventListener('touchstart',start,{passive:false});c.addEventListener('touchmove',move,{passive:false});
+  c.addEventListener('touchend',end);
+  remSigDirty=false;
+}
+function limparRemSig(){
+  var c=document.getElementById('remSigCanvas');if(!c)return;
+  c.getContext('2d').clearRect(0,0,c.width,c.height);remSigDirty=false;
+}
+function confirmarAssinaturaRemetente(){
+  var nEl=document.getElementById('remNome');
+  var nome=nEl?nEl.value.trim():'';
+  if(!nome){showToast('Informe o nome do remetente.',false);if(nEl)nEl.focus();return;}
+  if(!remSigDirty){showToast('Fa\u00e7a sua assinatura antes de confirmar.',false);return;}
+  var c=document.getElementById('remSigCanvas');
+  var sigData=c?c.toDataURL('image/png'):'';
+  var agora=new Date().toLocaleString('pt-BR');
+  closeM();
+  _gerarTermoComAssinaturaRemetente(nome,sigData,agora,window._exportValidTools);
+}
+
+function _gerarTermoComAssinaturaRemetente(nomeRem,sigDataRem,agoraRem,validTools){
+  var toolsRows=validTools.map(function(tt){return'<tr><td style="font-family:monospace">'+tt.pat+'<\/td><td>'+tt.nome+'<\/td><td>'+tt.marca+'<\/td><td>'+tt.modelo+'<\/td><td>'+tt.serie+'<\/td><td>'+tt.status+'<\/td><td>'+tt.dest+'<\/td><\/tr>';}).join('');
+  var photoCards=termTools.map(function(tt,i){
+    if(!termPhotos[i]||!tt.pat||!tt.pat.trim())return'';
+    return'<div style="border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">'+
+      '<div style="background:#f3f4f6;padding:7px 10px;border-bottom:1px solid #e5e7eb">'+
+        '<div style="font-family:monospace;font-size:10pt;font-weight:700;color:#1B3A6B">'+tt.pat+'<\/div>'+
+        '<div style="font-size:9.5pt;color:#555;margin-top:1px">'+tt.nome+'<\/div>'+
+      '<\/div>'+
+      '<img src="'+termPhotos[i]+'" style="width:100%;height:180px;object-fit:cover;display:block"\/>'+'<\/div>';
+  }).filter(Boolean).join('');
+  var photoSection=photoCards?'<div style="margin-top:20px;border-top:1.5px solid #1B3A6B;padding-top:14px"><div style="font-size:10pt;font-weight:700;color:#1B3A6B;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">\ud83d\udcf7 Registro Fotogr\u00e1fico<\/div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">'+photoCards+'<\/div><\/div>':'';
+  var remSigHtml=sigDataRem?'<img src="'+sigDataRem+'" style="max-height:42px;max-width:90%;display:block;margin:0 auto"\/>'  :'';
+  var remSigInfo='<div style="font-size:7.5pt;color:#15803d;margin-top:2px">Assinado eletronicamente em '+agoraRem+'<\/div>';
+  if(!validTools.length){return;}
   var toolsRows=validTools.map(function(tt){return'<tr><td style="font-family:monospace">'+tt.pat+'<\/td><td>'+tt.nome+'<\/td><td>'+tt.marca+'<\/td><td>'+tt.modelo+'<\/td><td>'+tt.serie+'<\/td><td>'+tt.status+'<\/td><td>'+tt.dest+'<\/td><\/tr>';}).join('');
   // Photo section — only ferramentas that have photos
   var photoCards=termTools.map(function(tt,i){
@@ -2450,16 +2504,15 @@ function exportTermo(){
     '<div style="text-align:right;margin:14px 0;font-size:10pt">'+(tg('tData')||'____________, ___ de __________ de ______')+'<\/div>'+
     (tg('tObsTermo')?'<div style="margin:10px 0;padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:5px;font-size:10pt"><strong>Observações:</strong> '+tg('tObsTermo')+'<\/div>':'')+
     '<div class="sg">'+
-      '<div class="sb"><div class="sl"><\/div><div class="slb">Remetente<\/div><div style="font-size:8pt;color:#555">'+(tg('tPN')||'')+'<\/div><\/div>'+
+      '<div class="sb"><div class="sl" style="display:flex;align-items:flex-end;justify-content:center">'+remSigHtml+'<\/div><div class="slb">Remetente<\/div><div style="font-size:8pt;color:#555">'+nomeRem+'<\/div>'+remSigInfo+'<\/div>'+
       '<div class="sb"><div class="sl" style="display:flex;align-items:flex-end;justify-content:center"><!--SIG_DEST--><\/div><div class="slb">Destinatário<\/div><div style="font-size:8pt;color:#555">'+(tg('tRN')||'')+'<\/div><!--SIG_DEST_INFO--><\/div>'+
     '<\/div>'+
     '<div class="note"><!--ACEITE_STAMP-->⏳ Aguardando aceite eletrônico do destinatário via SolarGrid.<\/div>'+
     '<\/body><\/html>');
   w.document.close();
   setTimeout(function(){w.print();},600);
-  // save to Supabase automatically with aceite link
   var patsList=validTools.map(function(t){return t.pat;});
-  saveTermoSB(tg('tPN')||'—',tg('tRN')||'—',tg('tData')||new Date().toLocaleDateString('pt-BR'),patsList,w);
+  saveTermoSB(tg('tPN')||'\u2014',tg('tRN')||'\u2014',tg('tData')||new Date().toLocaleDateString('pt-BR'),patsList,w);
 }
 
 // ── MODAL ──
