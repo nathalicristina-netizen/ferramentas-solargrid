@@ -2052,7 +2052,7 @@ async function loadTermosSB(){
             '</div>'+
           '</div>'+
           '<div style="display:flex;gap:6px;flex-shrink:0">'+
-            (t.pdf_url?'<button class="bs ok" onclick="window.open(\''+t.pdf_url+'?v=\'+Date.now(),\'_blank\')" style="font-size:11px;padding:5px 10px">📄 Abrir</button>':'<span style="font-size:11px;color:var(--tx3)">Sem arquivo</span>')+
+            (t.pdf_url||t.html_content?'<button class="bs ok" onclick="abrirTermo('+t.id+')" style="font-size:11px;padding:5px 10px">📄 Abrir</button>':'<span style="font-size:11px;color:var(--tx3)">Sem arquivo</span>')+
             '<button class="bs rd" onclick="delTermo('+t.id+')" style="font-size:11px;padding:5px 8px">✕</button>'+
           '</div>'+
         '</div>'+
@@ -2199,21 +2199,66 @@ async function confirmarAceite(token,status){
 }
 
 // Busca o HTML do termo no storage, injeta a assinatura e regrava o arquivo
+// Abre o termo em nova janela renderizando o HTML corretamente
+async function abrirTermo(id){
+  if(!sb)return;
+  try{
+    var r=await sb.from('termos').select('html_content,pdf_url,pdf_path,aceite_status,aceite_por,aceite_em,aceite_assinatura').eq('id',id).single();
+    if(r.error)throw r.error;
+    var t=r.data;
+    var html='';
+    // Preferência: html_content salvo no banco
+    if(t.html_content){
+      html=t.html_content;
+    } else if(t.pdf_url&&/\.html?(\?|$)/i.test(t.pdf_url)){
+      // Fallback: busca do Storage
+      try{
+        var resp=await fetch(t.pdf_url+'?t='+Date.now());
+        if(resp.ok)html=await resp.text();
+      }catch(e){}
+    }
+    if(html){
+      var w=window.open('','_blank');
+      w.document.open();w.document.write(html);w.document.close();
+    } else if(t.pdf_url){
+      // PDF real ou outro arquivo — abre direto
+      window.open(t.pdf_url,'_blank');
+    } else {
+      showToast('Arquivo não encontrado.',false);
+    }
+  }catch(e){showToast('Erro ao abrir termo.',false);}
+}
+
 async function assinarDocumentoTermo(token,nome,agora,sigData){
-  var r=await sb.from('termos').select('pdf_url,pdf_path').eq('aceite_token',token).single();
-  if(r.error||!r.data||!r.data.pdf_path)return;
-  if(!/\.html?$/i.test(r.data.pdf_path))return; // só documentos HTML gerados pela plataforma
-  var resp=await fetch(r.data.pdf_url+'?t='+Date.now());
-  if(!resp.ok)return;
-  var html=await resp.text();
+  var r=await sb.from('termos').select('pdf_url,pdf_path,html_content').eq('aceite_token',token).single();
+  if(r.error||!r.data)return;
+  var t=r.data;
+  var html='';
+  // Tenta pegar do banco primeiro
+  if(t.html_content){
+    html=t.html_content;
+  } else if(t.pdf_url&&t.pdf_path&&/\.html?$/i.test(t.pdf_path)){
+    try{
+      var resp=await fetch(t.pdf_url+'?t='+Date.now());
+      if(resp.ok)html=await resp.text();
+    }catch(e){}
+  }
+  if(!html)return;
   var sigImg=sigData?'<img src="'+sigData+'" style="max-height:42px;max-width:90%"/>':'';
   var stamp='✅ Aceito e assinado eletronicamente por <strong>'+nome+'</strong> em '+agora+' via SolarGrid.';
   var info='<div style="font-size:7.5pt;color:#15803d;margin-top:2px">Assinado eletronicamente em '+agora+'</div>';
   html=html.replace('<!--SIG_DEST-->',sigImg)
            .replace('<!--SIG_DEST_INFO-->',info)
            .replace(/<!--ACEITE_STAMP-->[^<]*/,stamp);
-  var blob=new Blob([html],{type:'text/html'});
-  await sb.storage.from('termos').upload(r.data.pdf_path,blob,{contentType:'text/html',upsert:true});
+  // Salva HTML assinado de volta no banco
+  try{await sb.from('termos').update({html_content:html}).eq('aceite_token',token);}catch(e){console.warn('update html_content:',e);}
+  // Atualiza no Storage também (fallback)
+  if(t.pdf_path&&/\.html?$/i.test(t.pdf_path)){
+    try{
+      var blob=new Blob([html],{type:'text/html'});
+      await sb.storage.from('termos').upload(t.pdf_path,blob,{contentType:'text/html',upsert:true});
+    }catch(e){console.warn('storage update:',e);}
+  }
 }
 
 
@@ -2270,10 +2315,13 @@ async function importTermoPDF(e){openImportTermo();}
 async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin){
   if(!sb)return;
   try{
-    var pdfUrl='';var pdfPath='';
+    var pdfUrl='';var pdfPath='';var htmlContent='';
     if(printWin){
       try{
-        var htmlContent=printWin.document.documentElement.outerHTML;
+        // Espera a janela carregar antes de capturar
+        await new Promise(function(res){setTimeout(res,800);});
+        htmlContent=printWin.document.documentElement.outerHTML;
+        // Tenta salvar no Storage também (fallback)
         var blob=new Blob([htmlContent],{type:'text/html'});
         pdfPath='termo_'+Date.now()+'.html';
         var up=await sb.storage.from('termos').upload(pdfPath,blob,{contentType:'text/html',upsert:true});
@@ -2281,13 +2329,20 @@ async function saveTermoSB(remetente,destino,dataTermo,ferramentas,printWin){
       }catch(e){console.warn('termo upload err:',e);}
     }
     var token=Math.random().toString(36).substring(2)+Math.random().toString(36).substring(2);
-    await sb.from('termos').insert({
+    var ins={
       remetente:remetente||'—',destino:destino||'—',data_termo:dataTermo||'',
       ferramentas:JSON.stringify(ferramentas),
       pdf_url:pdfUrl,pdf_path:pdfPath,
       criado_por:CU?CU.name:'—',
       aceite_token:token,aceite_status:'pendente'
-    });
+    };
+    if(htmlContent)ins.html_content=htmlContent;
+    var ins_r=await sb.from('termos').insert(ins);
+    if(ins_r.error&&htmlContent){
+      // Fallback: tenta sem html_content caso coluna não exista ainda
+      delete ins.html_content;
+      await sb.from('termos').insert(ins);
+    }
     setTimeout(function(){showToast('✅ Termo salvo! Copie o link de aceite na aba Termos Salvos e envie ao destinatário.',true);},2000);
   }catch(e){console.warn('saveTermoSB:',e);}
 }
