@@ -240,6 +240,16 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
 .col-flt-footer button{flex:1;padding:4px 0;font-size:11px;border-radius:5px;border:1px solid var(--bd);cursor:pointer;background:var(--bg2);color:var(--tx1)}
 .col-flt-footer button.apply{background:var(--nv);color:#fff;border-color:var(--nv)}
 .col-flt-footer button.apply:hover{background:var(--or);border-color:var(--or)}
+
+/* Barra de rolagem horizontal fixa (sempre visível) */
+.h-scroll-fixed{position:fixed;left:0;right:0;bottom:0;height:16px;background:var(--bg2);
+  border-top:1.5px solid var(--bd);z-index:150;display:none;box-shadow:0 -2px 8px rgba(0,0,0,.06)}
+.h-scroll-fixed.show{display:block}
+.h-scroll-track{position:relative;height:100%;margin:0 8px;cursor:pointer}
+.h-scroll-thumb{position:absolute;top:3px;height:10px;border-radius:6px;background:var(--or);
+  cursor:grab;min-width:40px;transition:background .15s}
+.h-scroll-thumb:hover{background:var(--or2)}
+.h-scroll-thumb.dragging{cursor:grabbing;background:var(--or2)}
 </style>
 </head>
 <body>
@@ -547,6 +557,13 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
     <div class="t-dot gr" id="tdot"></div>
     <span id="tmsg"></span>
   </div>
+
+  <!-- BARRA DE ROLAGEM HORIZONTAL FIXA -->
+  <div class="h-scroll-fixed" id="hScrollBar">
+    <div class="h-scroll-track" id="hScrollTrack">
+      <div class="h-scroll-thumb" id="hScrollThumb"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -603,6 +620,18 @@ function calcDiasProxManut(t){
   var prox=new Date(d.getFullYear()+1,d.getMonth(),d.getDate());
   var hoje=new Date();hoje.setHours(0,0,0,0);
   return Math.round((prox-hoje)/(1000*60*60*24));
+}
+function calcProxDataCal(t){
+  var d=parseDateCal(t.dataCal);
+  if(!d)return'';
+  var prox=new Date(d.getFullYear()+1,d.getMonth(),d.getDate());
+  return prox.getDate().toString().padStart(2,'0')+'/'+(prox.getMonth()+1).toString().padStart(2,'0')+'/'+prox.getFullYear();
+}
+function calcProxDataManut(t){
+  var d=parseDateCal(t.dataManut);
+  if(!d)return'';
+  var prox=new Date(d.getFullYear()+1,d.getMonth(),d.getDate());
+  return prox.getDate().toString().padStart(2,'0')+'/'+(prox.getMonth()+1).toString().padStart(2,'0')+'/'+prox.getFullYear();
 }
 function manutSt(t){
   var d=t.dataManut?calcDiasProxManut(t):parseFloat(t.diasProxManut);
@@ -1166,10 +1195,10 @@ function renderTable(){
         return'<td><span style="background:'+bg+';color:'+cl+';border:1px solid '+cl+'40;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:600;cursor:pointer" onclick="toggleDisponib('+t._id+')">'+d+'<\/span><\/td>';
       })()+
       '<td>'+calBadge(t)+calTxt+'<\/td>'+
-      (function(){var d=t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);if(isNaN(d))return'<td style="font-size:11px;color:var(--tx3);text-align:center">—<\/td>';var clr=d<0?'#e53935':d<=60?'#f59e0b':'#16a34a';return'<td style="font-size:11px;font-weight:700;color:'+clr+';text-align:center">'+Math.round(d)+'<\/td>';})()+
+      (function(){var d=t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);if(isNaN(d))return'<td style="font-size:11px;color:var(--tx3);text-align:center">—<\/td>';var clr=d<0?'#e53935':d<=60?'#f59e0b':'#16a34a';var prox=t.dataCal?calcProxDataCal(t):'';var proxTxt=prox?'<br><span style="font-size:9px;font-weight:500;color:var(--tx3)">'+prox+'<\/span>':'';return'<td style="font-size:11px;font-weight:700;color:'+clr+';text-align:center">'+Math.round(d)+proxTxt+'<\/td>';})()+
       (function(){var manutTxt=t.dataManut?'<br><span style="font-size:9px;color:var(--tx3)">'+fmtDateCal(t.dataManut)+'<\/span>':'';var corrTxt=t.corretiva?'<br><span style="font-size:9px;color:#dc2626;font-weight:600">⚠ '+t.corretiva+(t.prevCorretiva?' ('+t.prevCorretiva+')':'')+'<\/span>':'';return'<td>'+manutBadge(t)+manutTxt+corrTxt+'<\/td>';})()+
-      (function(){var d=t.dataManut?calcDiasProxManut(t):parseFloat(t.diasProxManut);if(isNaN(d))return'<td style="font-size:11px;color:var(--tx3);text-align:center">—<\/td>';var clr=d<0?'#e53935':d<=60?'#f59e0b':'#16a34a';return'<td style="font-size:11px;font-weight:700;color:'+clr+';text-align:center">'+Math.round(d)+'<\/td>';})()+
-      '<td style="font-size:12px;font-weight:600">'+t.siglaLocal+'<br><span style="font-size:9px;color:var(--tx3);font-weight:400">'+(t.cidade?t.cidade+(t.estado?' — '+t.estado:''):'')+'<\/span><\/td>'+
+      (function(){var d=t.dataManut?calcDiasProxManut(t):parseFloat(t.diasProxManut);if(isNaN(d))return'<td style="font-size:11px;color:var(--tx3);text-align:center">—<\/td>';var clr=d<0?'#e53935':d<=60?'#f59e0b':'#16a34a';var prox=t.dataManut?calcProxDataManut(t):'';var proxTxt=prox?'<br><span style="font-size:9px;font-weight:500;color:var(--tx3)">'+prox+'<\/span>':'';return'<td style="font-size:11px;font-weight:700;color:'+clr+';text-align:center">'+Math.round(d)+proxTxt+'<\/td>';})()+
+      '<td style="font-size:12px;font-weight:600">'+t.siglaLocal+'<\/td>'+
       '<td style="font-size:12px">'+(t.responsavel||'—')+'<\/td>'+
       '<td style="font-size:11px;color:var(--nv);font-weight:600">'+val+'<\/td>'+
       '<td>'+confBadge+'<\/td>'+
@@ -1184,6 +1213,7 @@ function renderTable(){
   });
   document.getElementById('tbody').innerHTML=rows||'<tr><td colspan="9"><div class="empty">Nenhuma ferramenta.<\/div><\/td><\/tr>';
   renderPag(tot,page,pages);
+  setTimeout(updateHScrollBar,30);
 }
 function renderPag(tot,cur,pages){
   if(pages<=1){['pTop','pBot'].forEach(function(id){var e=document.getElementById(id);if(e)e.innerHTML='';});return;}
@@ -1201,6 +1231,87 @@ function renderPag(tot,cur,pages){
   ['pTop','pBot'].forEach(function(id){var e=document.getElementById(id);if(e){e.innerHTML=o;e.style.display='flex';}});
 }
 function goPg(p){page=p;renderTable();}
+
+// ── BARRA DE ROLAGEM HORIZONTAL FIXA ──
+function getHScrollEl(){return document.querySelector('#tabFerr .tw-scroll');}
+function updateHScrollBar(){
+  var bar=document.getElementById('hScrollBar');
+  var track=document.getElementById('hScrollTrack');
+  var thumb=document.getElementById('hScrollThumb');
+  var scrollEl=getHScrollEl();
+  if(!bar||!track||!thumb||!scrollEl){if(bar)bar.classList.remove('show');return;}
+  var toolsTabOn=document.getElementById('tabFerr')&&document.getElementById('tabFerr').classList.contains('on');
+  var scrollable=scrollEl.scrollWidth>scrollEl.clientWidth+3;
+  if(!toolsTabOn||!scrollable){bar.classList.remove('show');return;}
+  bar.classList.add('show');
+  var trackWidth=track.clientWidth;
+  var ratio=scrollEl.clientWidth/scrollEl.scrollWidth;
+  var thumbWidth=Math.max(40,trackWidth*ratio);
+  var maxThumbLeft=trackWidth-thumbWidth;
+  var maxScroll=scrollEl.scrollWidth-scrollEl.clientWidth;
+  var scrollRatio=maxScroll>0?scrollEl.scrollLeft/maxScroll:0;
+  thumb.style.width=thumbWidth+'px';
+  thumb.style.left=(maxThumbLeft*scrollRatio)+'px';
+}
+(function initHScrollBar(){
+  var dragging=false,dragStartX=0,dragStartScroll=0;
+  document.addEventListener('scroll',function(e){
+    if(e.target&&e.target.classList&&e.target.classList.contains('tw-scroll'))updateHScrollBar();
+  },true);
+  window.addEventListener('resize',updateHScrollBar);
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(updateHScrollBar,200);});
+  document.addEventListener('mousedown',function(e){
+    var thumb=document.getElementById('hScrollThumb');
+    if(e.target===thumb){
+      dragging=true;dragStartX=e.clientX;
+      var scrollEl=getHScrollEl();
+      dragStartScroll=scrollEl?scrollEl.scrollLeft:0;
+      thumb.classList.add('dragging');
+      e.preventDefault();
+    }
+  });
+  document.addEventListener('touchstart',function(e){
+    var thumb=document.getElementById('hScrollThumb');
+    if(e.target===thumb){
+      dragging=true;dragStartX=e.touches[0].clientX;
+      var scrollEl=getHScrollEl();
+      dragStartScroll=scrollEl?scrollEl.scrollLeft:0;
+      thumb.classList.add('dragging');
+    }
+  },{passive:true});
+  function doDrag(clientX){
+    var scrollEl=getHScrollEl(),track=document.getElementById('hScrollTrack'),thumb=document.getElementById('hScrollThumb');
+    if(!scrollEl||!track||!thumb)return;
+    var deltaX=clientX-dragStartX;
+    var trackWidth=track.clientWidth,thumbWidth=thumb.clientWidth;
+    var maxThumbLeft=trackWidth-thumbWidth;
+    if(maxThumbLeft<=0)return;
+    var maxScroll=scrollEl.scrollWidth-scrollEl.clientWidth;
+    var deltaScroll=deltaX*(maxScroll/maxThumbLeft);
+    scrollEl.scrollLeft=dragStartScroll+deltaScroll;
+  }
+  document.addEventListener('mousemove',function(e){if(dragging)doDrag(e.clientX);});
+  document.addEventListener('touchmove',function(e){if(dragging)doDrag(e.touches[0].clientX);},{passive:true});
+  function endDrag(){
+    if(dragging){dragging=false;var thumb=document.getElementById('hScrollThumb');if(thumb)thumb.classList.remove('dragging');}
+  }
+  document.addEventListener('mouseup',endDrag);
+  document.addEventListener('touchend',endDrag);
+  document.addEventListener('click',function(e){
+    var track=document.getElementById('hScrollTrack'),thumb=document.getElementById('hScrollThumb');
+    if(e.target===track){
+      var scrollEl=getHScrollEl();
+      if(!scrollEl)return;
+      var rect=track.getBoundingClientRect();
+      var clickX=e.clientX-rect.left;
+      var thumbWidth=thumb.clientWidth;
+      var maxThumbLeft=track.clientWidth-thumbWidth;
+      var targetLeft=Math.min(Math.max(clickX-thumbWidth/2,0),maxThumbLeft);
+      var maxScroll=scrollEl.scrollWidth-scrollEl.clientWidth;
+      scrollEl.scrollLeft=maxThumbLeft>0?(targetLeft/maxThumbLeft)*maxScroll:0;
+    }
+  });
+})();
 function renderAll(){
   renderMetrics();renderTable();populateLocalFlt();renderUsers();renderCerts();
   var btnN=document.getElementById('btnNova');
@@ -1599,7 +1710,7 @@ function showTab(id,btn){
   if(id==='tabSolic')renderSolics();
   if(id==='tabChat')loadChatMsgs();
   if(id==='tabTermos')loadTermosSB();
-  
+  setTimeout(updateHScrollBar,50);
 }
 
 // ── CONFIRMAÇÃO ──
