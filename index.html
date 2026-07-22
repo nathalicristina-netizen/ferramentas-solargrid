@@ -2035,6 +2035,13 @@ function importXLSX(e){
       if(!ws){showToast('Aba "Controle" não encontrada no arquivo!',false);return;}
       var rows=XLSX.utils.sheet_to_json(ws,{raw:false,dateNF:'yyyy-mm-dd'});
       if(!rows.length){showToast('Nenhuma ferramenta encontrada na aba Controle.',false);return;}
+      // Normaliza espaços em branco extras nos nomes de coluna (ex: " Valor " -> "Valor"),
+      // que podem vir de formatação de célula do cabeçalho no Excel e quebrar a leitura por chave exata.
+      rows=rows.map(function(r){
+        var out={};
+        Object.keys(r).forEach(function(k){out[k.trim()]=r[k];});
+        return out;
+      });
       // Leitura em modo array para pegar a coluna M (Local) por posição — alinhada às linhas de dados
       var aoaM=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'yyyy-mm-dd',blankrows:false});
       var dataM=aoaM.slice(1); // remove o cabeçalho; dataM[i] alinha com rows[i]
@@ -2044,6 +2051,27 @@ function importXLSX(e){
         var s=String(v).trim();
         if(s==='nan'||s==='None'||s==='NaT')return'';
         if(/^\d+\.0$/.test(s))s=s.replace(/\.0$/,'');
+        return s;
+      }
+      function cleanMoney(v){
+        var s=cleanStr(v);
+        if(!s)return'';
+        // remove símbolos de moeda, letras e espaços, mantém dígitos, vírgula, ponto e sinal
+        s=s.replace(/[^\d,.\-]/g,'');
+        if(!s)return'';
+        if(s.indexOf(',')>-1&&s.indexOf('.')>-1){
+          // "2,000.00" (milhar=vírgula, decimal=ponto) -> remove vírgulas
+          s=s.replace(/,/g,'');
+        } else if(s.indexOf(',')>-1){
+          var parts=s.split(',');
+          if(parts[parts.length-1].length<=2){
+            // "2000,50" (decimal=vírgula) -> vira ponto
+            s=parts.slice(0,-1).join('')+'.'+parts[parts.length-1];
+          } else {
+            // "2,000" (milhar=vírgula) -> remove
+            s=s.replace(/,/g,'');
+          }
+        }
         return s;
       }
       function fmtDate(v){
@@ -2103,7 +2131,7 @@ function importXLSX(e){
           estado:cleanStr(row['Estado']||row['ESTADO']||row['estado']||row['UF']||''),
           responsavel:cleanStr(row['Responsável']||row['Responsavel']||row['RESPONSAVEL']||row['responsavel']||''),
           setor:cleanStr(row['Setor']||row['SETOR']||row['setor']||''),
-          valor:cleanStr(row['Valor']||row['VALOR']||row['valor']||''),
+          valor:cleanMoney(row['Valor']||row['VALOR']||row['valor']||''),
           certCal:cleanStr(row['Nº Cert. Calibração']||row['Cert. Calibração']||row['CertCal']||row['Nº Cert']||''),
           laboratorio:cleanStr(row['Laboratório']||row['Laboratorio']||row['Lab']||row['LAB']||''),
           dataCal:fmtDate(row['Data de calibração']||row['Data Calibração']||row['DataCal']||row['Data Cal']||''),
