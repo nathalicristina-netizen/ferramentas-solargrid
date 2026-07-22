@@ -1682,20 +1682,17 @@ async function delTool(id){
     console.warn('delTool falhou. id=',id,'patrimonio=',t.patrimonio,'resultado=',r);
   }
 }
+// Lista fixa de locais para os dropdowns de editar/adicionar/trocar ferramenta (apenas siglas)
+var LOCAIS_EDIT=["CBA","CBAA","CBAB","CES","CGO","CMGA","CMGB","CMGC","CPIA","CRJA","CRJB","CRJC","CRJD","CRS","CRSA","CRSB","CSPA","CSPB","CSPC","CSPD","UFV ÁRVORE SÓ I","UFV ÁRVORE SÓ II","UFV BONFINÓPOLIS I","UFV BONFINÓPOLIS II","UFV INHAMBUPE IA","UFV INHAMBUPE IB","UFV JATAÍ","UFV LAGOA DO PIAUÍ","UFV SANTA CECÍLIA","UFV SÃO PEDRO I","UFV SÃO PEDRO IV"];
+
 function buildLocalOptions(currentVal, inputId){
-  // Merge ALL_LOCAIS + dynamic locals from tools
-  var locs={};
-  ALL_LOCAIS.forEach(function(l){locs[l]={cidade:'',estado:''};});
-  tools.forEach(function(t){
-    if(t.siglaLocal&&t.siglaLocal.trim()&&t.siglaLocal!=='—'){
-      locs[t.siglaLocal]={cidade:t.cidade||locs[t.siglaLocal]&&locs[t.siglaLocal].cidade||'',estado:t.estado||''};
-    }
-  });
-  var sorted=Object.keys(locs).sort();
   var opts='<option value="">Selecione o local...</option>';
-  sorted.forEach(function(s){
-    var label=s+(locs[s].cidade?' — '+locs[s].cidade:'');
-    opts+='<option value="'+s+'"'+(s===currentVal?' selected':'')+'>'+label+'</option>';
+  // Se a ferramenta já tem um local que não está na lista padrão, preserva como opção (evita perder o valor ao salvar)
+  if(currentVal&&LOCAIS_EDIT.indexOf(currentVal)<0){
+    opts+='<option value="'+currentVal+'" selected>'+currentVal+' (atual)</option>';
+  }
+  LOCAIS_EDIT.forEach(function(s){
+    opts+='<option value="'+s+'"'+(s===currentVal?' selected':'')+'>'+s+'</option>';
   });
   return opts;
 }
