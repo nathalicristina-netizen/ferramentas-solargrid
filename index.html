@@ -826,26 +826,9 @@ async function dbLoad(){
         tools.push(t);
       });
     } else {
-      // Banco VAZIO → faz o seed único: envia o RAW embutido para o Supabase, uma vez
-      showBanner('connecting','Primeira carga: enviando ferramentas ao banco…');
-      var seedOk=0;
-      for(var i=0;i<tools.length;i++){
-        var t=tools[i];
-        try{
-          var ins=await sb.from('ferramentas').insert({
-            patrimonio:t.patrimonio,ferramenta:t.ferramenta,marca:t.marca,modelo:t.modelo,serie:t.serie,
-            status:t.status,local:t.local,sigla_local:t.siglaLocal,responsavel:t.responsavel,
-            cidade:t.cidade,estado:t.estado,setor:t.setor,valor:t.valor,cert_cal:t.certCal,
-            laboratorio:t.laboratorio,data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),
-            data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),
-            disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',
-            ciclo_conf:t.cicloConf||'quinzenal',obs:t.obs||''
-          }).select('id').single();
-          if(ins.data&&ins.data.id!=null){t._id=ins.data.id;seedOk++;}
-        }catch(e){console.warn('seed falhou',t.patrimonio,e);}
-        if(i%50===0)showBanner('connecting','Enviando ferramentas… '+i+'/'+tools.length);
-      }
-      showBanner('ok',seedOk+' ferramentas enviadas ao banco!');
+      // Banco VAZIO → NÃO usa mais a lista fixa do código. Fica vazio esperando a importação do Excel.
+      tools=[];
+      showBanner('ok','Banco vazio — importe o Excel para carregar as ferramentas.');
     }
 
     // Carrega histórico (em blocos, também limitado a 1000) e associa por ferramenta_id (= id do banco)
