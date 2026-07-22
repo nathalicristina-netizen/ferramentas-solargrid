@@ -701,7 +701,8 @@ function saveSession(){
     if(!CU)return;
     var tab='tabFerr';
     document.querySelectorAll('.tab-content.on').forEach(function(e){if(e.id)tab=e.id;});
-    localStorage.setItem('sg_s',JSON.stringify(Object.assign({},CU,{_tab:tab})));
+    localStorage.setItem('sg_s',JSON.stringify(Object.assign({},CU,{_tab:tab,
+      _page:page,_af:AF,_st:ST,_sf:SF,_lf:LF,_sortCol:sortCol,_sortDir:sortDir})));
   }catch(e){}
 }
 function saveTols(){
@@ -750,6 +751,19 @@ function loadSession(){
     document.querySelectorAll('.nav-tab').forEach(function(b){
       if(b.getAttribute('onclick')&&b.getAttribute('onclick').indexOf(tab)>=0)b.classList.add('on');
     });
+    // Restaura página e filtros da tabela de ferramentas
+    if(CU._af){AF=CU._af;}
+    if(CU._st){ST=CU._st;}
+    if(CU._sf){SF=CU._sf;}
+    if(CU._lf){LF=CU._lf;}
+    if(CU._sortCol!==undefined){sortCol=CU._sortCol;sortDir=CU._sortDir||1;}
+    if(CU._page){page=CU._page;}
+    document.querySelectorAll('.ft').forEach(function(b){
+      var t=b.getAttribute('data-f');
+      b.classList.toggle('on',t===AF);
+    });
+    var srchEl=document.querySelector('.srch input');
+    if(srchEl&&ST)srchEl.value=ST;
     renderAll();
     dbLoad();
     return true;
@@ -1126,8 +1140,8 @@ function getFiltered(){
   if(sortCol){var sc=sortCol;list.sort(function(a,b){var av=(a[sc]||'').toString().toLowerCase(),bv=(b[sc]||'').toString().toLowerCase();return av<bv?-sortDir:av>bv?sortDir:0;});}
   return list;
 }
-function setSF(v){SF=v;page=1;renderTable();}
-function setLF(v){LF=v;page=1;renderTable();}
+function setSF(v){SF=v;page=1;renderTable();saveSession();}
+function setLF(v){LF=v;page=1;renderTable();saveSession();}
 function populateLocalFlt(){
   var sel=document.getElementById('localFlt');if(!sel)return;
   var cur=sel.value;
@@ -1230,7 +1244,7 @@ function renderPag(tot,cur,pages){
   o+=jp;
   ['pTop','pBot'].forEach(function(id){var e=document.getElementById(id);if(e){e.innerHTML=o;e.style.display='flex';}});
 }
-function goPg(p){page=p;renderTable();}
+function goPg(p){page=p;renderTable();saveSession();}
 
 // ── BARRA DE ROLAGEM HORIZONTAL FIXA ──
 function getHScrollEl(){return document.querySelector('#tabFerr .tw-scroll');}
@@ -1336,10 +1350,10 @@ function renderAll(){
   var termosTab=document.getElementById('tabTermos');
   if(termosTab&&termosTab.classList.contains('on'))loadTermosSB();
 }
-function setF(btn,f){document.querySelectorAll('.ft').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');AF=f;page=1;renderTable();}
-function setFMc(f){AF=f;page=1;document.querySelectorAll('.ft').forEach(function(b){var t=b.getAttribute('data-f');b.classList.toggle('on',t===f);});renderTable();}
-function doSrch(v){ST=v.toLowerCase();page=1;renderTable();}
-function sortBy(c){if(sortCol===c)sortDir*=-1;else{sortCol=c;sortDir=1;}renderTable();}
+function setF(btn,f){document.querySelectorAll('.ft').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');AF=f;page=1;renderTable();saveSession();}
+function setFMc(f){AF=f;page=1;document.querySelectorAll('.ft').forEach(function(b){var t=b.getAttribute('data-f');b.classList.toggle('on',t===f);});renderTable();saveSession();}
+function doSrch(v){ST=v.toLowerCase();page=1;renderTable();saveSession();}
+function sortBy(c){if(sortCol===c)sortDir*=-1;else{sortCol=c;sortDir=1;}renderTable();saveSession();}
 
 // ── NAVBAR ──
 // ===== USUÁRIOS =====
