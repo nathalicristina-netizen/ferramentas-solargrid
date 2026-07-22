@@ -250,6 +250,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
   cursor:grab;min-width:40px;transition:background .15s}
 .h-scroll-thumb:hover{background:var(--or2)}
 .h-scroll-thumb.dragging{cursor:grabbing;background:var(--or2)}
+.drag-over-xlsx{outline:3px dashed var(--or);outline-offset:-3px;background:rgba(232,106,0,.05);transition:all .15s}
 </style>
 </head>
 <body>
@@ -356,10 +357,11 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
           </select>
           <div style="height:28px;width:1.5px;background:var(--bd);border-radius:2px"></div>
           <button id="epBtn" class="btn-or" onclick="exportPDF()" style="display:none;font-size:11px;padding:6px 11px">📄 PDF</button>
-          <label class="btn-nv" id="btnImportXLS" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;display:none" title="Importar Excel (aba Controle)">
+          <label class="btn-nv" id="btnImportXLS" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;display:none" title="Importar Excel (aba Controle) — ou arraste o arquivo aqui na tela">
             📥 Importar Excel
             <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importXLSX(event)"/>
           </label>
+          <span id="lastImportLbl" style="font-size:10px;color:var(--tx3);white-space:nowrap"></span>
           <button class="btn-nv" onclick="exportXLSX()" style="font-size:11px;padding:6px 12px">📊 CSV</button>
           <button class="btn-or" onclick="openAdd()" style="font-size:11px;padding:6px 14px;font-weight:700;display:none" id="btnNova">+ Nova</button>
         </div>
@@ -799,6 +801,30 @@ async function dbSaveTool(t){
     setor:t.setor,valor:t.valor,cert_cal:t.certCal,laboratorio:t.laboratorio,
     data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',ciclo_conf:t.cicloConf||'quinzenal',nota_fiscal_url:t.notaFiscalUrl||'',nota_fiscal_path:t.notaFiscalPath||'',nota_fiscal_nome:t.notaFiscalNome||'',obs:t.obs||'',
     last_confirm:t.lastConfirm||null});
+}
+function toolToRow(t){
+  return {id:t._id,patrimonio:t.patrimonio,ferramenta:t.ferramenta,
+    marca:t.marca,modelo:t.modelo,serie:t.serie,status:t.status,local:t.local,
+    sigla_local:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,
+    setor:t.setor,valor:t.valor,cert_cal:t.certCal,laboratorio:t.laboratorio,
+    data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',ciclo_conf:t.cicloConf||'quinzenal',nota_fiscal_url:t.notaFiscalUrl||'',nota_fiscal_path:t.notaFiscalPath||'',nota_fiscal_nome:t.notaFiscalNome||'',obs:t.obs||'',
+    last_confirm:t.lastConfirm||null};
+}
+// Envia muitas ferramentas de uma vez em lotes (upsert em massa), em vez de uma requisição por ferramenta.
+// Bem mais rápido para importações grandes (centenas/milhares de linhas).
+async function dbSaveToolsBulk(arr,onProgress){
+  if(!sb)return{ok:true,errors:0};
+  var CHUNK=200,errors=0,done=0;
+  for(var i=0;i<arr.length;i+=CHUNK){
+    var batch=arr.slice(i,i+CHUNK).map(toolToRow);
+    try{
+      var r=await sb.from('ferramentas').upsert(batch,{onConflict:'id'});
+      if(r.error){errors+=batch.length;console.warn('dbSaveToolsBulk:',r.error.message);}
+    }catch(e){errors+=batch.length;console.warn('dbSaveToolsBulk exc:',e);}
+    done+=batch.length;
+    if(onProgress)onProgress(done,arr.length);
+  }
+  return{ok:errors===0,errors:errors};
 }
 async function dbSaveHist(id,msg,user){
   if(!sb)return;
@@ -1335,6 +1361,8 @@ function renderAll(){
   // show/hide import Excel button
   var btnIXL=document.getElementById('btnImportXLS');
   if(btnIXL)btnIXL.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
+  var lastImpLbl=document.getElementById('lastImportLbl');
+  if(lastImpLbl){lastImpLbl.style.display=(CU&&CU.role==='Admin')?'inline':'none';renderLastImportLabel();}
   // show/hide Usuarios tab for Admin only
   var tabUserBtn=document.querySelector('[onclick*="tabUsers"]');
   if(tabUserBtn)tabUserBtn.style.display=(CU&&CU.role==='Admin')?'':'none';
@@ -2022,11 +2050,71 @@ function exportPDF(){
     '<table><thead><tr><th>Patrimônio<\/th><th>Ferramenta<\/th><th>Status<\/th><th>Local<\/th><th>Responsável<\/th><th>Data Cal.<\/th><\/tr><\/thead><tbody>'+rows+'<\/tbody><\/table><\/body><\/html>');
   w.document.close();setTimeout(function(){w.print();},600);
 }
+// ── ARRASTAR E SOLTAR EXCEL ──
+// Permite jogar o arquivo .xlsx direto na tela de Ferramentas, sem precisar abrir o seletor de arquivo.
+function setupDragDropXLSX(){
+  var zone=document.getElementById('tabFerr');
+  if(!zone)return;
+  var counter=0; // contorna dragenter/dragleave disparando em elementos filhos
+  zone.addEventListener('dragenter',function(e){
+    if(!CU||CU.role!=='Admin')return;
+    if(!e.dataTransfer||!e.dataTransfer.types||e.dataTransfer.types.indexOf('Files')<0)return;
+    e.preventDefault();
+    counter++;
+    zone.classList.add('drag-over-xlsx');
+  });
+  zone.addEventListener('dragover',function(e){
+    if(!CU||CU.role!=='Admin')return;
+    if(!e.dataTransfer||!e.dataTransfer.types||e.dataTransfer.types.indexOf('Files')<0)return;
+    e.preventDefault();
+  });
+  zone.addEventListener('dragleave',function(e){
+    counter=Math.max(0,counter-1);
+    if(counter===0)zone.classList.remove('drag-over-xlsx');
+  });
+  zone.addEventListener('drop',function(e){
+    e.preventDefault();
+    counter=0;
+    zone.classList.remove('drag-over-xlsx');
+    if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem importar Excel.',false);return;}
+    var file=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+    if(!file)return;
+    importXLSXFile(file);
+  });
+}
+// ── ÚLTIMA IMPORTAÇÃO ──
+function saveLastImportInfo(fileName,count){
+  try{
+    localStorage.setItem('sg_last_import',JSON.stringify({
+      ts:Date.now(),user:(CU&&CU.name)||'—',file:fileName||'',count:count||0
+    }));
+  }catch(e){}
+  renderLastImportLabel();
+}
+function renderLastImportLabel(){
+  var el=document.getElementById('lastImportLbl');
+  if(!el)return;
+  try{
+    var raw=localStorage.getItem('sg_last_import');
+    if(!raw){el.textContent='';return;}
+    var info=JSON.parse(raw);
+    var d=new Date(info.ts);
+    var dstr=d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getFullYear();
+    var hstr=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+    el.textContent='Última importação: '+dstr+' às '+hstr+(info.user?' · '+info.user:'');
+    el.title=(info.file?'Arquivo: '+info.file+' · ':'')+(info.count?info.count+' ferramenta(s) processada(s)':'');
+  }catch(e){el.textContent='';}
+}
 function importXLSX(e){
   if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem importar Excel.',false);e.target.value='';return;}
   var file=e.target.files[0];
   if(!file)return;
   e.target.value='';
+  importXLSXFile(file);
+}
+function importXLSXFile(file){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem importar Excel.',false);return;}
+  if(!/\.(xlsx|xls)$/i.test(file.name)){showToast('Solte ou selecione um arquivo .xlsx ou .xls',false);return;}
   var reader=new FileReader();
   reader.onload=function(ev){
     try{
@@ -2228,32 +2316,29 @@ function importXLSX(e){
       }
 
       saveTols();page=1;renderAll();
-      // sync to Supabase using dbSaveTool in controlled sequence
+      // sync to Supabase em lotes (muito mais rápido que um registro por vez)
       if(sb){
         showToast('Sincronizando com o banco... aguarde ⏳',true);
         var toSync=dedup.map(function(imp){
           return tools.find(function(x){return x.patrimonio===imp.patrimonio;});
         }).filter(Boolean);
-        var i=0;
-        function nextSave(){
-          if(i>=toSync.length){
-            var msg='✅ Salvo no banco: '+updated+' atualizadas, '+added+' novas';
-            if(removidosDup)msg+=', '+removidosDup+' duplicada(s) mesclada(s)';
-            if(removidasOrfas)msg+=', '+removidasOrfas+' removida(s) por não estar na planilha';
-            showToast(msg+'.',true);
-            return;
-          }
-          if(i%50===0)showToast('Sincronizando... '+i+'/'+toSync.length+' ⏳',true);
-          dbSaveTool(toSync[i]);
-          i++;
-          setTimeout(nextSave,20);
-        }
-        nextSave();
+        toSync.forEach(function(t){t._mod=true;});
+        dbSaveToolsBulk(toSync,function(done,total){
+          showToast('Sincronizando... '+done+'/'+total+' ⏳',true);
+        }).then(function(res){
+          saveTols();
+          var msg=res.ok?'✅ Salvo no banco: '+updated+' atualizadas, '+added+' novas':'⚠️ Salvo com '+res.errors+' erro(s) de '+toSync.length;
+          if(res.ok&&removidosDup)msg+=', '+removidosDup+' duplicada(s) mesclada(s)';
+          if(res.ok&&removidasOrfas)msg+=', '+removidasOrfas+' removida(s) por não estar na planilha';
+          showToast(msg+'.',res.ok);
+          if(res.ok)saveLastImportInfo(file.name,updated+added);
+        });
       } else {
         var msgOff='Importado: '+updated+' atualizadas, '+added+' novas';
         if(removidosDup)msgOff+=', '+removidosDup+' duplicada(s) mesclada(s)';
         if(removidasOrfas)msgOff+=', '+removidasOrfas+' removida(s) por não estar na planilha';
         showToast(msgOff+'.',true);
+        saveLastImportInfo(file.name,updated+added);
       }
     }catch(err){
       showToast('Erro ao ler arquivo: '+err.message,false);
@@ -3216,6 +3301,7 @@ document.addEventListener('DOMContentLoaded',function(){
   var tUso=document.getElementById('tUso');
   if(tUso)tUso.addEventListener('input',function(){var e=document.getElementById('tUsoP');if(e)e.textContent=this.value||'___';});
   buildTerm();
+  setupDragDropXLSX();
 });
 
 </script>
