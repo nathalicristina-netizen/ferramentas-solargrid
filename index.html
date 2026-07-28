@@ -66,6 +66,8 @@ html,body{height:100%;margin:0;padding:0;font-family:var(--fb);background:var(--
   font-weight:500;cursor:pointer;font-family:var(--fb);border-bottom:2.5px solid transparent;transition:all .15s;white-space:nowrap}
 .nav-tab:hover{color:rgba(255,255,255,.85)}
 .nav-tab.on{color:#fff;border-bottom-color:var(--or);font-weight:600}
+.pend-badge{display:inline-block;background:#dc2626;color:#fff;font-size:10px;font-weight:700;
+  border-radius:9px;min-width:18px;height:18px;line-height:18px;text-align:center;margin-left:5px;padding:0 4px;vertical-align:middle}
 
 /* DB BANNER */
 .dbb{display:none;padding:8px 20px;font-size:12px;font-weight:600;text-align:center}
@@ -317,6 +319,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       <button class="nav-tab on" onclick="showTab('tabFerr',this)">🔧 Ferramentas</button>
       <button class="nav-tab" onclick="showTab('tabDash',this)">📊 Dashboard</button>
       <button class="nav-tab" onclick="showTab('tabConfirm',this)">📍 Confirmações</button>
+      <button class="nav-tab" id="tabConfirmBtn" onclick="showTab('tabConfirm',this)">📍 Confirmações<span id="pendBadge" class="pend-badge" style="display:none">0</span></button>
       <button class="nav-tab" onclick="showTab('tabCert',this)">📜 Certificados</button>
       <button class="nav-tab" onclick="showTab('tabTerm',this)">📄 Termo de Transferência</button>
       <button class="nav-tab" onclick="showTab('tabTermos',this)">🗂️ Termos Salvos</button>
@@ -324,6 +327,13 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       <button class="nav-tab" onclick="showTab('tabHist',this)">📋 Histórico</button>
 
     </div>
+  </div>
+
+  <!-- BANNER DE PENDÊNCIAS PESSOAIS -->
+  <div id="pendAlertBanner" style="display:none;background:#FFF7ED;border-bottom:1.5px solid #fdba74;padding:10px 20px;align-items:center;justify-content:center;gap:12px;font-size:13px;color:#7c2d12">
+    <span>⏳ <strong id="pendAlertMsg"></strong></span>
+    <button onclick="goToMyPendencias()" style="background:#c2410c;color:#fff;border:0;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">Ver agora</button>
+    <button onclick="dismissPendAlert()" style="background:transparent;border:0;color:#7c2d12;font-size:16px;cursor:pointer;line-height:1;padding:0 4px" title="Dispensar">✕</button>
   </div>
 
   <!-- TAB FERRAMENTAS -->
@@ -616,6 +626,7 @@ var tools=RAW.map(function(t,i){
 });
 
 var CU=null, AF='todos', ST='', sortCol=null, sortDir=1, page=1, PG=50, SF='', LF='';
+var SHOW_LOGIN_ALERT=false;
 
 // ── UTILS ──
 function ts(){return new Date().toISOString();}
@@ -720,6 +731,24 @@ function calSt(t){
   if(isNaN(d))return'sem';if(d<0)return'v';if(d<=60)return'p';return'ok';
 }
 function isQz(t){if(!t.lastConfirm)return false;var dias={'quinzenal':15,'mensal':30,'anual':365}[t.cicloConf||'quinzenal']||15;return(new Date()-new Date(t.lastConfirm.ts))<dias*86400000;}
+// Ferramentas pendentes de confirmação de uma pessoa (casamento por nome, tolerante a nomes parciais)
+function getPendForName(nome){
+  if(!nome)return[];
+  var nl=nome.toLowerCase().trim();
+  if(!nl)return[];
+  return tools.filter(function(t){
+    if(isQz(t))return false;
+    var r=(t.responsavel||'').toLowerCase().trim();
+    return r&&(r.indexOf(nl)>=0||nl.indexOf(r)>=0);
+  });
+}
+function updatePendBadge(){
+  var badge=document.getElementById('pendBadge');
+  if(!badge)return;
+  var count=tools.filter(function(t){return!isQz(t);}).length;
+  if(count>0){badge.textContent=count>99?'99+':count;badge.style.display='inline-block';}
+  else{badge.style.display='none';}
+}
 
 // ── SESSION ──
 function saveSession(){
@@ -964,11 +993,13 @@ function doLogin(){
   var parts=name.split(' ').filter(Boolean);
   var initials=(parts[0][0]+(parts[parts.length-1][0])).toUpperCase();
   CU={name:match.nome,email:match.email,setor:match.setor,initials:initials,role:match.nivel||'Comum'};
+  SHOW_LOGIN_ALERT=true;
   saveSession();showApp();renderAll();dbLoad();
 }
 function doLogout(){
   try{sessionStorage.clear();localStorage.removeItem('sg_s');}catch(e){}
-  CU=null;AF='todos';ST='';SF='';LF='';page=1;
+  CU=null;AF='todos';ST='';SF='';LF='';page=1;SHOW_LOGIN_ALERT=false;
+  dismissPendAlert();
   document.getElementById('aS').classList.remove('active');
   document.getElementById('lS').classList.add('active');
   document.getElementById('lN').value='';
@@ -1412,6 +1443,30 @@ function renderAll(){
   // reload confirmações if tab is active (F5 fix)
   var confirmTab=document.getElementById('tabConfirm');
   if(confirmTab&&confirmTab.classList.contains('on'))renderConfirmacoes();
+  updatePendBadge();
+  if(SHOW_LOGIN_ALERT){SHOW_LOGIN_ALERT=false;checkPendingAlert();}
+}
+function checkPendingAlert(){
+  if(!CU)return;
+  var pend=getPendForName(CU.name);
+  var banner=document.getElementById('pendAlertBanner');
+  var msg=document.getElementById('pendAlertMsg');
+  if(!banner||!msg)return;
+  if(pend.length>0){
+    msg.textContent='Você tem '+pend.length+' ferramenta'+(pend.length!==1?'s':'')+' pendente'+(pend.length!==1?'s':'')+' de confirmação.';
+    banner.style.display='flex';
+  }else{
+    banner.style.display='none';
+  }
+}
+function dismissPendAlert(){var b=document.getElementById('pendAlertBanner');if(b)b.style.display='none';}
+function goToMyPendencias(){
+  dismissPendAlert();
+  var btn=document.getElementById('tabConfirmBtn');
+  showTab('tabConfirm',btn);
+  var ceb=document.getElementById('confEmailBusca');
+  if(ceb&&CU)ceb.value=CU.email;
+  if(CU)filterConfEmail(CU.email);
 }
 function setF(btn,f){document.querySelectorAll('.ft').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');AF=f;page=1;renderTable();saveSession();}
 function setFMc(f){AF=f;page=1;document.querySelectorAll('.ft').forEach(function(b){var t=b.getAttribute('data-f');b.classList.toggle('on',t===f);});renderTable();saveSession();}
@@ -1834,6 +1889,7 @@ function saveConf(id){
 // ── CONTROLE DE CONFIRMAÇÕES ──
 var CONF_Q='';
 var CONF_EMAIL='';
+var CONF_PEND_MSGS=[];
 function filterConfirmacoes(v){CONF_Q=(v||'').toLowerCase().trim();renderConfirmacoes();}
 function filterConfEmail(v){CONF_EMAIL=(v||'').toLowerCase().trim();renderConfirmacoes();}
 function togglePendGrp(i){
@@ -1939,6 +1995,7 @@ function renderConfirmacoes(){
     });
   }
   respPend.sort(function(a,b){return pend[b].length-pend[a].length;});
+  CONF_PEND_MSGS=[];
   if(!respPend.length){
     elP.innerHTML='<div style="text-align:center;padding:24px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'+((CONF_Q||emailAtivo)?'Nenhum resultado para essa busca.':'🎉 Nenhuma pendência! Tudo confirmado.')+'</div>';
   }else{
@@ -1953,16 +2010,31 @@ function renderConfirmacoes(){
           '<span style="color:var(--tx3)">'+(t.siglaLocal||'—')+'</span>'+
           '</div>';
       }).join('');
+      CONF_PEND_MSGS[i]='Oi '+r+'! Você tem '+lista.length+' ferramenta'+(lista.length!==1?'s':'')+' pendente'+(lista.length!==1?'s':'')+' de confirmação no SolarGrid: '+
+        lista.map(function(t){return t.patrimonio+' ('+t.ferramenta+')';}).join(', ')+'. Poderia confirmar assim que possível? 🙏';
       var aberto=emailAtivo; // se veio de busca por e-mail, já mostra aberto
       return '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 16px;margin-bottom:8px">'+
-        '<div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="togglePendGrp('+i+')">'+
-          '<span id="pendIco-'+i+'" style="color:var(--tx3);font-size:11px">'+(aberto?'▾':'▸')+'</span>'+
-          '<span style="font-weight:700;color:var(--nv)">'+r+'</span>'+
-          '<span style="font-weight:400;color:var(--tx3);font-size:11px">('+lista.length+' pendente'+(lista.length!==1?'s':'')+')</span>'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
+          '<div style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1" onclick="togglePendGrp('+i+')">'+
+            '<span id="pendIco-'+i+'" style="color:var(--tx3);font-size:11px">'+(aberto?'▾':'▸')+'</span>'+
+            '<span style="font-weight:700;color:var(--nv)">'+r+'</span>'+
+            '<span style="font-weight:400;color:var(--tx3);font-size:11px">('+lista.length+' pendente'+(lista.length!==1?'s':'')+')</span>'+
+          '</div>'+
+          '<button onclick="event.stopPropagation();copiarCobranca('+i+')" style="background:#fff;border:1px solid var(--bd);border-radius:7px;padding:4px 10px;font-size:11px;font-weight:600;color:var(--nv);cursor:pointer;white-space:nowrap">📋 Cobrar</button>'+
         '</div>'+
         '<div id="pendGrp-'+i+'" style="display:'+(aberto?'block':'none')+';margin-top:8px">'+itens+'</div>'+
         '</div>';
     }).join('');
+  }
+}
+function copiarCobranca(i){
+  var txt=CONF_PEND_MSGS[i];
+  if(!txt)return;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){showToast('Texto copiado! Cole no WhatsApp ou e-mail.',true);})
+      .catch(function(){showToast('Não foi possível copiar. Copie manualmente.',false);});
+  }else{
+    showToast('Não foi possível copiar. Copie manualmente.',false);
   }
 }
 
