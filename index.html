@@ -316,6 +316,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
     <div class="nav-tabs">
       <button class="nav-tab on" onclick="showTab('tabFerr',this)">🔧 Ferramentas</button>
       <button class="nav-tab" onclick="showTab('tabDash',this)">📊 Dashboard</button>
+      <button class="nav-tab" onclick="showTab('tabConfirm',this)">📍 Confirmações</button>
       <button class="nav-tab" onclick="showTab('tabCert',this)">📜 Certificados</button>
       <button class="nav-tab" onclick="showTab('tabTerm',this)">📄 Termo de Transferência</button>
       <button class="nav-tab" onclick="showTab('tabTermos',this)">🗂️ Termos Salvos</button>
@@ -489,6 +490,21 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
   <div id="tabDash" class="tab-content">
     <div style="padding:16px">
       <iframe title="Dashboard SolarGrid" width="100%" height="720" src="https://app.powerbi.com/view?r=eyJrIjoiNzI1YjVkMDctOTkxMi00ODFjLThjMzQtMWJhMGRkODI0MDBjIiwidCI6ImZjNGNmNzlkLTgwYTctNDJlOC1iYWI3LWI4ODUyNzVmN2ZjMSJ9" frameborder="0" allowFullScreen="true" style="border-radius:10px;border:1px solid var(--bd)"></iframe>
+    </div>
+  </div>
+
+  <!-- TAB CONFIRMAÇÕES -->
+  <div id="tabConfirm" class="tab-content">
+    <div style="max-width:1100px;margin:0 auto;padding:20px 16px">
+      <div style="margin-bottom:16px">
+        <h2 style="font-size:17px;font-weight:700;color:var(--nv)">📍 Controle de Confirmações</h2>
+        <p style="font-size:12px;color:var(--tx3);margin-top:3px">Quem está confirmando os locais das ferramentas e o que ainda falta confirmar</p>
+      </div>
+      <div id="confMetrics" class="mcs" style="margin-bottom:22px"></div>
+      <h3 style="font-size:14px;font-weight:700;color:var(--nv);margin-bottom:10px">🏆 Ranking de confirmações por pessoa</h3>
+      <div id="confRanking" style="margin-bottom:26px"></div>
+      <h3 style="font-size:14px;font-weight:700;color:var(--nv);margin-bottom:10px">⏳ Pendências por responsável</h3>
+      <div id="confPendentes"></div>
     </div>
   </div>
 
@@ -1760,6 +1776,7 @@ function showTab(id,btn){
   if(id==='tabSolic')renderSolics();
   if(id==='tabChat')loadChatMsgs();
   if(id==='tabTermos')loadTermosSB();
+  if(id==='tabConfirm')renderConfirmacoes();
   setTimeout(updateHScrollBar,50);
 }
 
@@ -1801,6 +1818,112 @@ function saveConf(id){
   t.hist.unshift({msg:msg,user:CU.name,t:fmt(ts()),dot:dot});
   dbSaveTool(t);dbSaveHist(t._id,msg,CU.name);
   closeM();renderAll();showToast('Confirmado!',true);
+}
+
+// ── CONTROLE DE CONFIRMAÇÕES ──
+function renderConfirmacoes(){
+  var elM=document.getElementById('confMetrics');
+  var elR=document.getElementById('confRanking');
+  var elP=document.getElementById('confPendentes');
+  if(!elM||!elR||!elP)return;
+
+  var emDia=0,pendentes=0,semNunca=0,vencidasMuito=0;
+  var now=new Date();
+  tools.forEach(function(t){
+    var cicloDias={'quinzenal':15,'mensal':30,'anual':365}[t.cicloConf||'quinzenal']||15;
+    if(isQz(t)){emDia++;}
+    else{
+      pendentes++;
+      if(!t.lastConfirm){semNunca++;}
+      else{
+        var dias=(now-new Date(t.lastConfirm.ts))/86400000;
+        if(dias>cicloDias+30)vencidasMuito++;
+      }
+    }
+  });
+
+  elM.innerHTML=
+    '<div class="mc" style="cursor:default;background:#F0FDF4;border-color:#86efac"><span class="mc-ico">✅</span><div class="mc-val" style="color:#14532d">'+emDia+'</div><div class="mc-lbl" style="color:#15803d">EM DIA</div></div>'+
+    '<div class="mc" style="cursor:default;background:#FFF7ED;border-color:#fdba74"><span class="mc-ico">⏳</span><div class="mc-val" style="color:#7c2d12">'+pendentes+'</div><div class="mc-lbl" style="color:#c2410c">PENDENTES</div></div>'+
+    '<div class="mc" style="cursor:default;background:#FEF2F2;border-color:#fca5a5"><span class="mc-ico">⚠️</span><div class="mc-val" style="color:#7f1d1d">'+vencidasMuito+'</div><div class="mc-lbl" style="color:#dc2626">VENCIDAS +30 DIAS</div></div>'+
+    '<div class="mc" style="cursor:default;background:#EEF2FF;border-color:#a5b4fc"><span class="mc-ico">🚫</span><div class="mc-val" style="color:#1e1b4b">'+semNunca+'</div><div class="mc-lbl" style="color:#3730a3">NUNCA CONFIRMADAS</div></div>';
+
+  // Ranking por pessoa (quem efetivamente confirmou)
+  var porPessoa={};
+  tools.forEach(function(t){
+    (t.hist||[]).forEach(function(h){
+      if((h.dot==='gr'||h.dot==='or')&&h.user){
+        if(!porPessoa[h.user])porPessoa[h.user]={count:0,lastTs:null};
+        porPessoa[h.user].count++;
+      }
+    });
+    if(t.lastConfirm&&t.lastConfirm.user){
+      var u=t.lastConfirm.user;
+      if(!porPessoa[u])porPessoa[u]={count:0,lastTs:null};
+      if(!porPessoa[u].lastTs||new Date(t.lastConfirm.ts)>new Date(porPessoa[u].lastTs))porPessoa[u].lastTs=t.lastConfirm.ts;
+    }
+  });
+
+  // Ferramentas sob responsabilidade + % em dia (casado por nome do responsável)
+  var respStats={};
+  tools.forEach(function(t){
+    var r=(t.responsavel||'').trim();
+    if(!r)return;
+    var key=r.toLowerCase();
+    if(!respStats[key])respStats[key]={total:0,emDia:0};
+    respStats[key].total++;
+    if(isQz(t))respStats[key].emDia++;
+  });
+
+  var nomes=Object.keys(porPessoa);
+  if(!nomes.length){
+    elR.innerHTML='<div style="text-align:center;padding:30px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">Ainda não há confirmações registradas.</div>';
+  }else{
+    nomes.sort(function(a,b){return porPessoa[b].count-porPessoa[a].count;});
+    var rows=nomes.map(function(n){
+      var d=porPessoa[n];
+      var rs=respStats[n.toLowerCase()];
+      var ferram=rs?rs.total:'—';
+      var pct=rs&&rs.total?Math.round(rs.emDia/rs.total*100)+'%':'—';
+      var last=d.lastTs?fmt(d.lastTs):'—';
+      return '<tr>'+
+        '<td style="padding:9px 12px;font-weight:600">'+n+'</td>'+
+        '<td style="padding:9px 12px;text-align:center;font-weight:700;color:var(--nv)">'+d.count+'</td>'+
+        '<td style="padding:9px 12px;text-align:center">'+last+'</td>'+
+        '<td style="padding:9px 12px;text-align:center">'+ferram+'</td>'+
+        '<td style="padding:9px 12px;text-align:center;font-weight:600">'+pct+'</td>'+
+        '</tr>';
+    }).join('');
+    elR.innerHTML='<div style="overflow-x:auto;border:1px solid var(--bd);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr style="background:var(--nv);color:#fff"><th style="padding:9px 12px;text-align:left">Responsável</th><th style="padding:9px 12px">Confirmações</th><th style="padding:9px 12px">Última confirmação</th><th style="padding:9px 12px">Ferramentas</th><th style="padding:9px 12px">% em dia</th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table></div>';
+  }
+
+  // Pendências agrupadas por responsável
+  var pend={};
+  tools.forEach(function(t){
+    if(isQz(t))return;
+    var r=(t.responsavel||'—').trim()||'—';
+    if(!pend[r])pend[r]=[];
+    pend[r].push(t);
+  });
+  var respPend=Object.keys(pend).sort(function(a,b){return pend[b].length-pend[a].length;});
+  if(!respPend.length){
+    elP.innerHTML='<div style="text-align:center;padding:30px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">🎉 Nenhuma pendência! Tudo confirmado.</div>';
+  }else{
+    elP.innerHTML=respPend.map(function(r){
+      var lista=pend[r];
+      var itens=lista.map(function(t){
+        return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:12px">'+
+          '<span><strong>'+t.patrimonio+'</strong> — '+t.ferramenta+'</span>'+
+          '<span style="color:var(--tx3)">'+(t.siglaLocal||'—')+'</span>'+
+          '</div>';
+      }).join('');
+      return '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:12px 16px;margin-bottom:10px">'+
+        '<div style="font-weight:700;color:var(--nv);margin-bottom:6px">'+r+' <span style="font-weight:400;color:var(--tx3);font-size:11px">('+lista.length+' pendente'+(lista.length!==1?'s':'')+')</span></div>'+
+        itens+'</div>';
+    }).join('');
+  }
 }
 
 // ── HISTÓRICO ──
