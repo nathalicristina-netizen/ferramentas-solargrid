@@ -1174,11 +1174,13 @@ function setLF(v){LF=v;page=1;renderTable();saveSession();}
 function populateLocalFlt(){
   var sel=document.getElementById('localFlt');if(!sel)return;
   var cur=sel.value;
-  // merge ALL_LOCAIS + dynamic from tools
+  // Usa apenas os locais que existem de fato nas ferramentas cadastradas (não a lista fixa)
   var locSet={};
-  ALL_LOCAIS.forEach(function(l){locSet[l]=1;});
-  tools.forEach(function(t){if(t.siglaLocal&&t.siglaLocal.trim()&&t.siglaLocal!=='—')locSet[t.siglaLocal]=1;});
-  var locais=Object.keys(locSet).sort();
+  tools.forEach(function(t){
+    var l=(t.siglaLocal||t.local||'').trim();
+    if(l&&l!=='—')locSet[l]=1;
+  });
+  var locais=Object.keys(locSet).sort(function(a,b){return a.localeCompare(b,'pt-BR');});
   var opts='<option value="">Todos locais<\/option>';
   locais.forEach(function(l){opts+='<option value="'+l+'"'+(l===cur?' selected':'')+'>'+l+'<\/option>';});
   sel.innerHTML=opts;
