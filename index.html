@@ -516,12 +516,14 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       </div>
       <h3 style="font-size:14px;font-weight:700;color:var(--nv);margin-bottom:10px">🏆 Ranking de confirmações por pessoa</h3>
       <div id="confRanking" style="margin-bottom:26px"></div>
-      <h3 style="font-size:14px;font-weight:700;color:var(--nv);margin-bottom:10px">⏳ Pendências por responsável</h3>
-      <div class="srch" style="max-width:320px;margin-bottom:14px">
-        <span class="srch-ico">📧</span>
-        <input type="text" id="confEmailBusca" placeholder="Buscar pelo e-mail do responsável…" oninput="filterConfEmail(this.value)"/>
+      <div id="confPendSection">
+        <h3 style="font-size:14px;font-weight:700;color:var(--nv);margin-bottom:10px">⏳ Pendências por responsável</h3>
+        <div class="srch" style="max-width:320px;margin-bottom:14px">
+          <span class="srch-ico">📧</span>
+          <input type="text" id="confEmailBusca" placeholder="Buscar pelo e-mail do responsável…" oninput="filterConfEmail(this.value)"/>
+        </div>
+        <div id="confPendentes"></div>
       </div>
-      <div id="confPendentes"></div>
     </div>
   </div>
 
@@ -1463,9 +1465,16 @@ function goToMyPendencias(){
   dismissPendAlert();
   var btn=document.getElementById('tabConfirmBtn');
   showTab('tabConfirm',btn);
-  var ceb=document.getElementById('confEmailBusca');
-  if(ceb&&CU)ceb.value=CU.email;
-  if(CU)filterConfEmail(CU.email);
+  if(!CU)return;
+  if(CU.role==='Admin'){
+    var ceb=document.getElementById('confEmailBusca');
+    if(ceb)ceb.value=CU.email;
+    filterConfEmail(CU.email);
+  }else{
+    var cb=document.getElementById('confBusca');
+    if(cb)cb.value=CU.name;
+    filterConfirmacoes(CU.name);
+  }
 }
 function setF(btn,f){document.querySelectorAll('.ft').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');AF=f;page=1;renderTable();saveSession();}
 function setFMc(f){AF=f;page=1;document.querySelectorAll('.ft').forEach(function(b){var t=b.getAttribute('data-f');b.classList.toggle('on',t===f);});renderTable();saveSession();}
@@ -1911,6 +1920,10 @@ function renderConfirmacoes(){
   var elR=document.getElementById('confRanking');
   var elP=document.getElementById('confPendentes');
   if(!elM||!elR||!elP)return;
+
+  var pendSection=document.getElementById('confPendSection');
+  var isAdmin=CU&&CU.role==='Admin';
+  if(pendSection)pendSection.style.display=isAdmin?'block':'none';
 
   var confirmadas=0,pendentes=0;
   tools.forEach(function(t){
