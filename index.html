@@ -766,6 +766,8 @@ function loadSession(){
     });
     var srchEl=document.querySelector('.srch input');
     if(srchEl&&ST)srchEl.value=ST;
+    var setorEl=document.getElementById('setorFlt');
+    if(setorEl)setorEl.value=SF||'';
     renderAll();
     dbLoad();
     return true;
@@ -1173,7 +1175,6 @@ function setSF(v){SF=v;page=1;renderTable();saveSession();}
 function setLF(v){LF=v;page=1;renderTable();saveSession();}
 function populateLocalFlt(){
   var sel=document.getElementById('localFlt');if(!sel)return;
-  var cur=sel.value;
   // Usa apenas os locais que existem de fato nas ferramentas cadastradas (não a lista fixa)
   var locSet={};
   tools.forEach(function(t){
@@ -1182,8 +1183,9 @@ function populateLocalFlt(){
   });
   var locais=Object.keys(locSet).sort(function(a,b){return a.localeCompare(b,'pt-BR');});
   var opts='<option value="">Todos locais<\/option>';
-  locais.forEach(function(l){opts+='<option value="'+l+'"'+(l===cur?' selected':'')+'>'+l+'<\/option>';});
+  locais.forEach(function(l){opts+='<option value="'+l+'"'+(l===LF?' selected':'')+'>'+l+'<\/option>';});
   sel.innerHTML=opts;
+  sel.value=LF||'';
 }
 function renderTable(){
   renderMetrics();
