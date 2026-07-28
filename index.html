@@ -1405,6 +1405,9 @@ function renderAll(){
   // reload termos if tab is active (F5 fix)
   var termosTab=document.getElementById('tabTermos');
   if(termosTab&&termosTab.classList.contains('on'))loadTermosSB();
+  // reload confirmações if tab is active (F5 fix)
+  var confirmTab=document.getElementById('tabConfirm');
+  if(confirmTab&&confirmTab.classList.contains('on'))renderConfirmacoes();
 }
 function setF(btn,f){document.querySelectorAll('.ft').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');AF=f;page=1;renderTable();saveSession();}
 function setFMc(f){AF=f;page=1;document.querySelectorAll('.ft').forEach(function(b){var t=b.getAttribute('data-f');b.classList.toggle('on',t===f);});renderTable();saveSession();}
