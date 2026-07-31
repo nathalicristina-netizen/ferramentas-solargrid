@@ -732,12 +732,15 @@ function calSt(t){
   if(isNaN(d))return'sem';if(d<0)return'v';if(d<=60)return'p';return'ok';
 }
 function isQz(t){if(!t.lastConfirm)return false;var dias={'quinzenal':15,'mensal':30,'anual':365}[t.cicloConf||'quinzenal']||15;return(new Date()-new Date(t.lastConfirm.ts))<dias*86400000;}
+// Ferramentas Inoperantes ou Furtadas não precisam de confirmação de local/posse
+function precisaConfirmar(t){return t.status!=='Inoperante'&&t.status!=='Furtado';}
 // Ferramentas pendentes de confirmação de uma pessoa (casamento por nome, tolerante a nomes parciais)
 function getPendForName(nome){
   if(!nome)return[];
   var nl=nome.toLowerCase().trim();
   if(!nl)return[];
   return tools.filter(function(t){
+    if(!precisaConfirmar(t))return false;
     if(isQz(t))return false;
     var r=(t.responsavel||'').toLowerCase().trim();
     return r&&(r.indexOf(nl)>=0||nl.indexOf(r)>=0);
@@ -746,7 +749,7 @@ function getPendForName(nome){
 function updatePendBadge(){
   var badge=document.getElementById('pendBadge');
   if(!badge)return;
-  var count=tools.filter(function(t){return!isQz(t);}).length;
+  var count=tools.filter(function(t){return precisaConfirmar(t)&&!isQz(t);}).length;
   if(count>0){badge.textContent=count;badge.style.display='inline-block';}
   else{badge.style.display='none';}
 }
@@ -1927,6 +1930,7 @@ function renderConfirmacoes(){
 
   var confirmadas=0,pendentes=0;
   tools.forEach(function(t){
+    if(!precisaConfirmar(t))return;
     if(isQz(t))confirmadas++;else pendentes++;
   });
 
@@ -1980,6 +1984,7 @@ function renderConfirmacoes(){
   // Pendências agrupadas por responsável
   var pend={};
   tools.forEach(function(t){
+    if(!precisaConfirmar(t))return;
     if(isQz(t))return;
     var r=(t.responsavel||'—').trim()||'—';
     if(!pend[r])pend[r]=[];
@@ -2017,9 +2022,9 @@ function renderConfirmacoes(){
         lista=lista.filter(function(t){return(t.siglaLocal||'').toLowerCase().indexOf(CONF_Q)>=0;});
       }
       var itens=lista.map(function(t){
-        return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:12px">'+
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:12px">'+
           '<span><strong>'+t.patrimonio+'</strong> — '+t.ferramenta+'</span>'+
-          '<span style="color:var(--tx3)">'+(t.siglaLocal||'—')+'</span>'+
+          '<span style="display:flex;align-items:center;gap:8px">'+stBadge(t.status)+'<span style="color:var(--tx3)">'+(t.siglaLocal||'—')+'</span></span>'+
           '</div>';
       }).join('');
       CONF_PEND_MSGS[i]='Oi '+r+'! Você tem '+lista.length+' ferramenta'+(lista.length!==1?'s':'')+' pendente'+(lista.length!==1?'s':'')+' de confirmação no SolarGrid: '+
