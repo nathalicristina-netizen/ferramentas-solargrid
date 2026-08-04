@@ -595,6 +595,14 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
     <span id="tmsg"></span>
   </div>
 
+  <!-- DESFAZER CONFIRMAÇÃO -->
+  <div id="undoConfBanner" style="display:none;position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
+    background:#1E3A5F;color:#fff;padding:10px 12px 10px 16px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);
+    z-index:400;align-items:center;gap:12px;font-size:13px">
+    <span>✅ Confirmado!</span>
+    <button onclick="undoLastConfirm()" style="background:var(--or);color:#fff;border:0;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">↩️ Desfazer</button>
+  </div>
+
   <!-- BARRA DE ROLAGEM HORIZONTAL FIXA -->
   <div class="h-scroll-fixed" id="hScrollBar">
     <div class="h-scroll-track" id="hScrollTrack">
@@ -886,11 +894,15 @@ async function dbSaveToolsBulk(arr,onProgress){
   return{ok:errors===0,errors:errors};
 }
 async function dbSaveHist(id,msg,user){
-  if(!sb)return;
-  try{await sb.from('historico').insert({ferramenta_id:id,msg:msg,usuario:user,cargo:''});}
-  catch(e){}
+  if(!sb)return null;
+  try{
+    var r=await sb.from('historico').insert({ferramenta_id:id,msg:msg,usuario:user,cargo:''}).select('id');
+    if(r&&r.data&&r.data.length)return r.data[0].id;
+  }catch(e){}
+  return null;
 }
 async function dbDelHist(id){if(!sb)return;try{await sb.from('historico').delete().eq('ferramenta_id',id);}catch(e){}}
+async function dbDelHistOne(dbId){if(!sb||!dbId)return;try{await sb.from('historico').delete().eq('id',dbId);}catch(e){}}
 // Exclui uma ferramenta do banco de forma robusta: busca os ids REAIS pelo patrimônio
 // (resolve descompasso entre _id local e id do banco), apaga histórico primeiro, depois a ferramenta.
 async function dbDeleteToolCompletely(tool){
@@ -1879,10 +1891,11 @@ function prevCity(sigla){
   if(c)c.value=m.cidade;if(e)e.value=m.estado;
   var p=document.getElementById('cPrev');if(p)p.textContent='→ '+m.cidade;
 }
-function saveConf(id){
+async function saveConf(id){
   var t=tools.find(function(x){return x._id===id;});
   var same=gv('cSame');if(!same){showToast('Selecione uma opção',false);return;}
   var obs=gv('cObs'),msg='',dot='gr';
+  var prev={local:t.local,siglaLocal:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,lastConfirm:t.lastConfirm?Object.assign({},t.lastConfirm):null};
   if(same==='sim'){
     msg='✅ Confirmado: '+t.siglaLocal+(obs?' — '+obs:'');
   }else{
@@ -1892,9 +1905,46 @@ function saveConf(id){
     t.local=nl;t.siglaLocal=nl;t.responsavel=nr;t.cidade=nc;t.estado=ne;
   }
   t.lastConfirm={user:CU.name,ts:ts()};
-  t.hist.unshift({msg:msg,user:CU.name,t:fmt(ts()),dot:dot});
-  dbSaveTool(t);dbSaveHist(t._id,msg,CU.name);
-  closeM();renderAll();showToast('Confirmado!',true);
+  var histEntry={msg:msg,user:CU.name,t:fmt(ts()),dot:dot};
+  t.hist.unshift(histEntry);
+  dbSaveTool(t);
+  var histDbId=await dbSaveHist(t._id,msg,CU.name);
+  closeM();renderAll();
+  showUndoConfToast(t._id,prev,histEntry,histDbId);
+}
+// ── DESFAZER CONFIRMAÇÃO (janela curta logo após confirmar) ──
+var UNDO_CONF=null;
+function showUndoConfToast(toolId,prev,histEntry,histDbId){
+  if(UNDO_CONF&&UNDO_CONF.timeoutId)clearTimeout(UNDO_CONF.timeoutId);
+  UNDO_CONF={toolId:toolId,prev:prev,histEntry:histEntry,histDbId:histDbId};
+  var b=document.getElementById('undoConfBanner');
+  if(!b)return;
+  b.style.display='flex';
+  UNDO_CONF.timeoutId=setTimeout(function(){
+    b.style.display='none';
+    UNDO_CONF=null;
+  },8000);
+}
+function undoLastConfirm(){
+  if(!UNDO_CONF)return;
+  var t=tools.find(function(x){return x._id===UNDO_CONF.toolId;});
+  var b=document.getElementById('undoConfBanner');
+  if(b)b.style.display='none';
+  if(UNDO_CONF.timeoutId)clearTimeout(UNDO_CONF.timeoutId);
+  if(!t){showToast('Ferramenta não encontrada.',false);UNDO_CONF=null;return;}
+  t.local=UNDO_CONF.prev.local;
+  t.siglaLocal=UNDO_CONF.prev.siglaLocal;
+  t.responsavel=UNDO_CONF.prev.responsavel;
+  t.cidade=UNDO_CONF.prev.cidade;
+  t.estado=UNDO_CONF.prev.estado;
+  t.lastConfirm=UNDO_CONF.prev.lastConfirm;
+  var idx=t.hist.indexOf(UNDO_CONF.histEntry);
+  if(idx>=0)t.hist.splice(idx,1);
+  dbSaveTool(t);
+  if(UNDO_CONF.histDbId)dbDelHistOne(UNDO_CONF.histDbId);
+  UNDO_CONF=null;
+  renderAll();
+  showToast('Confirmação desfeita.',true);
 }
 
 // ── CONTROLE DE CONFIRMAÇÕES ──
@@ -2063,10 +2113,27 @@ function renderHistM(id){
     return'<div class="hi"><div class="h-dot '+(h.dot||'bl')+'"><\/div><div style="flex:1"><div class="h-msg">'+h.msg+'<button onclick="delHi('+id+','+i+')" style="float:right;background:var(--rd-bg);border:1px solid rgba(220,38,38,.2);color:var(--rd);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer">🗑<\/button><\/div><div class="h-mt">'+h.user+' · '+h.t+'<\/div><\/div><\/div>';
   }).join(''):'<div class="empty" style="padding:1.5rem">Sem histórico.<\/div>';
   var h='<div class="mh"><div><div class="mtt">📋 Histórico<\/div><div class="msub">'+t.ferramenta+' · '+t.patrimonio+'<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>';
+  if(CU&&CU.role==='Admin'&&t.lastConfirm){
+    h+='<div style="background:#FFF7ED;border:1px solid #fdba74;border-radius:8px;padding:8px 12px;margin:0 0 10px;font-size:11px;color:#7c2d12;display:flex;justify-content:space-between;align-items:center;gap:8px">'+
+      '<span>Confirmada por <strong>'+t.lastConfirm.user+'</strong> em '+fmt(t.lastConfirm.ts)+'. Confirmou errado?</span>'+
+      '<button onclick="resetConfirmacao('+id+')" style="background:#c2410c;color:#fff;border:0;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">🔄 Marcar como não confirmada</button>'+
+      '<\/div>';
+  }
   h+=hh;
   h+='<div class="mb-btns">'+(t.hist.length?'<button class="b-cn" style="border-color:var(--rd);color:var(--rd);font-size:11px" onclick="clearHist('+id+')">🗑 Limpar tudo<\/button>':'')+
      '<button class="b-cn" onclick="closeM()">Fechar<\/button><\/div>';
   showM(h);
+}
+function resetConfirmacao(id){
+  var t=tools.find(function(x){return x._id===id;});
+  if(!t||!t.lastConfirm)return;
+  if(!confirm('Marcar "'+t.ferramenta+'" ('+t.patrimonio+') como NÃO confirmada?\n\nEla volta a aparecer como pendente para o responsável confirmar de novo. O histórico continua registrado.'))return;
+  var msg='↩️ Confirmação de '+t.lastConfirm.user+' ('+fmt(t.lastConfirm.ts)+') revertida por '+CU.name;
+  t.lastConfirm=null;
+  t.hist.unshift({msg:msg,user:CU.name,t:fmt(ts()),dot:'or'});
+  dbSaveTool(t);dbSaveHist(t._id,msg,CU.name);
+  renderAll();renderHistM(id);
+  showToast('Confirmação revertida — ferramenta voltou a ficar pendente.',true);
 }
 function delHi(tid,hi){
   if(!confirm('Excluir?'))return;
