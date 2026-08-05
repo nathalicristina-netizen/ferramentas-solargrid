@@ -2194,7 +2194,7 @@ function renderConfirmacoes(){
           '<span style="display:flex;align-items:center;gap:8px">'+stBadge(t.status)+'<span style="color:var(--tx3)">'+(t.siglaLocal||'—')+'</span></span>'+
           '</div>';
       }).join('');
-      CONF_PEND_MSGS[i]='Olá, '+primeiroNomeEmail(r)+'! 👋 Tudo bem? Você tem '+lista.length+' ferramenta'+(lista.length!==1?'s':'')+' pendente'+(lista.length!==1?'s':'')+' de confirmação no SolarGrid. Poderia dar uma olhadinha quando puder? 🙏';
+      CONF_PEND_MSGS[i]='Olá, '+primeiroNomeEmail(r)+'! Tudo bem? Você tem '+lista.length+' ferramenta'+(lista.length!==1?'s':'')+' pendente'+(lista.length!==1?'s':'')+' de confirmação na plataforma de Gestão de Ferramentas. Poderia dar uma olhadinha quando puder? Obrigado! 🙏\n\nhttps://ferramentas-solargrid.vercel.app/';
       var aberto=emailAtivo; // se veio de busca por e-mail, já mostra aberto
       return '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 16px;margin-bottom:8px">'+
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
