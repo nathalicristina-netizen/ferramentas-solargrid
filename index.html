@@ -319,7 +319,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       <button class="nav-tab on" onclick="showTab('tabFerr',this)">🔧 Ferramentas</button>
       <button class="nav-tab" onclick="showTab('tabDash',this)">📊 Dashboard</button>
       <button class="nav-tab" id="tabConfirmBtn" onclick="showTab('tabConfirm',this)">📍 Confirmações<span id="pendBadge" class="pend-badge" style="display:none">0</span></button>
-      <button class="nav-tab" onclick="showTab('tabCalVenc',this)">⚠️ Cal. Vencida 30+</button>
+      <button class="nav-tab" onclick="showTab('tabCalVenc',this)">⚠️ Cal. Vencida</button>
       <button class="nav-tab" onclick="showTab('tabCert',this)">📜 Certificados</button>
       <button class="nav-tab" onclick="showTab('tabTerm',this)">📄 Termo de Transferência</button>
       <button class="nav-tab" onclick="showTab('tabTermos',this)">🗂️ Termos Salvos</button>
@@ -533,8 +533,8 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
   <div id="tabCalVenc" class="tab-content">
     <div style="max-width:1100px;margin:0 auto;padding:20px 16px">
       <div style="margin-bottom:16px">
-        <h2 style="font-size:17px;font-weight:700;color:var(--nv)">⚠️ Calibração Vencida (30+ dias)</h2>
-        <p style="font-size:12px;color:var(--tx3);margin-top:3px">Ferramentas com calibração vencida há 30 dias ou mais — apenas visualização</p>
+        <h2 style="font-size:17px;font-weight:700;color:var(--nv)">⚠️ Calibração Vencida</h2>
+        <p style="font-size:12px;color:var(--tx3);margin-top:3px">Todas as ferramentas com calibração vencida (a partir de 1 dia) — apenas visualização</p>
       </div>
       <div class="srch" style="max-width:320px;margin-bottom:14px">
         <span class="srch-ico">🔍</span>
@@ -2040,7 +2040,7 @@ function renderCalVenc(){
 
   var vencidas=tools.filter(function(t){
     var d=getDiasCal(t);
-    return!isNaN(d)&&d<=-30;
+    return!isNaN(d)&&d<0;
   });
   if(q){
     vencidas=vencidas.filter(function(t){
@@ -2050,10 +2050,10 @@ function renderCalVenc(){
   }
   vencidas.sort(function(a,b){return getDiasCal(a)-getDiasCal(b);}); // mais vencida primeiro
 
-  elCount.textContent=vencidas.length+' ferramenta'+(vencidas.length!==1?'s':'')+' com calibração vencida há 30 dias ou mais';
+  elCount.textContent=vencidas.length+' ferramenta'+(vencidas.length!==1?'s':'')+' com calibração vencida';
 
   if(!vencidas.length){
-    elList.innerHTML='<div style="text-align:center;padding:30px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">🎉 Nenhuma ferramenta com calibração vencida há 30+ dias.</div>';
+    elList.innerHTML='<div style="text-align:center;padding:30px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">🎉 Nenhuma ferramenta com calibração vencida.</div>';
     return;
   }
 
