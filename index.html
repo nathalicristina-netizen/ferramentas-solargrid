@@ -374,6 +374,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
           </label>
           <span id="lastImportLbl" style="font-size:10px;color:var(--tx3);white-space:nowrap"></span>
           <button class="btn-nv" onclick="exportXLSX()" style="font-size:11px;padding:6px 12px">📊 CSV</button>
+          <button class="btn-nv" id="btnBackup" onclick="exportBackupCompleto()" style="font-size:11px;padding:6px 12px;display:none" title="Baixa uma cópia completa de tudo: ferramentas, histórico, termos, usuários e certificados">💾 Backup Completo</button>
           <button class="btn-or" onclick="openAdd()" style="font-size:11px;padding:6px 14px;font-weight:700;display:none" id="btnNova">+ Nova</button>
         </div>
       </div>
@@ -1466,6 +1467,8 @@ function renderAll(){
   if(btnIXL)btnIXL.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
   var lastImpLbl=document.getElementById('lastImportLbl');
   if(lastImpLbl){lastImpLbl.style.display=(CU&&CU.role==='Admin')?'inline':'none';renderLastImportLabel();}
+  var btnBkp=document.getElementById('btnBackup');
+  if(btnBkp)btnBkp.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
   // show/hide Usuarios tab for Admin only
   var tabUserBtn=document.querySelector('[onclick*="tabUsers"]');
   if(tabUserBtn)tabUserBtn.style.display=(CU&&CU.role==='Admin')?'':'none';
@@ -2815,6 +2818,34 @@ function importXLSXFile(file){
     }
   };
   reader.readAsArrayBuffer(file);
+}
+// ── BACKUP COMPLETO (cópia de segurança de tudo, fora do Supabase) ──
+async function exportBackupCompleto(){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem gerar o backup completo.',false);return;}
+  if(!sb){showToast('Sem conexão com o banco de dados.',false);return;}
+  showToast('Gerando backup completo… isso pode levar alguns segundos ⏳',true);
+  try{
+    var res=await Promise.all([
+      sb.from('ferramentas').select('*'),
+      sb.from('historico').select('*'),
+      sb.from('termos').select('*'),
+      sb.from('usuários').select('*'),
+      sb.from('certificados').select('*')
+    ]);
+    var nomes=['Ferramentas','Historico','Termos','Usuarios','Certificados'];
+    var wb=XLSX.utils.book_new();
+    res.forEach(function(r,i){
+      var dados=(r&&r.data)||[];
+      var ws=dados.length?XLSX.utils.json_to_sheet(dados):XLSX.utils.aoa_to_sheet([['(sem dados)']]);
+      XLSX.utils.book_append_sheet(wb,ws,nomes[i]);
+    });
+    var fname='backup_solargrid_'+new Date().toISOString().slice(0,10)+'.xlsx';
+    XLSX.writeFile(wb,fname);
+    showToast('Backup completo gerado! Guarde esse arquivo em local seguro (Google Drive, OneDrive, etc).',true);
+  }catch(e){
+    console.error('backup:',e);
+    showToast('Erro ao gerar backup: '+(e.message||e),false);
+  }
 }
 function exportXLSX(){
   if(!CU||CU.role==='Comum'){showToast('Sem permissão para exportar dados.',false);return;}
