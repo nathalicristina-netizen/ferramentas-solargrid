@@ -2820,6 +2820,20 @@ function importXLSXFile(file){
   reader.readAsArrayBuffer(file);
 }
 // ── BACKUP COMPLETO (cópia de segurança de tudo, fora do Supabase) ──
+// Excel não aceita células com mais de 32.767 caracteres — campos com conteúdo tipo base64
+// (fotos, PDFs salvos como texto) são substituídos por um aviso, em vez de quebrar o backup.
+function sanitizeForExcel(row){
+  var out={};
+  Object.keys(row).forEach(function(k){
+    var v=row[k];
+    if(typeof v==='string'&&v.length>30000){
+      out[k]='[Conteúdo muito grande p/ Excel omitido — '+v.length+' caracteres. Campo: '+k+']';
+    }else{
+      out[k]=v;
+    }
+  });
+  return out;
+}
 async function exportBackupCompleto(){
   if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem gerar o backup completo.',false);return;}
   if(!sb){showToast('Sem conexão com o banco de dados.',false);return;}
@@ -2835,7 +2849,7 @@ async function exportBackupCompleto(){
     var nomes=['Ferramentas','Historico','Termos','Usuarios','Certificados'];
     var wb=XLSX.utils.book_new();
     res.forEach(function(r,i){
-      var dados=(r&&r.data)||[];
+      var dados=((r&&r.data)||[]).map(sanitizeForExcel);
       var ws=dados.length?XLSX.utils.json_to_sheet(dados):XLSX.utils.aoa_to_sheet([['(sem dados)']]);
       XLSX.utils.book_append_sheet(wb,ws,nomes[i]);
     });
