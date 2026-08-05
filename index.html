@@ -1978,6 +1978,35 @@ function undoLastConfirm(){
 var CONF_Q='';
 var CONF_EMAIL='';
 var CONF_PEND_MSGS=[];
+var CONF_RANKING_ITEMS=[];
+// Extrai um primeiro nome amigável de um e-mail tipo maristela.oliveira@solargrid.com.br -> "Maristela"
+function primeiroNomeEmail(email){
+  if(!email)return'';
+  var user=String(email).split('@')[0];
+  var first=user.split(/[.\-_]/)[0];
+  if(!first)return email;
+  return first.charAt(0).toUpperCase()+first.slice(1).toLowerCase();
+}
+function parseBRDateTime(s){
+  var m=String(s||'').match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+  if(!m)return new Date(0);
+  return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]),parseInt(m[4]),parseInt(m[5]));
+}
+function verFerramentasConfirmadas(i){
+  var d=CONF_RANKING_ITEMS[i];
+  if(!d)return;
+  var itens=d.itens.slice().sort(function(a,b){return parseBRDateTime(b.data)-parseBRDateTime(a.data);});
+  var linhas=itens.length?itens.map(function(it){
+    return '<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--bd);font-size:12px">'+
+      '<span><strong>'+it.patrimonio+'</strong> — '+it.ferramenta+'<br><span style="font-size:10px;color:var(--tx3)">'+it.local+'<\/span><\/span>'+
+      '<span style="color:var(--tx3);white-space:nowrap;font-size:11px">'+it.data+'<\/span>'+
+      '<\/div>';
+  }).join(''):'<div class="empty" style="padding:1.5rem">Sem confirmações registradas.<\/div>';
+  var h='<div class="mh"><div><div class="mtt">🔍 Ferramentas confirmadas<\/div><div class="msub">'+d.nome+' · '+d.itens.length+' confirmação'+(d.itens.length!==1?'ões':'')+'<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>'+
+    linhas+
+    '<div class="mb-btns"><button class="b-cn" onclick="closeM()">Fechar<\/button><\/div>';
+  showM(h);
+}
 function filterConfirmacoes(v){CONF_Q=(v||'').toLowerCase().trim();renderConfirmacoes();}
 function filterConfEmail(v){CONF_EMAIL=(v||'').toLowerCase().trim();renderConfirmacoes();}
 function togglePendGrp(i){
@@ -2072,19 +2101,20 @@ function renderConfirmacoes(){
     '<div class="mc" style="cursor:default;background:#F0FDF4;border-color:#86efac"><span class="mc-ico">✅</span><div class="mc-val" style="color:#14532d">'+confirmadas+'</div><div class="mc-lbl" style="color:#15803d">CONFIRMADAS</div></div>'+
     '<div class="mc" style="cursor:default;background:#FFF7ED;border-color:#fdba74"><span class="mc-ico">⏳</span><div class="mc-val" style="color:#7c2d12">'+pendentes+'</div><div class="mc-lbl" style="color:#c2410c">AINDA NÃO CONFIRMADAS</div></div>';
 
-  // Ranking por pessoa (quem efetivamente confirmou), com os locais que essa pessoa confirmou
+  // Ranking por pessoa (quem efetivamente confirmou), com os locais e as ferramentas que essa pessoa confirmou
   var porPessoa={};
   tools.forEach(function(t){
     (t.hist||[]).forEach(function(h){
       if(h.user&&isConfirmMsg(h.msg)){
-        if(!porPessoa[h.user])porPessoa[h.user]={count:0,lastTs:null,locais:{}};
+        if(!porPessoa[h.user])porPessoa[h.user]={count:0,lastTs:null,locais:{},itens:[]};
         porPessoa[h.user].count++;
+        porPessoa[h.user].itens.push({patrimonio:t.patrimonio,ferramenta:t.ferramenta,local:t.siglaLocal||'—',data:h.t});
         if(t.siglaLocal)porPessoa[h.user].locais[t.siglaLocal]=1;
       }
     });
     if(t.lastConfirm&&t.lastConfirm.user){
       var u=t.lastConfirm.user;
-      if(!porPessoa[u])porPessoa[u]={count:0,lastTs:null,locais:{}};
+      if(!porPessoa[u])porPessoa[u]={count:0,lastTs:null,locais:{},itens:[]};
       if(!porPessoa[u].lastTs||new Date(t.lastConfirm.ts)>new Date(porPessoa[u].lastTs))porPessoa[u].lastTs=t.lastConfirm.ts;
       if(t.siglaLocal)porPessoa[u].locais[t.siglaLocal]=1;
     }
@@ -2101,17 +2131,20 @@ function renderConfirmacoes(){
     elR.innerHTML='<div style="text-align:center;padding:30px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'+(CONF_Q?'Nenhum resultado para essa busca.':'Ainda não há confirmações registradas.')+'</div>';
   }else{
     nomes.sort(function(a,b){return porPessoa[b].count-porPessoa[a].count;});
-    var rows=nomes.map(function(n){
+    CONF_RANKING_ITEMS=[];
+    var rows=nomes.map(function(n,i){
       var d=porPessoa[n];
       var last=d.lastTs?fmt(d.lastTs):'—';
+      CONF_RANKING_ITEMS[i]={nome:n,itens:d.itens};
       return '<tr>'+
         '<td style="padding:9px 12px;font-weight:600">'+n+'</td>'+
         '<td style="padding:9px 12px;text-align:center;font-weight:700;color:var(--nv)">'+d.count+'</td>'+
         '<td style="padding:9px 12px;text-align:center">'+last+'</td>'+
+        '<td style="padding:9px 12px;text-align:center"><button onclick="verFerramentasConfirmadas('+i+')" style="background:#fff;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;color:var(--nv);cursor:pointer">🔍 Ver<\/button><\/td>'+
         '</tr>';
     }).join('');
     elR.innerHTML='<div style="overflow-x:auto;border:1px solid var(--bd);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
-      '<thead><tr style="background:var(--nv);color:#fff"><th style="padding:9px 12px;text-align:left">Responsável</th><th style="padding:9px 12px">Confirmações</th><th style="padding:9px 12px">Última confirmação</th></tr></thead>'+
+      '<thead><tr style="background:var(--nv);color:#fff"><th style="padding:9px 12px;text-align:left">Responsável</th><th style="padding:9px 12px">Confirmações</th><th style="padding:9px 12px">Última confirmação</th><th style="padding:9px 12px">Ferramentas</th></tr></thead>'+
       '<tbody>'+rows+'</tbody></table></div>';
   }
 
@@ -2161,8 +2194,7 @@ function renderConfirmacoes(){
           '<span style="display:flex;align-items:center;gap:8px">'+stBadge(t.status)+'<span style="color:var(--tx3)">'+(t.siglaLocal||'—')+'</span></span>'+
           '</div>';
       }).join('');
-      CONF_PEND_MSGS[i]='Oi '+r+'! Você tem '+lista.length+' ferramenta'+(lista.length!==1?'s':'')+' pendente'+(lista.length!==1?'s':'')+' de confirmação no SolarGrid: '+
-        lista.map(function(t){return t.patrimonio+' ('+t.ferramenta+')';}).join(', ')+'. Poderia confirmar assim que possível? 🙏';
+      CONF_PEND_MSGS[i]='Olá, '+primeiroNomeEmail(r)+'! 👋 Tudo bem? Você tem '+lista.length+' ferramenta'+(lista.length!==1?'s':'')+' pendente'+(lista.length!==1?'s':'')+' de confirmação no SolarGrid. Poderia dar uma olhadinha quando puder? 🙏';
       var aberto=emailAtivo; // se veio de busca por e-mail, já mostra aberto
       return '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 16px;margin-bottom:8px">'+
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
