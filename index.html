@@ -719,10 +719,14 @@ async function setToolStatus(id,novoStatus){
   if(t.status===novoStatus){closeM();return;}
   var antigo=t.status;
   t.status=novoStatus;
+  var msg='🔄 Status alterado: '+antigo+' → '+novoStatus;
+  var histEntry={msg:msg,user:CU?CU.name:'—',t:fmt(ts()),dot:'bl'};
+  t.hist.unshift(histEntry);
   saveTols();closeM();renderAll();
   showToast(t.patrimonio+': status → '+novoStatus,true);
   await dbSaveTool(t); // garante a ferramenta no banco antes do histórico (foreign key)
-  dbSaveHist(t._id,'🔄 Status alterado: '+antigo+' → '+novoStatus,CU?CU.name:'—');
+  var dbId=await dbSaveHist(t._id,msg,CU?CU.name:'—');
+  if(dbId)histEntry.dbId=dbId;
 }
 async function toggleDisponib(id){
   if(!CU||CU.role==='Comum'){showToast('Usuários Comuns não podem alterar disponibilidade.',false);return;}
@@ -730,10 +734,13 @@ async function toggleDisponib(id){
   if(!t)return;
   t.disponibilidade=t.disponibilidade==='Em uso'?'Liberada':'Em uso';
   var msg='🔧 Disponibilidade: '+t.disponibilidade;
+  var histEntry={msg:msg,user:CU?CU.name:'—',t:fmt(ts()),dot:'bl'};
+  t.hist.unshift(histEntry);
   saveTols();renderTable();
   showToast(t.patrimonio+': '+t.disponibilidade,true);
   await dbSaveTool(t);
-  dbSaveHist(t._id,msg,CU?CU.name:'—');
+  var dbId=await dbSaveHist(t._id,msg,CU?CU.name:'—');
+  if(dbId)histEntry.dbId=dbId;
 }
 function calSt(t){
   var d=isNaN(parseFloat(t.diasProxCal))||t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);
@@ -1027,7 +1034,7 @@ function doLogout(){
 
 // ── BADGES ──
 function calBadge(t){var s=calSt(t);if(s==='v')return'<span class="badge b-rd">⚠ Vencida<\/span>';if(s==='p')return'<span class="badge b-am">⏰ A vencer<\/span>';if(s==='ok')return'<span class="badge b-gr">✓ OK<\/span>';return'<span class="badge b-gy">—<\/span>';}
-function stBadge(s){var m={'OK':['b-gr','✓ OK'],'Inoperante':['b-rd','✗ Inop.'],'Atenção':['b-am','⚠ Atenção'],'Furtado':['b-rd','🔒 Furtado'],'Furtado':['b-rd','🔒 Furtado'],'Procurar':['b-pu','🔍 Procurar'],'Descartado':['b-gy','Desc.'],'Reciclagem':['b-navy','♻ Recicl.']};var c=m[s]||['b-gy',s||'—'];return'<span class="badge '+c[0]+'">'+c[1]+'<\/span>';}
+function stBadge(s){var m={'OK':['b-gr','✓ OK'],'Inoperante':['b-rd','✗ Inop.'],'Atenção':['b-am','⚠ Atenção'],'Furtado':['b-rd','🔒 Furtado'],'Procurar':['b-pu','🔍 Procurar'],'Descartado':['b-gy','Desc.'],'Reciclagem':['b-navy','♻ Recicl.']};var c=m[s]||['b-gy',s||'—'];return'<span class="badge '+c[0]+'">'+c[1]+'<\/span>';}
 
 
 // ── COLUMN FILTERS (Excel-style) ──
@@ -1862,8 +1869,6 @@ function showTab(id,btn){
   if(id==='tabUsers')renderUsers();
   if(id==='tabCert')renderCerts();
   if(id==='tabHist')loadHistGeral();
-  if(id==='tabSolic')renderSolics();
-  if(id==='tabChat')loadChatMsgs();
   if(id==='tabTermos')loadTermosSB();
   if(id==='tabConfirm'){CONF_Q='';CONF_EMAIL='';var cb=document.getElementById('confBusca');if(cb)cb.value='';var ceb=document.getElementById('confEmailBusca');if(ceb)ceb.value='';renderConfirmacoes();}
   setTimeout(updateHScrollBar,50);
@@ -1909,6 +1914,7 @@ async function saveConf(id){
   t.hist.unshift(histEntry);
   dbSaveTool(t);
   var histDbId=await dbSaveHist(t._id,msg,CU.name);
+  if(histDbId)histEntry.dbId=histDbId;
   closeM();renderAll();
   showUndoConfToast(t._id,prev,histEntry,histDbId);
 }
@@ -2124,21 +2130,26 @@ function renderHistM(id){
      '<button class="b-cn" onclick="closeM()">Fechar<\/button><\/div>';
   showM(h);
 }
-function resetConfirmacao(id){
+async function resetConfirmacao(id){
   var t=tools.find(function(x){return x._id===id;});
   if(!t||!t.lastConfirm)return;
   if(!confirm('Marcar "'+t.ferramenta+'" ('+t.patrimonio+') como NÃO confirmada?\n\nEla volta a aparecer como pendente para o responsável confirmar de novo. O histórico continua registrado.'))return;
   var msg='↩️ Confirmação de '+t.lastConfirm.user+' ('+fmt(t.lastConfirm.ts)+') revertida por '+CU.name;
   t.lastConfirm=null;
-  t.hist.unshift({msg:msg,user:CU.name,t:fmt(ts()),dot:'or'});
-  dbSaveTool(t);dbSaveHist(t._id,msg,CU.name);
+  var histEntry={msg:msg,user:CU.name,t:fmt(ts()),dot:'or'};
+  t.hist.unshift(histEntry);
+  dbSaveTool(t);
+  var dbId=await dbSaveHist(t._id,msg,CU.name);
+  if(dbId)histEntry.dbId=dbId;
   renderAll();renderHistM(id);
   showToast('Confirmação revertida — ferramenta voltou a ficar pendente.',true);
 }
 function delHi(tid,hi){
   if(!confirm('Excluir?'))return;
   var t=tools.find(function(x){return x._id===tid;});
+  var entry=t.hist[hi];
   t.hist.splice(hi,1);t._mod=true;saveTols();renderHistM(tid);
+  if(entry&&entry.dbId)dbDelHistOne(entry.dbId);
 }
 function clearHist(tid){
   if(!confirm('Limpar todo o histórico?'))return;
@@ -2173,6 +2184,19 @@ function buildLocalOptions(currentVal, inputId){
   }
   LOCAIS_EDIT.forEach(function(s){
     opts+='<option value="'+s+'"'+(s===currentVal?' selected':'')+'>'+s+'</option>';
+  });
+  return opts;
+}
+var SETORES_PADRAO=['Comissionamento','Construção','O&M','PMO','CSC','Engenharia do Proprietário'];
+function buildSetorOptions(currentVal){
+  var opts='';
+  // Se o setor atual não está na lista padrão (ex: veio de um código antigo tipo "EP"),
+  // preserva como opção sinalizada, em vez de trocar escondido pela primeira opção da lista.
+  if(currentVal&&SETORES_PADRAO.indexOf(currentVal)<0){
+    opts+='<option value="'+currentVal+'" selected>⚠ '+currentVal+' (não padronizado)</option>';
+  }
+  SETORES_PADRAO.forEach(function(s){
+    opts+='<option'+(s===currentVal?' selected':'')+'>'+s+'</option>';
   });
   return opts;
 }
@@ -2215,9 +2239,7 @@ function openUpd(id){
   h+='<div class="mf"><label>Série<\/label><input id="uSr" value="'+(t.serie||'')+'"/><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Status<\/label><select id="uSt">';
   ['OK','Inoperante','Atenção','Furtado','Procurar','Descartado','Reciclagem'].forEach(function(s){h+='<option'+(t.status===s?' selected':'')+'>'+s+'<\/option>';});
-  h+='<\/select><\/div><div class="mf"><label>Setor<\/label><select id="uSek">';
-  ['Comissionamento','Construção','O&M','PMO','CSC','Engenharia do Proprietário'].forEach(function(s){h+='<option'+(t.setor===s?' selected':'')+'>'+s+'<\/option>';});
-  h+='<\/select><\/div><\/div>';
+  h+='<\/select><\/div><div class="mf"><label>Setor<\/label><select id="uSek">'+buildSetorOptions(t.setor)+'<\/select><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Local<\/label><select id="uLoc" onchange="fillLocalInfo(this.value)">'+buildLocalOptions(t.siglaLocal,'uLoc')+'<\/select><\/div><div class="mf"><label>Responsável<\/label><input id="uRes" value="'+(t.responsavel||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Cidade<\/label><input id="uCid" value="'+(t.cidade||'')+'"/><\/div><div class="mf"><label>Estado<\/label><input id="uEst" value="'+(t.estado||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Cert. Calibração<\/label><input id="uCert" value="'+(t.certCal||'')+'"/><\/div><div class="mf"><label>Laboratório<\/label><input id="uLab" value="'+(t.laboratorio||'')+'"/><\/div><\/div>';
@@ -2284,8 +2306,11 @@ function saveUpd(id){
         await new Promise(function(res){var reader=new FileReader();reader.onload=function(ev){t.notaFiscal=ev.target.result;t.notaFiscalNome=nfFile.name;res();};reader.readAsDataURL(nfFile);});
       }
     }
-    t.hist.unshift({msg:msg,user:CU.name,t:fmt(ts()),dot:'or'});
-    dbSaveTool(t);dbSaveHist(t._id,msg,CU.name);
+    var histEntry={msg:msg,user:CU.name,t:fmt(ts()),dot:'or'};
+    t.hist.unshift(histEntry);
+    dbSaveTool(t);
+    var dbId=await dbSaveHist(t._id,msg,CU.name);
+    if(dbId)histEntry.dbId=dbId;
     closeM();renderAll();showToast('Salvo!',true);
   }
   finishUpd();
@@ -2305,8 +2330,9 @@ function unMaskMoney(s){
 // Formata um valor cru (ex: "687.21" ou "500") no MESMO padrão que maskMoney gera,
 // para pré-preencher o campo sem quebrar a máscara na primeira edição.
 function fmtMoneyMasked(v){
-  var n=parseFloat(String(v||'0').replace(',','.'));
-  if(isNaN(n))n=0;
+  if(v===null||v===undefined||v==='')return'';
+  var n=parseFloat(String(v).replace(',','.'));
+  if(isNaN(n))return'';
   return n.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
 }
 function fillLocalInfoAdd(sigla){
