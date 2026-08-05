@@ -2224,7 +2224,7 @@ function openUpd(id){
   h+='<div class="mf-row"><div class="mf"><label>Data Cal.<\/label><input id="uDcal" value="'+(t.dataCal||'')+'"/><\/div><div class="mf"><label>Dias próx. cal.<\/label><input id="uDias" type="number" value="'+(t.diasProxCal==='-'?'':t.diasProxCal||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Data Manutenção<\/label><input id="uDman" value="'+(t.dataManut||'')+'"/><\/div><div class="mf"><label>Dias próx. manut.<\/label><input id="uDman2" type="number" value="'+(t.diasProxManut==='-'?'':t.diasProxManut||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Manutenção corretiva<\/label><select id="uCorr"><option value="">—<\/option><option'+(t.corretiva==="Precisa de reparo"?" selected":"")+'>Precisa de reparo<\/option><option'+(t.corretiva==="Em manutenção"?" selected":"")+'>Em manutenção<\/option><\/select><\/div><div class="mf"><label>Previsão de retorno<\/label><input id="uPrevCorr" value="'+(t.prevCorretiva||'')+'" placeholder="Ex: 10 dias"/><\/div><\/div>';
-  h+='<div class="mf-row"><div class="mf"><label>Ciclo de confirmação<\/label><select id="uCiclo"><option value="quinzenal"'+((!t.cicloConf||t.cicloConf==="quinzenal")?" selected":"")+'>Quinzenal (15 dias)<\/option><option value="mensal"'+(t.cicloConf==="mensal"?" selected":"")+'>Mensal (30 dias)<\/option><option value="anual"'+(t.cicloConf==="anual"?" selected":"")+'>Anual (365 dias)<\/option><\/select><\/div><div class="mf"><label>Valor (R$)<\/label><input id="uVal" value="'+(t.valor||'')+'" oninput="maskMoney(this)"/><\/div><\/div>';
+  h+='<div class="mf-row"><div class="mf"><label>Ciclo de confirmação<\/label><select id="uCiclo"><option value="quinzenal"'+((!t.cicloConf||t.cicloConf==="quinzenal")?" selected":"")+'>Quinzenal (15 dias)<\/option><option value="mensal"'+(t.cicloConf==="mensal"?" selected":"")+'>Mensal (30 dias)<\/option><option value="anual"'+(t.cicloConf==="anual"?" selected":"")+'>Anual (365 dias)<\/option><\/select><\/div><div class="mf"><label>Valor (R$)<\/label><input id="uVal" value="'+fmtMoneyMasked(t.valor)+'" oninput="maskMoney(this)"/><\/div><\/div>';
 
   h+='<div class="mf"><label>Nota Fiscal <span style="font-size:10px;color:var(--tx3)">(opcional)<\/span><\/label>'+((t.notaFiscalUrl||t.notaFiscal)?'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:var(--tx2)">📎 '+(t.notaFiscalNome||'nota_fiscal.pdf')+'<\/span><button type="button" class="bs ok" style="font-size:11px;padding:3px 8px" onclick="openNF('+t._id+')">Ver<\/button><button type="button" class="bs rd" style="font-size:11px;padding:3px 8px" onclick="removeNF('+t._id+')">Remover<\/button><\/div>':'<input id="uNF" type="file" accept="application/pdf"/>')+'<\/div>';
   h+='<div class="mf"><label>Observação<\/label><textarea id="uObs">'+(t.obs||'')+'<\/textarea><\/div>';
@@ -2301,6 +2301,13 @@ function maskMoney(inp){
 function unMaskMoney(s){
   if(!s||s===''||s==='—')return'';
   return String(s).replace(/\./g,'').replace(',','.');
+}
+// Formata um valor cru (ex: "687.21" ou "500") no MESMO padrão que maskMoney gera,
+// para pré-preencher o campo sem quebrar a máscara na primeira edição.
+function fmtMoneyMasked(v){
+  var n=parseFloat(String(v||'0').replace(',','.'));
+  if(isNaN(n))n=0;
+  return n.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
 }
 function fillLocalInfoAdd(sigla){
   if(!sigla||sigla.length<2)return;
