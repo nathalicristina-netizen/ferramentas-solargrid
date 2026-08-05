@@ -319,6 +319,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       <button class="nav-tab on" onclick="showTab('tabFerr',this)">🔧 Ferramentas</button>
       <button class="nav-tab" onclick="showTab('tabDash',this)">📊 Dashboard</button>
       <button class="nav-tab" id="tabConfirmBtn" onclick="showTab('tabConfirm',this)">📍 Confirmações<span id="pendBadge" class="pend-badge" style="display:none">0</span></button>
+      <button class="nav-tab" onclick="showTab('tabCalVenc',this)">⚠️ Cal. Vencida 30+</button>
       <button class="nav-tab" onclick="showTab('tabCert',this)">📜 Certificados</button>
       <button class="nav-tab" onclick="showTab('tabTerm',this)">📄 Termo de Transferência</button>
       <button class="nav-tab" onclick="showTab('tabTermos',this)">🗂️ Termos Salvos</button>
@@ -524,6 +525,22 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         </div>
         <div id="confPendentes"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- TAB CALIBRAÇÃO VENCIDA 30+ -->
+  <div id="tabCalVenc" class="tab-content">
+    <div style="max-width:1100px;margin:0 auto;padding:20px 16px">
+      <div style="margin-bottom:16px">
+        <h2 style="font-size:17px;font-weight:700;color:var(--nv)">⚠️ Calibração Vencida (30+ dias)</h2>
+        <p style="font-size:12px;color:var(--tx3);margin-top:3px">Ferramentas com calibração vencida há 30 dias ou mais — apenas visualização</p>
+      </div>
+      <div class="srch" style="max-width:320px;margin-bottom:14px">
+        <span class="srch-ico">🔍</span>
+        <input type="text" id="calVencBusca" placeholder="Buscar por nome, série, patrimônio, local…" oninput="renderCalVenc()"/>
+      </div>
+      <div id="calVencCount" style="font-size:12px;color:var(--tx3);margin-bottom:10px"></div>
+      <div id="calVencList"></div>
     </div>
   </div>
 
@@ -1466,6 +1483,9 @@ function renderAll(){
   // reload confirmações if tab is active (F5 fix)
   var confirmTab=document.getElementById('tabConfirm');
   if(confirmTab&&confirmTab.classList.contains('on'))renderConfirmacoes();
+  // reload calibração vencida if tab is active (F5 fix)
+  var calVencTab=document.getElementById('tabCalVenc');
+  if(calVencTab&&calVencTab.classList.contains('on'))renderCalVenc();
   updatePendBadge();
   if(SHOW_LOGIN_ALERT){SHOW_LOGIN_ALERT=false;checkPendingAlert();}
 }
@@ -1871,6 +1891,7 @@ function showTab(id,btn){
   if(id==='tabHist')loadHistGeral();
   if(id==='tabTermos')loadTermosSB();
   if(id==='tabConfirm'){CONF_Q='';CONF_EMAIL='';var cb=document.getElementById('confBusca');if(cb)cb.value='';var ceb=document.getElementById('confEmailBusca');if(ceb)ceb.value='';renderConfirmacoes();}
+  if(id==='tabCalVenc'){var cvb=document.getElementById('calVencBusca');if(cvb)cvb.value='';renderCalVenc();}
   setTimeout(updateHScrollBar,50);
 }
 
@@ -1973,6 +1994,63 @@ function isConfirmMsg(msg){
   if(msg.indexOf('✅ Confirmado:')===0)return true;
   if(msg.indexOf('🔄 ')===0 && msg.indexOf('Status alterado')<0)return true;
   return false;
+}
+// ── CALIBRAÇÃO VENCIDA 30+ DIAS (visão geral, somente leitura) ──
+function getDiasCal(t){
+  return t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);
+}
+function renderCalVenc(){
+  var elList=document.getElementById('calVencList');
+  var elCount=document.getElementById('calVencCount');
+  if(!elList||!elCount)return;
+  var q=(document.getElementById('calVencBusca')||{}).value||'';
+  q=q.toLowerCase().trim();
+
+  var vencidas=tools.filter(function(t){
+    var d=getDiasCal(t);
+    return!isNaN(d)&&d<=-30;
+  });
+  if(q){
+    vencidas=vencidas.filter(function(t){
+      return[t.patrimonio,t.ferramenta,t.marca,t.modelo,t.serie,t.local,t.siglaLocal,t.responsavel,t.cidade,t.setor]
+        .join(' ').toLowerCase().indexOf(q)>=0;
+    });
+  }
+  vencidas.sort(function(a,b){return getDiasCal(a)-getDiasCal(b);}); // mais vencida primeiro
+
+  elCount.textContent=vencidas.length+' ferramenta'+(vencidas.length!==1?'s':'')+' com calibração vencida há 30 dias ou mais';
+
+  if(!vencidas.length){
+    elList.innerHTML='<div style="text-align:center;padding:30px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">🎉 Nenhuma ferramenta com calibração vencida há 30+ dias.</div>';
+    return;
+  }
+
+  var rows=vencidas.map(function(t){
+    var dias=getDiasCal(t);
+    var prox=t.dataCal?calcProxDataCal(t):'';
+    return '<tr>'+
+      '<td style="padding:8px 10px;font-weight:700;color:var(--nv)">'+t.patrimonio+'<\/td>'+
+      '<td style="padding:8px 10px"><div style="font-weight:600">'+t.ferramenta+'<\/div><div style="font-size:10px;color:var(--tx3)">'+(t.marca||'')+' · '+(t.modelo||'')+'<\/div><\/td>'+
+      '<td style="padding:8px 10px;text-align:center">'+(t.siglaLocal||'—')+'<\/td>'+
+      '<td style="padding:8px 10px">'+(t.responsavel||'—')+'<\/td>'+
+      '<td style="padding:8px 10px;text-align:center">'+(t.dataCal?fmtDateCal(t.dataCal):'—')+'<\/td>'+
+      '<td style="padding:8px 10px;text-align:center;color:var(--tx3)">'+(prox||'—')+'<\/td>'+
+      '<td style="padding:8px 10px;text-align:center;font-weight:700;color:#dc2626">'+Math.abs(Math.round(dias))+' dias<\/td>'+
+      '<td style="padding:8px 10px;text-align:center">'+stBadge(t.status)+'<\/td>'+
+      '<\/tr>';
+  }).join('');
+
+  elList.innerHTML='<div style="overflow-x:auto;border:1px solid var(--bd);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
+    '<thead><tr style="background:var(--nv);color:#fff">'+
+      '<th style="padding:9px 10px;text-align:left">Patrimônio<\/th>'+
+      '<th style="padding:9px 10px;text-align:left">Ferramenta<\/th>'+
+      '<th style="padding:9px 10px">Local<\/th>'+
+      '<th style="padding:9px 10px;text-align:left">Responsável<\/th>'+
+      '<th style="padding:9px 10px">Última Cal.<\/th>'+
+      '<th style="padding:9px 10px">Venceu em<\/th>'+
+      '<th style="padding:9px 10px">Dias vencidos<\/th>'+
+      '<th style="padding:9px 10px">Status<\/th>'+
+    '<\/tr><\/thead><tbody>'+rows+'<\/tbody><\/table><\/div>';
 }
 function renderConfirmacoes(){
   var elM=document.getElementById('confMetrics');
