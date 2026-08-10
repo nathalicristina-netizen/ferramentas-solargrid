@@ -366,6 +366,9 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
           <select id="localFlt" onchange="setLF(this.value)" style="padding:6px 10px;border:1.5px solid var(--bd);border-radius:8px;background:var(--bg2);color:var(--tx2);font-size:12px;font-family:var(--fb);cursor:pointer;max-width:150px">
             <option value="">Todos locais</option>
           </select>
+          <select id="respFlt" onchange="setRF(this.value)" style="padding:6px 10px;border:1.5px solid var(--bd);border-radius:8px;background:var(--bg2);color:var(--tx2);font-size:12px;font-family:var(--fb);cursor:pointer;max-width:170px">
+            <option value="">Todos responsáveis</option>
+          </select>
           <div style="height:28px;width:1.5px;background:var(--bd);border-radius:2px"></div>
           <button id="epBtn" class="btn-or" onclick="exportPDF()" style="display:none;font-size:11px;padding:6px 11px">📄 PDF</button>
           <label class="btn-nv" id="btnImportXLS" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;display:none" title="Importar Excel (aba Controle) — ou arraste o arquivo aqui na tela">
@@ -652,7 +655,7 @@ var tools=RAW.map(function(t,i){
     diasProxCal:t.diasProxCal||'-',obs:t.obs||'',cicloConf:t.cicloConf||'quinzenal',lastConfirm:null};
 });
 
-var CU=null, AF='todos', ST='', sortCol=null, sortDir=1, page=1, PG=50, SF='', LF='';
+var CU=null, AF='todos', ST='', sortCol=null, sortDir=1, page=1, PG=50, SF='', LF='', RF='';
 var SHOW_LOGIN_ALERT=false;
 
 // ── UTILS ──
@@ -794,7 +797,7 @@ function saveSession(){
     var tab='tabFerr';
     document.querySelectorAll('.tab-content.on').forEach(function(e){if(e.id)tab=e.id;});
     localStorage.setItem('sg_s',JSON.stringify(Object.assign({},CU,{_tab:tab,
-      _page:page,_af:AF,_st:ST,_sf:SF,_lf:LF,_sortCol:sortCol,_sortDir:sortDir})));
+      _page:page,_af:AF,_st:ST,_sf:SF,_lf:LF,_rf:RF,_sortCol:sortCol,_sortDir:sortDir})));
   }catch(e){}
 }
 function saveTols(){
@@ -848,6 +851,7 @@ function loadSession(){
     if(CU._st){ST=CU._st;}
     if(CU._sf){SF=CU._sf;}
     if(CU._lf){LF=CU._lf;}
+    if(CU._rf){RF=CU._rf;}
     if(CU._sortCol!==undefined){sortCol=CU._sortCol;sortDir=CU._sortDir||1;}
     if(CU._page){page=CU._page;}
     document.querySelectorAll('.ft').forEach(function(b){
@@ -1039,7 +1043,7 @@ function doLogin(){
 }
 function doLogout(){
   try{sessionStorage.clear();localStorage.removeItem('sg_s');}catch(e){}
-  CU=null;AF='todos';ST='';SF='';LF='';page=1;SHOW_LOGIN_ALERT=false;
+  CU=null;AF='todos';ST='';SF='';LF='';RF='';page=1;SHOW_LOGIN_ALERT=false;
   dismissPendAlert();
   document.getElementById('aS').classList.remove('active');
   document.getElementById('lS').classList.add('active');
@@ -1196,6 +1200,7 @@ function getFilteredBase(){
   var list=tools.slice();
   if(SF)list=list.filter(function(t){return t.setor===SF;});
   if(LF)list=list.filter(function(t){return t.siglaLocal===LF||t.local===LF;});
+  if(RF)list=list.filter(function(t){return t.responsavel===RF;});
   if(ST)list=list.filter(function(t){
     return[t.patrimonio,t.ferramenta,t.marca,t.modelo,t.serie,t.local,t.siglaLocal,t.responsavel,t.cidade,t.setor].join(' ').toLowerCase().indexOf(ST)>=0;
   });
@@ -1269,6 +1274,7 @@ function getFiltered(){
 }
 function setSF(v){SF=v;page=1;renderTable();saveSession();}
 function setLF(v){LF=v;page=1;renderTable();saveSession();}
+function setRF(v){RF=v;page=1;renderTable();saveSession();}
 function populateLocalFlt(){
   var sel=document.getElementById('localFlt');if(!sel)return;
   // Usa apenas os locais que existem de fato nas ferramentas cadastradas (não a lista fixa)
@@ -1282,6 +1288,20 @@ function populateLocalFlt(){
   locais.forEach(function(l){opts+='<option value="'+l+'"'+(l===LF?' selected':'')+'>'+l+'<\/option>';});
   sel.innerHTML=opts;
   sel.value=LF||'';
+}
+function populateRespFlt(){
+  var sel=document.getElementById('respFlt');if(!sel)return;
+  // Usa apenas os responsáveis que existem de fato nas ferramentas cadastradas
+  var respSet={};
+  tools.forEach(function(t){
+    var r=(t.responsavel||'').trim();
+    if(r&&r!=='—')respSet[r]=1;
+  });
+  var resps=Object.keys(respSet).sort(function(a,b){return a.localeCompare(b,'pt-BR');});
+  var opts='<option value="">Todos responsáveis<\/option>';
+  resps.forEach(function(r){opts+='<option value="'+r+'"'+(r===RF?' selected':'')+'>'+r+'<\/option>';});
+  sel.innerHTML=opts;
+  sel.value=RF||'';
 }
 function renderTable(){
   renderMetrics();
@@ -1457,7 +1477,7 @@ function updateHScrollBar(){
   });
 })();
 function renderAll(){
-  renderTable();populateLocalFlt();renderUsers();renderCerts();
+  renderTable();populateLocalFlt();populateRespFlt();renderUsers();renderCerts();
   var btnN=document.getElementById('btnNova');
   if(btnN)btnN.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
   var btnNU=document.getElementById('btnNovoUser');
