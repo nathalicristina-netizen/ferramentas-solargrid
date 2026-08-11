@@ -324,6 +324,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       <button class="nav-tab" onclick="showTab('tabTerm',this)">📄 Termo de Transferência</button>
       <button class="nav-tab" onclick="showTab('tabTermos',this)">🗂️ Termos Salvos</button>
       <button class="nav-tab" onclick="showTab('tabUsers',this)">👥 Usuários</button>
+      <button class="nav-tab" id="tabAcessosBtn" onclick="showTab('tabAcessos',this)">🔐 Acessos</button>
       <button class="nav-tab" onclick="showTab('tabHist',this)">📋 Histórico</button>
 
     </div>
@@ -582,6 +583,24 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         </div>
       </div>
       <div id="histGeralList"><div style="text-align:center;padding:40px;color:var(--tx3)">Carregando histórico…</div></div>
+    </div>
+  </div>
+
+  <!-- TAB HISTÓRICO DE ACESSOS -->
+  <div id="tabAcessos" class="tab-content">
+    <div style="max-width:960px;margin:0 auto;padding:20px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <h2 style="font-size:17px;font-weight:700;color:var(--nv)">🔐 Histórico de Acessos</h2>
+          <p style="font-size:12px;color:var(--tx3);margin-top:3px">Quem entrou na plataforma e quando</p>
+        </div>
+        <div class="srch" style="min-width:220px">
+          <span class="srch-ico">🔍</span>
+          <input type="text" placeholder="Buscar por nome ou e-mail…" oninput="searchAcessos(this.value)"/>
+        </div>
+      </div>
+      <div id="acessosCount" style="font-size:12px;color:var(--tx3);margin-bottom:10px"></div>
+      <div id="acessosList"><div style="text-align:center;padding:40px;color:var(--tx3)">Carregando acessos…</div></div>
     </div>
   </div>
 
@@ -1040,7 +1059,14 @@ function doLogin(){
   var initials=(parts[0][0]+(parts[parts.length-1][0])).toUpperCase();
   CU={name:match.nome,email:match.email,setor:match.setor,initials:initials,role:match.nivel||'Comum'};
   SHOW_LOGIN_ALERT=true;
+  logAcesso();
   saveSession();showApp();renderAll();dbLoad();
+}
+async function logAcesso(){
+  if(!sb||!CU)return;
+  try{
+    await sb.from('acessos').insert({nome:CU.name,email:CU.email,setor:CU.setor,nivel:CU.role,user_agent:navigator.userAgent});
+  }catch(e){console.warn('logAcesso:',e);}
 }
 function doLogout(){
   try{sessionStorage.clear();localStorage.removeItem('sg_s');}catch(e){}
@@ -1493,6 +1519,8 @@ function renderAll(){
   // show/hide Usuarios tab for Admin only
   var tabUserBtn=document.querySelector('[onclick*="tabUsers"]');
   if(tabUserBtn)tabUserBtn.style.display=(CU&&CU.role==='Admin')?'':'none';
+  var tabAcessosBtn=document.getElementById('tabAcessosBtn');
+  if(tabAcessosBtn)tabAcessosBtn.style.display=(CU&&CU.role==='Admin')?'':'none';
   var isComum=CU&&CU.role==='Comum';
   // hide action buttons for Comum
   ['btnImportExcel','btnExportCSV'].forEach(function(id){
@@ -1501,6 +1529,9 @@ function renderAll(){
   // reload historico if tab is active
   var histTab=document.getElementById('tabHist');
   if(histTab&&histTab.classList.contains('on'))loadHistGeral();
+  // reload acessos if tab is active (F5 fix)
+  var acessosTab=document.getElementById('tabAcessos');
+  if(acessosTab&&acessosTab.classList.contains('on'))loadAcessos();
   // reload termos if tab is active (F5 fix)
   var termosTab=document.getElementById('tabTermos');
   if(termosTab&&termosTab.classList.contains('on'))loadTermosSB();
@@ -1905,6 +1936,77 @@ async function delHistGeral(hid){
   }catch(e){showToast('Erro ao excluir registro.',false);}
 }
 
+// ── HISTÓRICO DE ACESSOS (Admin) ──
+var acessosData=[];
+var acessosSearch='';
+function searchAcessos(v){acessosSearch=v.toLowerCase().trim();renderAcessos();}
+async function loadAcessos(){
+  var el=document.getElementById('acessosList');
+  if(!el)return;
+  if(!CU||CU.role!=='Admin'){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">Apenas administradores podem ver esta aba.</div>';return;}
+  if(!sb){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">Sem conexão com o banco.</div>';return;}
+  try{
+    var r=await sb.from('acessos').select('*').order('created_at',{ascending:false}).limit(1000);
+    if(r.error)throw r.error;
+    acessosData=r.data||[];
+    renderAcessos();
+  }catch(e){
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--rd)">Erro ao carregar acessos.</div>';
+  }
+}
+// Deixa o navegador/sistema legível a partir do user-agent bruto
+function parseUA(ua){
+  if(!ua)return'—';
+  var browser='Navegador';
+  if(/Edg\//.test(ua))browser='Edge';
+  else if(/OPR\//.test(ua))browser='Opera';
+  else if(/Chrome\//.test(ua))browser='Chrome';
+  else if(/Firefox\//.test(ua))browser='Firefox';
+  else if(/Safari\//.test(ua))browser='Safari';
+  var os='';
+  if(/Windows/.test(ua))os='Windows';
+  else if(/Mac OS X/.test(ua))os='Mac';
+  else if(/Android/.test(ua))os='Android';
+  else if(/iPhone|iPad/.test(ua))os='iOS';
+  else if(/Linux/.test(ua))os='Linux';
+  return browser+(os?' · '+os:'');
+}
+function renderAcessos(){
+  var el=document.getElementById('acessosList');var elCount=document.getElementById('acessosCount');
+  if(!el)return;
+  var list=acessosData;
+  if(acessosSearch){
+    list=list.filter(function(a){
+      return(a.nome||'').toLowerCase().indexOf(acessosSearch)>=0||(a.email||'').toLowerCase().indexOf(acessosSearch)>=0;
+    });
+  }
+  if(elCount)elCount.textContent=list.length+' acesso'+(list.length!==1?'s':'')+' registrado'+(list.length!==1?'s':'')+' (últimos 1000)';
+  if(!list.length){
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">Nenhum acesso encontrado.</div>';
+    return;
+  }
+  var rows=list.map(function(a){
+    return '<tr style="border-bottom:1px solid var(--bd)">'+
+      '<td style="padding:9px 10px;white-space:nowrap;font-size:11px;color:var(--tx3)">'+(a.created_at?fmt(a.created_at):'—')+'</td>'+
+      '<td style="padding:9px 10px;font-size:12px;font-weight:600">'+(a.nome||'—')+'</td>'+
+      '<td style="padding:9px 10px;font-size:12px;color:var(--tx3)">'+(a.email||'—')+'</td>'+
+      '<td style="padding:9px 10px;font-size:12px">'+(a.setor||'—')+'</td>'+
+      '<td style="padding:9px 10px;font-size:12px">'+(a.nivel||'—')+'</td>'+
+      '<td style="padding:9px 10px;font-size:11px;color:var(--tx3)">'+parseUA(a.user_agent)+'</td>'+
+    '</tr>';
+  }).join('');
+  el.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'+
+    '<thead><tr style="border-bottom:2px solid var(--bd)">'+
+      '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap">Data/Hora</th>'+
+      '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Nome</th>'+
+      '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">E-mail</th>'+
+      '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Setor</th>'+
+      '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Nível</th>'+
+      '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Dispositivo</th>'+
+    '</tr></thead>'+
+    '<tbody>'+rows+'</tbody></table></div>';
+}
+
 function showTab(id,btn){
   document.querySelectorAll('.tab-content').forEach(function(e){e.classList.remove('on');});
   document.querySelectorAll('.nav-tab').forEach(function(b){b.classList.remove('on');});
@@ -1913,6 +2015,7 @@ function showTab(id,btn){
   if(id==='tabUsers')renderUsers();
   if(id==='tabCert')renderCerts();
   if(id==='tabHist')loadHistGeral();
+  if(id==='tabAcessos'){var ab=document.querySelector('#tabAcessos input');if(ab)ab.value='';acessosSearch='';loadAcessos();}
   if(id==='tabTermos')loadTermosSB();
   if(id==='tabConfirm'){CONF_Q='';CONF_EMAIL='';var cb=document.getElementById('confBusca');if(cb)cb.value='';var ceb=document.getElementById('confEmailBusca');if(ceb)ceb.value='';renderConfirmacoes();}
   if(id==='tabCalVenc'){var cvb=document.getElementById('calVencBusca');if(cvb)cvb.value='';renderCalVenc();}
