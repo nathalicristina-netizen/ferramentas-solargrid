@@ -962,6 +962,7 @@ async function dbLoad(){
   if(!sb){renderAll();return;}
   await loadUsersFB();
   await loadCertsFB();
+  await loadLocaisPadrao();
   showBanner('connecting','Conectando…');
   try{
     // Busca TODAS as ferramentas em blocos (o Supabase limita cada select a 1000 linhas)
@@ -2306,19 +2307,95 @@ async function delTool(id){
     console.warn('delTool falhou. id=',id,'patrimonio=',t.patrimonio,'resultado=',r);
   }
 }
-// Lista fixa de locais para os dropdowns de editar/adicionar/trocar ferramenta (apenas siglas)
-var LOCAIS_EDIT=["CBA","CBAA","CBAB","CES","CGO","CMGA","CMGB","CMGC","CPIA","CRJA","CRJB","CRJC","CRJD","CRS","CRSA","CRSB","CSPA","CSPB","CSPC","CSPD","Escritório Rio","Assistência Técnica","Laboratório","UFV ÁRVORE SÓ I","UFV ÁRVORE SÓ II","UFV BONFINÓPOLIS I","UFV BONFINÓPOLIS II","UFV INHAMBUPE IA","UFV INHAMBUPE IB","UFV JATAÍ","UFV LAGOA DO PIAUÍ","UFV SANTA CECÍLIA","UFV SÃO PEDRO I","UFV SÃO PEDRO IV"];
+// Lista de locais para os dropdowns de editar/adicionar/trocar ferramenta — agora editável pelo Admin,
+// guardada na tabela 'locais_padrao' do Supabase (em vez de fixa no código).
+var LOCAIS_EDIT_DEFAULT=["CBA","CBAA","CBAB","CES","CGO","CMGA","CMGB","CMGC","CPIA","CRJA","CRJB","CRJC","CRJD","CRS","CRSA","CRSB","CSPA","CSPB","CSPC","CSPD","Escritório Rio","Assistência Técnica","Laboratório","UFV ÁRVORE SÓ I","UFV ÁRVORE SÓ II","UFV BONFINÓPOLIS I","UFV BONFINÓPOLIS II","UFV INHAMBUPE IA","UFV INHAMBUPE IB","UFV JATAÍ","UFV LAGOA DO PIAUÍ","UFV SANTA CECÍLIA","UFV SÃO PEDRO I","UFV SÃO PEDRO IV"];
+var LOCAIS_PADRAO=LOCAIS_EDIT_DEFAULT.map(function(n){return{id:null,nome:n};}); // [{id, nome}], substituído pelo banco assim que carrega
+async function loadLocaisPadrao(){
+  if(!sb)return;
+  try{
+    var r=await sb.from('locais_padrao').select('*').order('nome');
+    if(r.error){console.warn('loadLocaisPadrao:',r.error.message);LOCAIS_PADRAO=LOCAIS_EDIT_DEFAULT.map(function(n){return{id:null,nome:n};});return;}
+    if(r.data&&r.data.length){
+      LOCAIS_PADRAO=r.data.map(function(x){return{id:x.id,nome:x.nome};});
+    }else{
+      // Primeira vez: semeia a tabela com a lista padrão que já existia
+      var rows=LOCAIS_EDIT_DEFAULT.map(function(n){return{nome:n};});
+      var ins=await sb.from('locais_padrao').insert(rows).select();
+      LOCAIS_PADRAO=(ins.data||rows).map(function(x){return{id:x.id||null,nome:x.nome};});
+    }
+  }catch(e){console.warn('loadLocaisPadrao exc:',e);LOCAIS_PADRAO=LOCAIS_EDIT_DEFAULT.map(function(n){return{id:null,nome:n};});}
+}
+function nomesLocaisPadrao(){return LOCAIS_PADRAO.map(function(x){return x.nome;});}
 
 function buildLocalOptions(currentVal, inputId){
+  var lista=nomesLocaisPadrao();
   var opts='<option value="">Selecione o local...</option>';
   // Se a ferramenta já tem um local que não está na lista padrão, preserva como opção (evita perder o valor ao salvar)
-  if(currentVal&&LOCAIS_EDIT.indexOf(currentVal)<0){
+  if(currentVal&&lista.indexOf(currentVal)<0){
     opts+='<option value="'+currentVal+'" selected>'+currentVal+' (atual)</option>';
   }
-  LOCAIS_EDIT.forEach(function(s){
+  lista.forEach(function(s){
     opts+='<option value="'+s+'"'+(s===currentVal?' selected':'')+'>'+s+'</option>';
   });
   return opts;
+}
+// ── GERENCIAR LOCAIS PADRÃO (Admin) — painel embutido no modal de Editar ferramenta ──
+function toggleGerenciarLocais(){
+  var p=document.getElementById('gerenciarLocaisPanel');
+  if(!p)return;
+  var show=p.style.display==='none';
+  p.style.display=show?'block':'none';
+  if(show)renderListaLocaisInline();
+}
+function renderListaLocaisInline(){
+  var el=document.getElementById('listaLocaisPadrao');
+  if(!el)return;
+  var lista=LOCAIS_PADRAO.slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
+  el.innerHTML=lista.length?lista.map(function(l){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--bd)">'+
+      '<span>'+l.nome+'<\/span>'+
+      '<button type="button" onclick="delLocalPadrao('+(l.id===null?'null':l.id)+',\''+l.nome.replace(/'/g,"\\'")+'\')" style="background:none;border:none;color:var(--rd);cursor:pointer;font-size:13px;padding:2px 6px" title="Excluir">🗑<\/button>'+
+      '<\/div>';
+  }).join(''):'<div style="color:var(--tx3);padding:6px 0">Nenhum local cadastrado.<\/div>';
+}
+function refreshLocalSelect(){
+  var sel=document.getElementById('uLoc');
+  if(!sel)return;
+  var cur=sel.value;
+  sel.innerHTML=buildLocalOptions(cur);
+}
+async function addLocalPadrao(){
+  var inp=document.getElementById('novoLocalInput');
+  var nome=(inp&&inp.value||'').trim();
+  if(!nome){showToast('Digite o nome do local.',false);return;}
+  if(LOCAIS_PADRAO.some(function(l){return l.nome.toLowerCase()===nome.toLowerCase();})){
+    showToast('Esse local já existe na lista.',false);return;
+  }
+  if(!sb){showToast('Sem conexão com o banco.',false);return;}
+  try{
+    var r=await sb.from('locais_padrao').insert({nome:nome}).select();
+    if(r.error){showToast('Erro ao adicionar: '+r.error.message,false);return;}
+    var novo=(r.data&&r.data[0])||{nome:nome,id:null};
+    LOCAIS_PADRAO.push({id:novo.id,nome:novo.nome});
+    if(inp)inp.value='';
+    renderListaLocaisInline();
+    refreshLocalSelect();
+    showToast('Local adicionado!',true);
+  }catch(e){showToast('Erro ao adicionar local.',false);}
+}
+async function delLocalPadrao(id,nome){
+  if(!confirm('Excluir "'+nome+'" da lista de locais padrão?\n\nFerramentas que já usam esse local não são afetadas — só some das opções pra escolher no futuro.'))return;
+  if(sb&&id!==null){
+    try{
+      var r=await sb.from('locais_padrao').delete().eq('id',id);
+      if(r.error){showToast('Erro ao excluir: '+r.error.message,false);return;}
+    }catch(e){showToast('Erro ao excluir local.',false);return;}
+  }
+  LOCAIS_PADRAO=LOCAIS_PADRAO.filter(function(l){return l.nome!==nome;});
+  renderListaLocaisInline();
+  refreshLocalSelect();
+  showToast('Local removido da lista.',true);
 }
 var SETORES_PADRAO=['Comissionamento','Construção','O&M','PMO','CSC','Engenharia do Proprietário'];
 function buildSetorOptions(currentVal){
@@ -2373,7 +2450,15 @@ function openUpd(id){
   h+='<div class="mf-row"><div class="mf"><label>Status<\/label><select id="uSt">';
   ['OK','Inoperante','Atenção','Furtado','Procurar','Descartado','Reciclagem'].forEach(function(s){h+='<option'+(t.status===s?' selected':'')+'>'+s+'<\/option>';});
   h+='<\/select><\/div><div class="mf"><label>Setor<\/label><select id="uSek">'+buildSetorOptions(t.setor)+'<\/select><\/div><\/div>';
-  h+='<div class="mf-row"><div class="mf"><label>Local<\/label><select id="uLoc" onchange="fillLocalInfo(this.value)">'+buildLocalOptions(t.siglaLocal,'uLoc')+'<\/select><\/div><div class="mf"><label>Responsável<\/label><input id="uRes" value="'+(t.responsavel||'')+'"/><\/div><\/div>';
+  h+='<div class="mf-row"><div class="mf"><label>Local'+(CU&&CU.role==='Admin'?' <button type="button" onclick="toggleGerenciarLocais()" style="background:none;border:none;color:var(--nv);cursor:pointer;font-size:12px;padding:0;vertical-align:middle" title="Gerenciar lista de locais">⚙️<\/button>':'')+'<\/label><select id="uLoc" onchange="fillLocalInfo(this.value)">'+buildLocalOptions(t.siglaLocal,'uLoc')+'<\/select>'+
+    '<div id="gerenciarLocaisPanel" style="display:none;margin-top:8px;padding:10px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px">'+
+      '<div style="display:flex;gap:6px;margin-bottom:8px">'+
+        '<input id="novoLocalInput" placeholder="Novo local…" style="flex:1;padding:6px 8px;border:1.5px solid var(--bd);border-radius:6px;font-size:12px" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addLocalPadrao();}"/>'+
+        '<button type="button" onclick="addLocalPadrao()" style="background:var(--nv);color:#fff;border:0;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer">+ Add<\/button>'+
+      '<\/div>'+
+      '<div id="listaLocaisPadrao" style="max-height:160px;overflow-y:auto;font-size:12px"><\/div>'+
+    '<\/div>'+
+  '<\/div><div class="mf"><label>Responsável<\/label><input id="uRes" value="'+(t.responsavel||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Cidade<\/label><input id="uCid" value="'+(t.cidade||'')+'"/><\/div><div class="mf"><label>Estado<\/label><input id="uEst" value="'+(t.estado||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Cert. Calibração<\/label><input id="uCert" value="'+(t.certCal||'')+'"/><\/div><div class="mf"><label>Laboratório<\/label><input id="uLab" value="'+(t.laboratorio||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Data Cal.<\/label><input id="uDcal" value="'+(t.dataCal||'')+'"/><\/div><div class="mf"><label>Dias próx. cal.<\/label><input id="uDias" type="number" value="'+(t.diasProxCal==='-'?'':t.diasProxCal||'')+'"/><\/div><\/div>';
