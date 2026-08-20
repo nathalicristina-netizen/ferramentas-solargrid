@@ -547,6 +547,13 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         <span class="srch-ico">🔍</span>
         <input type="text" id="calVencBusca" placeholder="Buscar por nome, série, patrimônio, local…" oninput="renderCalVenc()"/>
       </div>
+      <div id="calVencFaixas" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <button class="ft on" data-vf="todos" onclick="setCalVencFaixa('todos',this)">Todas</button>
+        <button class="ft" data-vf="1-30" onclick="setCalVencFaixa('1-30',this)">1–30 dias</button>
+        <button class="ft" data-vf="30-60" onclick="setCalVencFaixa('30-60',this)">30–60 dias</button>
+        <button class="ft" data-vf="60-90" onclick="setCalVencFaixa('60-90',this)">60–90 dias</button>
+        <button class="ft" data-vf="90+" onclick="setCalVencFaixa('90+',this)">90+ dias</button>
+      </div>
       <div id="calVencCount" style="font-size:12px;color:var(--tx3);margin-bottom:10px"></div>
       <div id="calVencList"></div>
     </div>
@@ -2287,6 +2294,22 @@ function isConfirmMsg(msg){
 function getDiasCal(t){
   return t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);
 }
+var CAL_VENC_FAIXA='todos';
+function setCalVencFaixa(faixa,btnEl){
+  CAL_VENC_FAIXA=faixa;
+  var wrap=document.getElementById('calVencFaixas');
+  if(wrap)wrap.querySelectorAll('.ft').forEach(function(b){b.classList.remove('on');});
+  if(btnEl)btnEl.classList.add('on');
+  renderCalVenc();
+}
+function calVencNaFaixa(diasAbs,faixa){
+  if(faixa==='todos')return true;
+  if(faixa==='1-30')return diasAbs>=1&&diasAbs<=30;
+  if(faixa==='30-60')return diasAbs>30&&diasAbs<=60;
+  if(faixa==='60-90')return diasAbs>60&&diasAbs<=90;
+  if(faixa==='90+')return diasAbs>90;
+  return true;
+}
 function renderCalVenc(){
   var elList=document.getElementById('calVencList');
   var elCount=document.getElementById('calVencCount');
@@ -2296,7 +2319,7 @@ function renderCalVenc(){
 
   var vencidas=tools.filter(function(t){
     var d=getDiasCal(t);
-    return!isNaN(d)&&d<0;
+    return!isNaN(d)&&d<0&&calVencNaFaixa(Math.abs(Math.round(d)),CAL_VENC_FAIXA);
   });
   if(q){
     vencidas=vencidas.filter(function(t){
