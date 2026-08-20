@@ -337,6 +337,13 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
     <button onclick="dismissPendAlert()" style="background:transparent;border:0;color:#7c2d12;font-size:16px;cursor:pointer;line-height:1;padding:0 4px" title="Dispensar">✕</button>
   </div>
 
+  <!-- BANNER DE TRANSFERÊNCIAS AGUARDANDO ACEITE -->
+  <div id="transferAlertBanner" style="display:none;background:#EFF6FF;border-bottom:1.5px solid #93c5fd;padding:10px 20px;align-items:center;justify-content:center;gap:12px;font-size:13px;color:#1e3a8a">
+    <span>📦 <strong id="transferAlertMsg"></strong></span>
+    <button onclick="openTransferModal()" style="background:#1d4ed8;color:#fff;border:0;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">Ver agora</button>
+    <button onclick="dismissTransferAlert()" style="background:transparent;border:0;color:#1e3a8a;font-size:16px;cursor:pointer;line-height:1;padding:0 4px" title="Dispensar">✕</button>
+  </div>
+
   <!-- TAB FERRAMENTAS -->
   <div id="tabFerr" class="tab-content on">
     <div class="main">
@@ -801,6 +808,71 @@ function getPendForName(nome){
     return r&&(r.indexOf(nl)>=0||nl.indexOf(r)>=0);
   });
 }
+// ── TRANSFERÊNCIAS PENDENTES DE ACEITE (novo responsável precisa confirmar) ──
+function getPendingTransfersForEmail(email){
+  if(!email)return[];
+  var el=email.toLowerCase().trim();
+  return tools.filter(function(t){return t.responsavelPendente&&(t.responsavelPendente||'').toLowerCase().trim()===el;});
+}
+function checkTransferAlert(){
+  if(!CU)return;
+  var pend=getPendingTransfersForEmail(CU.email);
+  var banner=document.getElementById('transferAlertBanner');
+  var msg=document.getElementById('transferAlertMsg');
+  if(!banner||!msg)return;
+  if(pend.length>0){
+    msg.textContent='Você tem '+pend.length+' transferência'+(pend.length!==1?'s':'')+' de ferramenta aguardando seu aceite.';
+    banner.style.display='flex';
+  }else{
+    banner.style.display='none';
+  }
+}
+function dismissTransferAlert(){var b=document.getElementById('transferAlertBanner');if(b)b.style.display='none';}
+function openTransferModal(){
+  var pend=getPendingTransfersForEmail(CU?CU.email:'');
+  var linhas=pend.length?pend.map(function(t){
+    return '<div style="border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:8px">'+
+      '<div style="font-weight:700;font-size:13px">'+t.ferramenta+' · '+t.patrimonio+'<\/div>'+
+      '<div style="font-size:12px;color:var(--tx2);margin:4px 0">'+(t.siglaLocal||'—')+' → <strong>'+(t.siglaLocalPendente||'—')+'<\/strong>'+(t.motivoPendente?' · '+t.motivoPendente:'')+'<\/div>'+
+      '<div class="mb-btns" style="margin-top:6px"><button class="b-cn" onclick="rejectTransfer(\''+t._id+'\')">Recusar<\/button><button class="b-grn" onclick="acceptTransfer(\''+t._id+'\')">✓ Aceitar<\/button><\/div>'+
+    '<\/div>';
+  }).join(''):'<div class="empty" style="padding:1.5rem">Nenhuma transferência pendente.<\/div>';
+  var h='<div class="mh"><div><div class="mtt">📦 Transferências pendentes<\/div><div class="msub">Ferramentas aguardando seu aceite<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>'+linhas+
+    '<div class="mb-btns"><button class="b-cn" onclick="closeM()">Fechar<\/button><\/div>';
+  showM(h);
+}
+async function acceptTransfer(id){
+  var t=tools.find(function(x){return x._id===id;});
+  if(!t||!t.responsavelPendente)return;
+  var de=t.siglaLocal,para=t.siglaLocalPendente;
+  t.local=t.localPendente;t.siglaLocal=t.siglaLocalPendente;
+  t.responsavel=t.responsavelPendente;
+  t.cidade=t.cidadePendente;t.estado=t.estadoPendente;
+  var motivo=t.motivoPendente;
+  t.responsavelPendente=null;t.localPendente=null;t.siglaLocalPendente=null;t.cidadePendente=null;t.estadoPendente=null;t.motivoPendente=null;t.pendenteDesde=null;
+  var msg='✅ Aceito por '+(CU?CU.name:'')+': '+de+'→'+para+(motivo?' · '+motivo:'');
+  var histEntry={msg:msg,user:CU?CU.name:'',t:fmt(ts()),dot:'gr'};
+  t.hist.unshift(histEntry);
+  dbSaveTool(t);
+  var histDbId=await dbSaveHist(t._id,msg,CU?CU.name:'');
+  if(histDbId)histEntry.dbId=histDbId;
+  closeM();renderAll();checkTransferAlert();
+  showToast('Transferência aceita.',true);
+}
+async function rejectTransfer(id){
+  var t=tools.find(function(x){return x._id===id;});
+  if(!t||!t.responsavelPendente)return;
+  var de=t.siglaLocal,para=t.siglaLocalPendente;
+  var msg='✗ Transferência recusada por '+(CU?CU.name:'')+': '+de+'→'+para;
+  t.responsavelPendente=null;t.localPendente=null;t.siglaLocalPendente=null;t.cidadePendente=null;t.estadoPendente=null;t.motivoPendente=null;t.pendenteDesde=null;
+  var histEntry={msg:msg,user:CU?CU.name:'',t:fmt(ts()),dot:'rd'};
+  t.hist.unshift(histEntry);
+  dbSaveTool(t);
+  var histDbId=await dbSaveHist(t._id,msg,CU?CU.name:'');
+  if(histDbId)histEntry.dbId=histDbId;
+  closeM();renderAll();checkTransferAlert();
+  showToast('Transferência recusada.',false);
+}
 function updatePendBadge(){
   var badge=document.getElementById('pendBadge');
   if(!badge)return;
@@ -829,7 +901,8 @@ function saveTols(){
         certCal:t.certCal,laboratorio:t.laboratorio,diasProxCal:t.diasProxCal,
         ferramenta:t.ferramenta,marca:t.marca,modelo:t.modelo,serie:t.serie,valor:t.valor,
         disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prevCorretiva:t.prevCorretiva||'',cicloConf:t.cicloConf||'quinzenal',
-        notaFiscal:t.notaFiscal||'',notaFiscalNome:t.notaFiscalNome||''};
+        notaFiscal:t.notaFiscal||'',notaFiscalNome:t.notaFiscalNome||'',
+        responsavelPendente:t.responsavelPendente||null,localPendente:t.localPendente||null,siglaLocalPendente:t.siglaLocalPendente||null,cidadePendente:t.cidadePendente||null,estadoPendente:t.estadoPendente||null,motivoPendente:t.motivoPendente||null,pendenteDesde:t.pendenteDesde||null};
     });
     sessionStorage.setItem('sg_t',JSON.stringify(u));
   }catch(e){}
@@ -844,7 +917,8 @@ function loadTols(){
       var d=u[id];
       ['status','local','siglaLocal','responsavel','cidade','estado','obs',
        'lastConfirm','dataCal','certCal','laboratorio','diasProxCal','dataManut','diasProxManut','disponibilidade','corretiva','prevCorretiva','cicloConf','notaFiscal','notaFiscalNome',
-       'ferramenta','marca','modelo','serie','valor'].forEach(function(k){
+       'ferramenta','marca','modelo','serie','valor',
+       'responsavelPendente','localPendente','siglaLocalPendente','cidadePendente','estadoPendente','motivoPendente','pendenteDesde'].forEach(function(k){
         if(d[k]!==undefined&&d[k]!==null)t[k]=d[k];
       });
       if(d.hist&&d.hist.length)t.hist=d.hist;
@@ -915,7 +989,8 @@ async function dbSaveTool(t){
     sigla_local:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,
     setor:t.setor,valor:t.valor,cert_cal:t.certCal,laboratorio:t.laboratorio,
     data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',ciclo_conf:t.cicloConf||'quinzenal',nota_fiscal_url:t.notaFiscalUrl||'',nota_fiscal_path:t.notaFiscalPath||'',nota_fiscal_nome:t.notaFiscalNome||'',obs:t.obs||'',
-    last_confirm:t.lastConfirm||null});
+    last_confirm:t.lastConfirm||null,
+    responsavel_pendente:t.responsavelPendente||null,local_pendente:t.localPendente||null,sigla_local_pendente:t.siglaLocalPendente||null,cidade_pendente:t.cidadePendente||null,estado_pendente:t.estadoPendente||null,motivo_pendente:t.motivoPendente||null,pendente_desde:t.pendenteDesde||null});
 }
 function toolToRow(t){
   return {id:t._id,patrimonio:t.patrimonio,ferramenta:t.ferramenta,
@@ -923,7 +998,8 @@ function toolToRow(t){
     sigla_local:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,
     setor:t.setor,valor:t.valor,cert_cal:t.certCal,laboratorio:t.laboratorio,
     data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',ciclo_conf:t.cicloConf||'quinzenal',nota_fiscal_url:t.notaFiscalUrl||'',nota_fiscal_path:t.notaFiscalPath||'',nota_fiscal_nome:t.notaFiscalNome||'',obs:t.obs||'',
-    last_confirm:t.lastConfirm||null};
+    last_confirm:t.lastConfirm||null,
+    responsavel_pendente:t.responsavelPendente||null,local_pendente:t.localPendente||null,sigla_local_pendente:t.siglaLocalPendente||null,cidade_pendente:t.cidadePendente||null,estado_pendente:t.estadoPendente||null,motivo_pendente:t.motivoPendente||null,pendente_desde:t.pendenteDesde||null};
 }
 // Envia muitas ferramentas de uma vez em lotes (upsert em massa), em vez de uma requisição por ferramenta.
 // Bem mais rápido para importações grandes (centenas/milhares de linhas).
@@ -1003,12 +1079,14 @@ async function dbLoad(){
         cidade:'cidade',estado:'estado',obs:'obs',last_confirm:'lastConfirm',
         data_cal:'dataCal',dias_prox_cal:'diasProxCal',cert_cal:'certCal',data_manut:'dataManut',dias_prox_manut:'diasProxManut',disponibilidade:'disponibilidade',corretiva:'corretiva',prev_corretiva:'prevCorretiva',ciclo_conf:'cicloConf',nota_fiscal_url:'notaFiscalUrl',nota_fiscal_path:'notaFiscalPath',nota_fiscal_nome:'notaFiscalNome',
         laboratorio:'laboratorio',ferramenta:'ferramenta',patrimonio:'patrimonio',
-        marca:'marca',modelo:'modelo',serie:'serie',setor:'setor',valor:'valor'};
+        marca:'marca',modelo:'modelo',serie:'serie',setor:'setor',valor:'valor',
+        responsavel_pendente:'responsavelPendente',local_pendente:'localPendente',sigla_local_pendente:'siglaLocalPendente',cidade_pendente:'cidadePendente',estado_pendente:'estadoPendente',motivo_pendente:'motivoPendente',pendente_desde:'pendenteDesde'};
       r.data.forEach(function(row){
         var t={_id:row.id,_mod:false,hist:[],
           patrimonio:'',ferramenta:'',marca:'',modelo:'',serie:'',
           status:'OK',local:'',siglaLocal:'',cidade:'',estado:'',responsavel:'',
-          setor:'',valor:'',certCal:'',laboratorio:'',dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',disponibilidade:'Liberada',corretiva:'',prevCorretiva:'',cicloConf:'quinzenal',obs:'',lastConfirm:null};
+          setor:'',valor:'',certCal:'',laboratorio:'',dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',disponibilidade:'Liberada',corretiva:'',prevCorretiva:'',cicloConf:'quinzenal',obs:'',lastConfirm:null,
+          responsavelPendente:null,localPendente:null,siglaLocalPendente:null,cidadePendente:null,estadoPendente:null,motivoPendente:null,pendenteDesde:null};
         Object.keys(map).forEach(function(k){if(row[k]!==null&&row[k]!==undefined)t[map[k]]=row[k];});
         if(t.serie)t.serie=t.serie.toString().replace(/\.0$/,'');
         if(t.certCal)t.certCal=t.certCal.toString().replace(/\.0$/,'');
@@ -1542,6 +1620,7 @@ function renderAll(){
   var calVencTab=document.getElementById('tabCalVenc');
   if(calVencTab&&calVencTab.classList.contains('on'))renderCalVenc();
   updatePendBadge();
+  checkTransferAlert();
   if(SHOW_LOGIN_ALERT){SHOW_LOGIN_ALERT=false;checkPendingAlert();}
 }
 function checkPendingAlert(){
@@ -2030,12 +2109,32 @@ function openConf(id){
   h+='<div class="cfm-box"><strong>'+t.siglaLocal+'<\/strong>'+(t.cidade?' — '+t.cidade:'')+'<br>Resp: '+(t.responsavel||'—')+'<br><span class="badge '+(done?'b-gr':'b-am')+'" style="margin-top:6px;display:inline-flex">'+(done?'✓ Confirmado esta quinzena':'Aguardando confirmação')+'<\/span><\/div>';
   h+='<div class="mf"><label>Mesmo local?<\/label><select id="cSame" onchange="document.getElementById(\'cNL\').style.display=this.value===\'nao\'?\'block\':\'none\'"><option value="">Selecione…<\/option><option value="sim">✅ Sim<\/option><option value="nao">🔄 Não — mudou<\/option><\/select><\/div>';
   h+='<div id="cNL" style="display:none"><div class="mf"><label>Novo local<\/label><select id="cLoc" onchange="prevCity(this.value)">'+(buildLocalOptions(t.siglaLocal,'cLoc'))+'<\/select><\/div>';
-  h+='<div class="mf"><label>Responsável<\/label><input id="cRes" value="'+(t.responsavel||'')+'"/><\/div>';
+  h+='<div class="mf"><label>Novo responsável (e-mail)<\/label><select id="cRes">'+buildResponsavelOptions(t.responsavel)+'<\/select><div style="font-size:10px;color:var(--tx3);margin-top:4px">A troca só passa a valer depois que essa pessoa aceitar (login dela).<\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Cidade <span id="cPrev" style="color:var(--tx3);font-weight:400;font-size:10px"><\/span><\/label><input id="cCid" value="'+(t.cidade||'')+'"/><\/div><div class="mf"><label>Estado<\/label><input id="cEst" value="'+(t.estado||'')+'"/><\/div><\/div>';
   h+='<div class="mf"><label>Motivo<\/label><textarea id="cMot" style="min-height:50px" placeholder="Ex: enviada para calibração…"><\/textarea><\/div><\/div>';
   h+='<div class="mf"><label>Observação (opcional)<\/label><input id="cObs" placeholder="Estado, observação…"/><\/div>';
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar<\/button><button class="b-grn" onclick="saveConf('+id+')">✓ Confirmar<\/button><\/div>';
   showM(h);
+}
+// Monta o <select> de responsável a partir dos usuários cadastrados (valor = e-mail).
+// Tenta pré-selecionar o usuário atual mesmo se o campo antigo só tem o nome.
+function buildResponsavelOptions(currentVal){
+  var list=(users||[]).filter(function(u){return u.email;}).slice()
+    .sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');});
+  var curEmail='';
+  if(currentVal){
+    if(currentVal.indexOf('@')>=0){curEmail=currentVal.toLowerCase().trim();}
+    else{
+      var m=list.find(function(u){return (u.nome||'').toLowerCase().trim()===currentVal.toLowerCase().trim();});
+      if(m)curEmail=(m.email||'').toLowerCase();
+    }
+  }
+  var h='<option value="">Selecione…</option>';
+  list.forEach(function(u){
+    var sel=(u.email.toLowerCase()===curEmail)?' selected':'';
+    h+='<option value="'+u.email+'"'+sel+'>'+u.nome+' ('+u.email+')<\/option>';
+  });
+  return h;
 }
 function prevCity(sigla){
   var m=tools.find(function(x){return(x.siglaLocal===sigla||x.local===sigla)&&x.cidade&&x.cidade!=='—';});
@@ -2048,14 +2147,22 @@ async function saveConf(id){
   var t=tools.find(function(x){return x._id===id;});
   var same=gv('cSame');if(!same){showToast('Selecione uma opção',false);return;}
   var obs=gv('cObs'),msg='',dot='gr';
-  var prev={local:t.local,siglaLocal:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,lastConfirm:t.lastConfirm?Object.assign({},t.lastConfirm):null};
+  var prev={local:t.local,siglaLocal:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,lastConfirm:t.lastConfirm?Object.assign({},t.lastConfirm):null,
+    responsavelPendente:t.responsavelPendente||null,localPendente:t.localPendente||null,siglaLocalPendente:t.siglaLocalPendente||null,cidadePendente:t.cidadePendente||null,estadoPendente:t.estadoPendente||null,motivoPendente:t.motivoPendente||null,pendenteDesde:t.pendenteDesde||null};
   if(same==='sim'){
     msg='✅ Confirmado: '+t.siglaLocal+(obs?' — '+obs:'');
   }else{
-    var nl=gv('cLoc')||t.siglaLocal,nr=gv('cRes')||t.responsavel;
+    var nl=gv('cLoc')||t.siglaLocal;
+    var novoEmail=gv('cRes');
+    if(!novoEmail){showToast('Selecione o novo responsável',false);return;}
     var nc=gv('cCid')||t.cidade,ne=gv('cEst')||t.estado;
-    msg='🔄 '+t.siglaLocal+'→'+nl+(gv('cMot')?' · '+gv('cMot'):'')+(obs?' · '+obs:'');dot='or';
-    t.local=nl;t.siglaLocal=nl;t.responsavel=nr;t.cidade=nc;t.estado=ne;
+    var uMatch=users.find(function(u){return (u.email||'').toLowerCase()===novoEmail.toLowerCase();});
+    var novoNome=uMatch?uMatch.nome:novoEmail;
+    // Não muda o local/responsável de fato ainda — fica pendente até o novo responsável aceitar.
+    t.responsavelPendente=novoEmail;t.localPendente=nl;t.siglaLocalPendente=nl;
+    t.cidadePendente=nc;t.estadoPendente=ne;t.motivoPendente=gv('cMot')||'';t.pendenteDesde=ts();
+    msg='🔄 Pendente: '+t.siglaLocal+'→'+nl+' — aguardando aceite de '+novoNome+(gv('cMot')?' · '+gv('cMot'):'')+(obs?' · '+obs:'');
+    dot='am';
   }
   t.lastConfirm={user:CU.name,ts:ts()};
   var histEntry={msg:msg,user:CU.name,t:fmt(ts()),dot:dot};
@@ -2063,7 +2170,7 @@ async function saveConf(id){
   dbSaveTool(t);
   var histDbId=await dbSaveHist(t._id,msg,CU.name);
   if(histDbId)histEntry.dbId=histDbId;
-  closeM();renderAll();
+  closeM();renderAll();checkTransferAlert();
   showUndoConfToast(t._id,prev,histEntry,histDbId);
 }
 // ── DESFAZER CONFIRMAÇÃO (janela curta logo após confirmar) ──
@@ -2092,12 +2199,19 @@ function undoLastConfirm(){
   t.cidade=UNDO_CONF.prev.cidade;
   t.estado=UNDO_CONF.prev.estado;
   t.lastConfirm=UNDO_CONF.prev.lastConfirm;
+  t.responsavelPendente=UNDO_CONF.prev.responsavelPendente;
+  t.localPendente=UNDO_CONF.prev.localPendente;
+  t.siglaLocalPendente=UNDO_CONF.prev.siglaLocalPendente;
+  t.cidadePendente=UNDO_CONF.prev.cidadePendente;
+  t.estadoPendente=UNDO_CONF.prev.estadoPendente;
+  t.motivoPendente=UNDO_CONF.prev.motivoPendente;
+  t.pendenteDesde=UNDO_CONF.prev.pendenteDesde;
   var idx=t.hist.indexOf(UNDO_CONF.histEntry);
   if(idx>=0)t.hist.splice(idx,1);
   dbSaveTool(t);
   if(UNDO_CONF.histDbId)dbDelHistOne(UNDO_CONF.histDbId);
   UNDO_CONF=null;
-  renderAll();
+  renderAll();checkTransferAlert();
   showToast('Confirmação desfeita.',true);
 }
 
