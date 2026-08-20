@@ -252,7 +252,6 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
   cursor:grab;min-width:40px;transition:background .15s}
 .h-scroll-thumb:hover{background:var(--or2)}
 .h-scroll-thumb.dragging{cursor:grabbing;background:var(--or2)}
-.drag-over-xlsx{outline:3px dashed var(--or);outline-offset:-3px;background:rgba(232,106,0,.05);transition:all .15s}
 </style>
 </head>
 <body>
@@ -379,11 +378,6 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
           </select>
           <div style="height:28px;width:1.5px;background:var(--bd);border-radius:2px"></div>
           <button id="epBtn" class="btn-or" onclick="exportPDF()" style="display:none;font-size:11px;padding:6px 11px">📄 PDF</button>
-          <label class="btn-nv" id="btnImportXLS" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;display:none" title="Importar Excel (aba Controle) — ou arraste o arquivo aqui na tela">
-            📥 Importar Excel
-            <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importXLSX(event)"/>
-          </label>
-          <span id="lastImportLbl" style="font-size:10px;color:var(--tx3);white-space:nowrap"></span>
           <button class="btn-nv" onclick="exportXLSX()" style="font-size:11px;padding:6px 12px">📊 CSV</button>
           <button class="btn-nv" id="btnBackup" onclick="exportBackupCompleto()" style="font-size:11px;padding:6px 12px;display:none" title="Baixa uma cópia completa de tudo: ferramentas, histórico, termos, usuários e certificados">💾 Backup Completo</button>
           <button class="btn-or" onclick="openAdd()" style="font-size:11px;padding:6px 14px;font-weight:700;display:none" id="btnNova">+ Nova</button>
@@ -1371,6 +1365,8 @@ function mc(ico,lbl,val,f,cls){
 // ── FILTER & TABLE ──
 function getFiltered(){
   var list=getFilteredBase();
+  // Ferramentas "Furtado" não aparecem na tela principal (mas continuam contando no total das métricas).
+  list=list.filter(function(t){return t.status!=='Furtado';});
   if(AF==='cal_venc')list=list.filter(function(t){return calSt(t)==='v';});
   else if(AF==='sem_conf')list=list.filter(function(t){return!isQz(t);});
   else if(AF!=='todos')list=list.filter(function(t){return t.status===AF;});
@@ -1587,11 +1583,6 @@ function renderAll(){
   if(btnN)btnN.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
   var btnNU=document.getElementById('btnNovoUser');
   if(btnNU)btnNU.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
-  // show/hide import Excel button
-  var btnIXL=document.getElementById('btnImportXLS');
-  if(btnIXL)btnIXL.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
-  var lastImpLbl=document.getElementById('lastImportLbl');
-  if(lastImpLbl){lastImpLbl.style.display=(CU&&CU.role==='Admin')?'inline':'none';renderLastImportLabel();}
   var btnBkp=document.getElementById('btnBackup');
   if(btnBkp)btnBkp.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
   // show/hide Usuarios tab for Admin only
@@ -2845,302 +2836,6 @@ function exportPDF(){
     '<table><thead><tr><th>Patrimônio<\/th><th>Ferramenta<\/th><th>Status<\/th><th>Local<\/th><th>Responsável<\/th><th>Data Cal.<\/th><\/tr><\/thead><tbody>'+rows+'<\/tbody><\/table><\/body><\/html>');
   w.document.close();setTimeout(function(){w.print();},600);
 }
-// ── ARRASTAR E SOLTAR EXCEL ──
-// Permite jogar o arquivo .xlsx direto na tela de Ferramentas, sem precisar abrir o seletor de arquivo.
-function setupDragDropXLSX(){
-  var zone=document.getElementById('tabFerr');
-  if(!zone)return;
-  var counter=0; // contorna dragenter/dragleave disparando em elementos filhos
-  zone.addEventListener('dragenter',function(e){
-    if(!CU||CU.role!=='Admin')return;
-    if(!e.dataTransfer||!e.dataTransfer.types||e.dataTransfer.types.indexOf('Files')<0)return;
-    e.preventDefault();
-    counter++;
-    zone.classList.add('drag-over-xlsx');
-  });
-  zone.addEventListener('dragover',function(e){
-    if(!CU||CU.role!=='Admin')return;
-    if(!e.dataTransfer||!e.dataTransfer.types||e.dataTransfer.types.indexOf('Files')<0)return;
-    e.preventDefault();
-  });
-  zone.addEventListener('dragleave',function(e){
-    counter=Math.max(0,counter-1);
-    if(counter===0)zone.classList.remove('drag-over-xlsx');
-  });
-  zone.addEventListener('drop',function(e){
-    e.preventDefault();
-    counter=0;
-    zone.classList.remove('drag-over-xlsx');
-    if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem importar Excel.',false);return;}
-    var file=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
-    if(!file)return;
-    importXLSXFile(file);
-  });
-}
-// ── ÚLTIMA IMPORTAÇÃO ──
-function saveLastImportInfo(fileName,count){
-  try{
-    localStorage.setItem('sg_last_import',JSON.stringify({
-      ts:Date.now(),user:(CU&&CU.name)||'—',file:fileName||'',count:count||0
-    }));
-  }catch(e){}
-  renderLastImportLabel();
-}
-function renderLastImportLabel(){
-  var el=document.getElementById('lastImportLbl');
-  if(!el)return;
-  try{
-    var raw=localStorage.getItem('sg_last_import');
-    if(!raw){el.textContent='';return;}
-    var info=JSON.parse(raw);
-    var d=new Date(info.ts);
-    var dstr=d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+'/'+d.getFullYear();
-    var hstr=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
-    el.textContent='Última importação: '+dstr+' às '+hstr+(info.user?' · '+info.user:'');
-    el.title=(info.file?'Arquivo: '+info.file+' · ':'')+(info.count?info.count+' ferramenta(s) processada(s)':'');
-  }catch(e){el.textContent='';}
-}
-function importXLSX(e){
-  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem importar Excel.',false);e.target.value='';return;}
-  var file=e.target.files[0];
-  if(!file)return;
-  e.target.value='';
-  importXLSXFile(file);
-}
-function importXLSXFile(file){
-  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem importar Excel.',false);return;}
-  if(!/\.(xlsx|xls)$/i.test(file.name)){showToast('Solte ou selecione um arquivo .xlsx ou .xls',false);return;}
-  var reader=new FileReader();
-  reader.onload=function(ev){
-    try{
-      var wb=XLSX.read(ev.target.result,{type:'array',cellDates:false,raw:false,dateNF:'yyyy-mm-dd',sheets:'Controle'});
-      var ws=wb.Sheets['Controle'];
-      if(!ws){showToast('Aba "Controle" não encontrada no arquivo!',false);return;}
-      var rows=XLSX.utils.sheet_to_json(ws,{raw:false,dateNF:'yyyy-mm-dd'});
-      if(!rows.length){showToast('Nenhuma ferramenta encontrada na aba Controle.',false);return;}
-      // Normaliza espaços em branco extras nos nomes de coluna (ex: " Valor " -> "Valor"),
-      // que podem vir de formatação de célula do cabeçalho no Excel e quebrar a leitura por chave exata.
-      rows=rows.map(function(r){
-        var out={};
-        Object.keys(r).forEach(function(k){out[k.trim()]=r[k];});
-        return out;
-      });
-      // Leitura em modo array para pegar a coluna M (Local) por posição — alinhada às linhas de dados
-      var aoaM=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'yyyy-mm-dd',blankrows:false});
-      var dataM=aoaM.slice(1); // remove o cabeçalho; dataM[i] alinha com rows[i]
-
-      function cleanStr(v){
-        if(v===null||v===undefined)return'';
-        var s=String(v).trim();
-        if(s==='nan'||s==='None'||s==='NaT')return'';
-        if(/^\d+\.0$/.test(s))s=s.replace(/\.0$/,'');
-        return s;
-      }
-      function cleanMoney(v){
-        var s=cleanStr(v);
-        if(!s)return'';
-        // remove símbolos de moeda, letras e espaços, mantém dígitos, vírgula, ponto e sinal
-        s=s.replace(/[^\d,.\-]/g,'');
-        if(!s)return'';
-        if(s.indexOf(',')>-1&&s.indexOf('.')>-1){
-          // "2,000.00" (milhar=vírgula, decimal=ponto) -> remove vírgulas
-          s=s.replace(/,/g,'');
-        } else if(s.indexOf(',')>-1){
-          var parts=s.split(',');
-          if(parts[parts.length-1].length<=2){
-            // "2000,50" (decimal=vírgula) -> vira ponto
-            s=parts.slice(0,-1).join('')+'.'+parts[parts.length-1];
-          } else {
-            // "2,000" (milhar=vírgula) -> remove
-            s=s.replace(/,/g,'');
-          }
-        }
-        return s;
-      }
-      function fmtDate(v){
-        if(!v||String(v).trim()==='')return'';
-        try{
-          var s=String(v).trim();
-          // already YYYY-MM-DD
-          if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.substring(0,10);
-          // SheetJS date serial number
-          if(/^\d{5}$/.test(s)){
-            var d=XLSX.SSF.parse_date_code(parseInt(s));
-            if(d)return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0');
-          }
-          // MM/DD/YYYY (Excel US format from SheetJS raw:false)
-          var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-          if(m){
-            var month=parseInt(m[1]),day=parseInt(m[2]),year=parseInt(m[3]);
-            // if month > 12 it's actually DD/MM/YYYY
-            if(month>12)return year+'-'+String(day).padStart(2,'0')+'-'+String(month).padStart(2,'0');
-            return year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
-          }
-          // try generic parse
-          var dt=new Date(s);
-          if(!isNaN(dt))return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
-          return'';
-        }catch(e){return'';}
-      }
-
-      var imported=rows.map(function(row,rowIdx){
-        // Try all possible column name variations
-        var pat=cleanStr(row['Patr']||row['Patrimônio']||row['Patrimonio']||row['patrimonio']||row['PAT']||row['pat']||'');
-        if(!pat||pat==='nan'||pat==='None')return null;
-        // Coluna M (Local) por posição — fonte autoritativa do Local/siglaLocal
-        var colM=(dataM[rowIdx]&&dataM[rowIdx][12]!=null)?cleanStr(dataM[rowIdx][12]):'';
-        var siglaLocalHdr=cleanStr(row['Sigla Local']||row['SiglaLocal']||row['siglaLocal']||row['Sigla']||row['SIGLA']||'');
-        var localHdr=cleanStr(row['Local']||row['LOCAL']||row['local']||'');
-        // Prioridade: coluna M → header "Local" → header "Sigla Local"
-        var localFinal=colM||localHdr||siglaLocalHdr;
-        var status=cleanStr(row['Status']||row['STATUS']||row['status']||'')||'OK';
-        // normalize status
-        var statusMap={'ok':'OK','operante':'OK','inoperante':'Inoperante','atenção':'Atenção','atencao':'Atenção','procurar':'Procurar','furtado':'Furtado'};
-        status=statusMap[status.toLowerCase()]||status||'OK';
-        var disponibilidade=cleanStr(row['Disponibilidade']||row['disponibilidade']||'Liberada');
-        if(disponibilidade!=='Em uso')disponibilidade='Liberada';
-        var ciclo=cleanStr(row['Ciclo']||row['cicloConf']||row['Ciclo Conf']||'quinzenal').toLowerCase();
-        if(ciclo!=='mensal'&&ciclo!=='anual')ciclo='quinzenal';
-        return{
-          patrimonio:pat,
-          ferramenta:cleanStr(row['Ferramenta']||row['FERRAMENTA']||row['ferramenta']||row['Descrição']||''),
-          marca:cleanStr(row['Marca']||row['MARCA']||row['marca']||''),
-          modelo:cleanStr(row['Modelo']||row['MODELO']||row['modelo']||''),
-          serie:cleanStr(row['Nº Série']||row['Nº Serie']||row['Série']||row['Serie']||row['serie']||row['SERIE']||''),
-          status:status,
-          local:localFinal,
-          siglaLocal:localFinal,
-          cidade:cleanStr(row['Cidade']||row['CIDADE']||row['cidade']||''),
-          estado:cleanStr(row['Estado']||row['ESTADO']||row['estado']||row['UF']||''),
-          responsavel:cleanStr(row['Responsável']||row['Responsavel']||row['RESPONSAVEL']||row['responsavel']||''),
-          setor:cleanStr(row['Setor']||row['SETOR']||row['setor']||''),
-          valor:cleanMoney(row['Valor']||row['VALOR']||row['valor']||''),
-          certCal:cleanStr(row['Nº Cert. Calibração']||row['Cert. Calibração']||row['CertCal']||row['Nº Cert']||''),
-          laboratorio:cleanStr(row['Laboratório']||row['Laboratorio']||row['Lab']||row['LAB']||''),
-          dataCal:fmtDate(row['Data de calibração']||row['Data Calibração']||row['DataCal']||row['Data Cal']||''),
-          diasProxCal:'-',
-          dataManut:fmtDate(row['Ultima Manutenção ']||row['Ultima Manutenção']||row['Última Manutenção']||row['DataManut']||row['Data Manut']||''),
-          diasProxManut:'-',
-          obs:cleanStr(row['OBS']||row['Obs']||row['Observação']||row['Observacao']||''),
-          disponibilidade:disponibilidade,
-          corretiva:cleanStr(row['Corretiva']||row['corretiva']||''),
-          prevCorretiva:cleanStr(row['Prev Corretiva']||row['prevCorretiva']||row['Previsão Corretiva']||''),
-          cicloConf:ciclo
-        };
-      }).filter(Boolean);
-
-      if(!imported.length){showToast('Nenhuma ferramenta válida encontrada.',false);return;}
-
-      // Dedup do próprio Excel: patrimônio repetido → mantém a última linha (última vence)
-      // Normaliza patrimônio para comparação (ignora espaços e maiúsc/minúsc)
-      function normPat(p){return String(p==null?'':p).trim().toUpperCase().replace(/\.0$/,'');}
-
-      var byPat={},order=[];
-      imported.forEach(function(imp){
-        var k=normPat(imp.patrimonio);
-        if(!(k in byPat))order.push(k);
-        byPat[k]=imp;
-      });
-      var dedup=order.map(function(p){return byPat[p];});
-
-      // Merge: atualiza existentes, adiciona novas, e colapsa duplicados já existentes na base
-      var updated=0,added=0,removidosDup=0,idsRemover=[];
-      dedup.forEach(function(imp){
-        var np=normPat(imp.patrimonio);
-        var matches=tools.filter(function(t){return normPat(t.patrimonio)===np;});
-        if(matches.length){
-          var keep=matches[0];
-          // remove quaisquer duplicados extras da base (deixa só um com aquele patrimônio)
-          for(var k=1;k<matches.length;k++){
-            var extra=matches[k];
-            if(extra._id!=null)idsRemover.push(extra._id);
-            tools=tools.filter(function(x){return x!==extra;});
-            removidosDup++;
-          }
-          var preserve={_id:keep._id,hist:keep.hist,lastConfirm:keep.lastConfirm,_mod:keep._mod};
-          Object.assign(keep,imp,preserve);
-          keep._mod=true;
-          updated++;
-        } else {
-          imp._id=Date.now()+added;
-          imp.hist=[];imp.lastConfirm=null;imp._mod=true;
-          tools.unshift(imp);
-          added++;
-        }
-      });
-      // Apaga os duplicados removidos também no banco (histórico antes da ferramenta)
-      if(sb&&idsRemover.length){
-        idsRemover.forEach(function(rid){
-          if(rid!=null)dbDeleteToolCompletely(rid);
-        });
-      }
-
-      // Detecta ferramentas na base que NÃO estão na planilha importada (órfãs)
-      var patSet={};
-      dedup.forEach(function(imp){patSet[normPat(imp.patrimonio)]=true;});
-      var orphans=tools.filter(function(t){return !patSet[normPat(t.patrimonio)];});
-      var removidasOrfas=0;
-      if(orphans.length){
-        var amostra=orphans.slice(0,12).map(function(t){return t.patrimonio;}).join(', ');
-        var msgOrf='A planilha contém '+dedup.length+' ferramenta(s).\n\n'+
-          orphans.length+' ferramenta(s) na base NÃO estão nesta planilha:\n'+amostra+(orphans.length>12?' … (+'+(orphans.length-12)+')':'')+
-          '\n\nDeseja REMOVER essas '+orphans.length+' ferramenta(s) da base, deixando apenas o que está na planilha?\n\n⚠️ Esta ação não pode ser desfeita.';
-        if(confirm(msgOrf)){
-          var toDelete=orphans.slice();
-          tools=tools.filter(function(t){return patSet[normPat(t.patrimonio)];});
-          removidasOrfas=toDelete.length;
-          saveTols();page=1;renderAll();
-          if(sb){
-            showToast('Removendo '+toDelete.length+' do banco… ⏳',true);
-            (async function(){
-              var delErros=0,delOk=0;
-              for(var j=0;j<toDelete.length;j++){
-                var o=toDelete[j];
-                var r=await dbDeleteToolCompletely(o);
-                if(r.ok){delOk++;}
-                else{delErros++;console.warn('Falha ao remover órfã',o.patrimonio,r.error);}
-              }
-              if(delErros){
-                showToast('⚠️ '+delErros+' de '+toDelete.length+' não puderam ser removidas do banco. Verifique as permissões/constraints no Supabase.',false);
-              } else {
-                showToast('✅ '+delOk+' ferramenta(s) removida(s) do banco definitivamente.',true);
-              }
-            })();
-          }
-        }
-      }
-
-      saveTols();page=1;renderAll();
-      // sync to Supabase em lotes (muito mais rápido que um registro por vez)
-      if(sb){
-        showToast('Sincronizando com o banco... aguarde ⏳',true);
-        var toSync=dedup.map(function(imp){
-          return tools.find(function(x){return x.patrimonio===imp.patrimonio;});
-        }).filter(Boolean);
-        toSync.forEach(function(t){t._mod=true;});
-        dbSaveToolsBulk(toSync,function(done,total){
-          showToast('Sincronizando... '+done+'/'+total+' ⏳',true);
-        }).then(function(res){
-          saveTols();
-          var msg=res.ok?'✅ Salvo no banco: '+updated+' atualizadas, '+added+' novas':'⚠️ Salvo com '+res.errors+' erro(s) de '+toSync.length;
-          if(res.ok&&removidosDup)msg+=', '+removidosDup+' duplicada(s) mesclada(s)';
-          if(res.ok&&removidasOrfas)msg+=', '+removidasOrfas+' removida(s) por não estar na planilha';
-          showToast(msg+'.',res.ok);
-          if(res.ok)saveLastImportInfo(file.name,updated+added);
-        });
-      } else {
-        var msgOff='Importado: '+updated+' atualizadas, '+added+' novas';
-        if(removidosDup)msgOff+=', '+removidosDup+' duplicada(s) mesclada(s)';
-        if(removidasOrfas)msgOff+=', '+removidasOrfas+' removida(s) por não estar na planilha';
-        showToast(msgOff+'.',true);
-        saveLastImportInfo(file.name,updated+added);
-      }
-    }catch(err){
-      showToast('Erro ao ler arquivo: '+err.message,false);
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
 // ── BACKUP COMPLETO (cópia de segurança de tudo, fora do Supabase) ──
 // Excel não aceita células com mais de 32.767 caracteres — campos com conteúdo tipo base64
 // (fotos, PDFs salvos como texto) são substituídos por um aviso, em vez de quebrar o backup.
@@ -4138,7 +3833,6 @@ document.addEventListener('DOMContentLoaded',function(){
   var tUso=document.getElementById('tUso');
   if(tUso)tUso.addEventListener('input',function(){var e=document.getElementById('tUsoP');if(e)e.textContent=this.value||'___';});
   buildTerm();
-  setupDragDropXLSX();
 });
 
 </script>
