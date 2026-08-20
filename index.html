@@ -521,6 +521,8 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         <span class="srch-ico">🔍</span>
         <input type="text" id="confBusca" placeholder="Buscar por nome ou local…" oninput="filterConfirmacoes(this.value)"/>
       </div>
+      <h3 style="font-size:14px;font-weight:700;color:var(--nv);margin-bottom:10px">🔺 Ranking de pendências por pessoa</h3>
+      <div id="pendRanking" style="margin-bottom:26px"></div>
       <h3 style="font-size:14px;font-weight:700;color:var(--nv);margin-bottom:10px">🏆 Ranking de confirmações por pessoa</h3>
       <div id="confRanking" style="margin-bottom:26px"></div>
       <div id="confPendSection">
@@ -788,6 +790,12 @@ function calSt(t){
   if(isNaN(d))return'sem';if(d<0)return'v';if(d<=60)return'p';return'ok';
 }
 function isQz(t){if(!t.lastConfirm)return false;var dias={'quinzenal':15,'mensal':30,'anual':365}[t.cicloConf||'quinzenal']||15;return(new Date()-new Date(t.lastConfirm.ts))<dias*86400000;}
+// Data em que a última confirmação venceu (ficou pendente de novo). Retorna null se a ferramenta nunca foi confirmada.
+function calcVencConf(t){
+  if(!t.lastConfirm||!t.lastConfirm.ts)return null;
+  var dias={'quinzenal':15,'mensal':30,'anual':365}[t.cicloConf||'quinzenal']||15;
+  return new Date(new Date(t.lastConfirm.ts).getTime()+dias*86400000);
+}
 // Ferramentas Inoperantes ou Furtadas não precisam de confirmação de local/posse
 function precisaConfirmar(t){return t.status!=='Inoperante'&&t.status!=='Furtado';}
 // Ferramentas pendentes de confirmação de uma pessoa (casamento por nome, tolerante a nomes parciais)
@@ -2211,6 +2219,7 @@ var CONF_Q='';
 var CONF_EMAIL='';
 var CONF_PEND_MSGS=[];
 var CONF_RANKING_ITEMS=[];
+var PEND_RANKING_ITEMS=[];
 // Extrai um primeiro nome amigável de um e-mail tipo maristela.oliveira@solargrid.com.br -> "Maristela"
 function primeiroNomeEmail(email){
   if(!email)return'';
@@ -2235,6 +2244,24 @@ function verFerramentasConfirmadas(i){
       '<\/div>';
   }).join(''):'<div class="empty" style="padding:1.5rem">Sem confirmações registradas.<\/div>';
   var h='<div class="mh"><div><div class="mtt">🔍 Ferramentas confirmadas<\/div><div class="msub">'+d.nome+' · '+d.itens.length+' confirmação'+(d.itens.length!==1?'ões':'')+'<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>'+
+    linhas+
+    '<div class="mb-btns"><button class="b-cn" onclick="closeM()">Fechar<\/button><\/div>';
+  showM(h);
+}
+function verFerramentasPendentes(i){
+  var d=PEND_RANKING_ITEMS[i];
+  if(!d)return;
+  var itens=d.itens.slice().sort(function(a,b){
+    var av=a.venc?new Date(a.venc).getTime():-Infinity,bv=b.venc?new Date(b.venc).getTime():-Infinity;
+    return av-bv; // mais vencida (ou nunca confirmada) primeiro
+  });
+  var linhas=itens.length?itens.map(function(it){
+    return '<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--bd);font-size:12px">'+
+      '<span><strong>'+it.patrimonio+'</strong> — '+it.ferramenta+'<br><span style="font-size:10px;color:var(--tx3)">'+it.local+'<\/span><\/span>'+
+      '<span style="color:'+(it.venc?'#dc2626':'var(--tx3)')+';white-space:nowrap;font-size:11px">'+(it.venc?('venceu '+fmt(it.venc)):'nunca confirmado')+'<\/span>'+
+      '<\/div>';
+  }).join(''):'<div class="empty" style="padding:1.5rem">Sem pendências.<\/div>';
+  var h='<div class="mh"><div><div class="mtt">🔺 Ferramentas pendentes<\/div><div class="msub">'+d.nome+' · '+d.itens.length+' pendente'+(d.itens.length!==1?'s':'')+'<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>'+
     linhas+
     '<div class="mb-btns"><button class="b-cn" onclick="closeM()">Fechar<\/button><\/div>';
   showM(h);
@@ -2315,9 +2342,10 @@ function renderCalVenc(){
 }
 function renderConfirmacoes(){
   var elM=document.getElementById('confMetrics');
+  var elPR=document.getElementById('pendRanking');
   var elR=document.getElementById('confRanking');
   var elP=document.getElementById('confPendentes');
-  if(!elM||!elR||!elP)return;
+  if(!elM||!elPR||!elR||!elP)return;
 
   var pendSection=document.getElementById('confPendSection');
   var isAdmin=CU&&CU.role==='Admin';
@@ -2332,6 +2360,50 @@ function renderConfirmacoes(){
   elM.innerHTML=
     '<div class="mc" style="cursor:default;background:#F0FDF4;border-color:#86efac"><span class="mc-ico">✅</span><div class="mc-val" style="color:#14532d">'+confirmadas+'</div><div class="mc-lbl" style="color:#15803d">CONFIRMADAS</div></div>'+
     '<div class="mc" style="cursor:default;background:#FFF7ED;border-color:#fdba74"><span class="mc-ico">⏳</span><div class="mc-val" style="color:#7c2d12">'+pendentes+'</div><div class="mc-lbl" style="color:#c2410c">AINDA NÃO CONFIRMADAS</div></div>';
+
+  // Pendências por pessoa (calculado primeiro para alimentar o ranking de pendências e a lista detalhada abaixo)
+  var pend={};
+  tools.forEach(function(t){
+    if(!precisaConfirmar(t))return;
+    if(isQz(t))return;
+    var r=(t.responsavel||'—').trim()||'—';
+    if(!pend[r])pend[r]=[];
+    pend[r].push(t);
+  });
+
+  var nomesPend=Object.keys(pend);
+  if(CONF_Q){
+    nomesPend=nomesPend.filter(function(n){
+      if(n.toLowerCase().indexOf(CONF_Q)>=0)return true;
+      return pend[n].some(function(t){return(t.siglaLocal||'').toLowerCase().indexOf(CONF_Q)>=0;});
+    });
+  }
+  if(!nomesPend.length){
+    elPR.innerHTML='<div style="text-align:center;padding:30px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'+(CONF_Q?'Nenhum resultado para essa busca.':'🎉 Nenhuma pendência! Tudo confirmado.')+'</div>';
+  }else{
+    nomesPend.sort(function(a,b){return pend[b].length-pend[a].length;});
+    PEND_RANKING_ITEMS=[];
+    var rowsPR=nomesPend.map(function(n,i){
+      var lista=pend[n];
+      var itens=lista.map(function(t){return{patrimonio:t.patrimonio,ferramenta:t.ferramenta,local:t.siglaLocal||'—',venc:calcVencConf(t)};});
+      PEND_RANKING_ITEMS[i]={nome:n,itens:itens};
+      var nuncaConf=itens.some(function(it){return!it.venc;});
+      var maisAntiga=itens.reduce(function(min,it){
+        if(!it.venc)return min; // "nunca confirmado" é tratado à parte
+        return(!min||new Date(it.venc)<new Date(min))?it.venc:min;
+      },null);
+      var vencColuna=nuncaConf?'<span style="color:#dc2626;font-weight:600">nunca confirmado</span>':(maisAntiga?fmt(maisAntiga):'—');
+      return '<tr>'+
+        '<td style="padding:9px 12px;font-weight:600">'+n+'</td>'+
+        '<td style="padding:9px 12px;text-align:center;font-weight:700;color:#dc2626">'+lista.length+'</td>'+
+        '<td style="padding:9px 12px;text-align:center;font-size:11px">'+vencColuna+'</td>'+
+        '<td style="padding:9px 12px;text-align:center"><button onclick="verFerramentasPendentes('+i+')" style="background:#fff;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;color:var(--nv);cursor:pointer">🔍 Ver<\/button><\/td>'+
+        '</tr>';
+    }).join('');
+    elPR.innerHTML='<div style="overflow-x:auto;border:1px solid var(--bd);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
+      '<thead><tr style="background:var(--nv);color:#fff"><th style="padding:9px 12px;text-align:left">Responsável</th><th style="padding:9px 12px">Pendências</th><th style="padding:9px 12px">Vencida há mais tempo</th><th style="padding:9px 12px">Ferramentas</th></tr></thead>'+
+      '<tbody>'+rowsPR+'</tbody></table></div>';
+  }
 
   // Ranking por pessoa (quem efetivamente confirmou), com os locais e as ferramentas que essa pessoa confirmou
   var porPessoa={};
@@ -2380,15 +2452,7 @@ function renderConfirmacoes(){
       '<tbody>'+rows+'</tbody></table></div>';
   }
 
-  // Pendências agrupadas por responsável
-  var pend={};
-  tools.forEach(function(t){
-    if(!precisaConfirmar(t))return;
-    if(isQz(t))return;
-    var r=(t.responsavel||'—').trim()||'—';
-    if(!pend[r])pend[r]=[];
-    pend[r].push(t);
-  });
+  // Pendências agrupadas por responsável (reaproveita o `pend` já calculado acima, para o ranking)
   var respPend=Object.keys(pend);
   if(CONF_Q){
     respPend=respPend.filter(function(r){
@@ -2421,9 +2485,11 @@ function renderConfirmacoes(){
         lista=lista.filter(function(t){return(t.siglaLocal||'').toLowerCase().indexOf(CONF_Q)>=0;});
       }
       var itens=lista.map(function(t){
+        var venc=calcVencConf(t);
+        var vencTxt=venc?('venceu '+fmt(venc)):'nunca confirmado';
         return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:12px">'+
           '<span><strong>'+t.patrimonio+'</strong> — '+t.ferramenta+'</span>'+
-          '<span style="display:flex;align-items:center;gap:8px">'+stBadge(t.status)+'<span style="color:var(--tx3)">'+(t.siglaLocal||'—')+'</span></span>'+
+          '<span style="display:flex;align-items:center;gap:8px">'+stBadge(t.status)+'<span style="color:var(--tx3)">'+(t.siglaLocal||'—')+'</span><span style="color:'+(venc?'#dc2626':'#c2410c')+';font-size:10px;white-space:nowrap">'+vencTxt+'</span></span>'+
           '</div>';
       }).join('');
       CONF_PEND_MSGS[i]='Olá, '+primeiroNomeEmail(r)+'! Tudo bem? Você tem '+lista.length+' ferramenta'+(lista.length!==1?'s':'')+' pendente'+(lista.length!==1?'s':'')+' de confirmação na plataforma de Gestão de Ferramentas. Poderia dar uma olhadinha quando puder? Obrigado! 🙏\n\nhttps://ferramentas-solargrid.vercel.app/';
