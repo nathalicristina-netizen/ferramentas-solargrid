@@ -836,7 +836,7 @@ function openTransferModal(){
   showM(h);
 }
 async function acceptTransfer(id){
-  var t=tools.find(function(x){return x._id===id;});
+  var t=tools.find(function(x){return String(x._id)===String(id);});
   if(!t||!t.responsavelPendente)return;
   var de=t.siglaLocal,para=t.siglaLocalPendente;
   t.local=t.localPendente;t.siglaLocal=t.siglaLocalPendente;
@@ -854,7 +854,7 @@ async function acceptTransfer(id){
   showToast('Transferência aceita.',true);
 }
 async function rejectTransfer(id){
-  var t=tools.find(function(x){return x._id===id;});
+  var t=tools.find(function(x){return String(x._id)===String(id);});
   if(!t||!t.responsavelPendente)return;
   var de=t.siglaLocal,para=t.siglaLocalPendente;
   var msg='✗ Transferência recusada por '+(CU?CU.name:'')+': '+de+'→'+para;
