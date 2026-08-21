@@ -966,6 +966,7 @@ function loadSession(){
     if(setorEl)setorEl.value=SF||'';
     renderAll();
     dbLoad();
+    registrarAcessoDaSessao();
     return true;
   }catch(e){return false;}
 }
@@ -1153,7 +1154,16 @@ async function logAcesso(){
   if(!sb||!CU)return;
   try{
     await sb.from('acessos').insert({nome:CU.name,email:CU.email,setor:CU.setor,nivel:CU.role,user_agent:navigator.userAgent});
+    try{sessionStorage.setItem('sg_acesso_logado','1');}catch(e){}
   }catch(e){console.warn('logAcesso:',e);}
+}
+// Registra 1 acesso por sessão de navegador (não a cada F5), para o histórico de acessos
+// refletir de fato quando cada pessoa abriu o sistema — mesmo que ela já esteja com sessão salva.
+function registrarAcessoDaSessao(){
+  try{
+    if(sessionStorage.getItem('sg_acesso_logado')==='1')return; // já registrado nesta aba/sessão
+  }catch(e){}
+  logAcesso();
 }
 function doLogout(){
   try{sessionStorage.clear();localStorage.removeItem('sg_s');}catch(e){}
