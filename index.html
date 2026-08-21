@@ -804,7 +804,7 @@ function calcVencConf(t){
   return new Date(new Date(t.lastConfirm.ts).getTime()+dias*86400000);
 }
 // Ferramentas Inoperantes ou Furtadas não precisam de confirmação de local/posse
-function precisaConfirmar(t){return t.status!=='Inoperante'&&t.status!=='Furtado';}
+function precisaConfirmar(t){return t.status==='OK'||t.status==='Inoperante'||t.status==='Atenção';}
 // Ferramentas pendentes de confirmação de uma pessoa (casamento por nome, tolerante a nomes parciais)
 function getPendForName(nome){
   if(!nome)return[];
