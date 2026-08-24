@@ -679,9 +679,9 @@ var tools=RAW.map(function(t,i){
     marca:t.marca||'',modelo:t.modelo||'',serie:(t.serie||'').toString().replace(/\.0$/,''),
     status:t.status||'OK',local:t.local||'',siglaLocal:t.siglaLocal||'',
     cidade:t.cidade||'',estado:t.estado||'',responsavel:t.responsavel||'',
-    setor:t.setor||'',valor:t.valor||'',certCal:(t.certCal||'').toString().replace(/\.0$/,''),dataManut:t.dataManut||'',diasProxManut:t.diasProxManut||'-',disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prevCorretiva:t.prevCorretiva||'',cicloConf:t.cicloConf||'quinzenal',
+    setor:t.setor||'',valor:t.valor||'',certCal:(t.certCal||'').toString().replace(/\.0$/,''),dataManut:t.dataManut||'',diasProxManut:t.diasProxManut||'-',disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prevCorretiva:t.prevCorretiva||'',cicloConf:t.cicloConf||'mensal',
     laboratorio:t.laboratorio||'',dataCal:t.dataCal||'',
-    diasProxCal:t.diasProxCal||'-',obs:t.obs||'',cicloConf:t.cicloConf||'quinzenal',lastConfirm:null};
+    diasProxCal:t.diasProxCal||'-',obs:t.obs||'',cicloConf:t.cicloConf||'mensal',lastConfirm:null};
 });
 
 var CU=null, AF='todos', ST='', sortCol=null, sortDir=1, page=1, PG=50, SF='', LF='', RF='';
@@ -796,11 +796,11 @@ function calSt(t){
   var d=isNaN(parseFloat(t.diasProxCal))||t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);
   if(isNaN(d))return'sem';if(d<0)return'v';if(d<=60)return'p';return'ok';
 }
-function isQz(t){if(!t.lastConfirm)return false;var dias={'quinzenal':15,'mensal':30,'anual':365}[t.cicloConf||'quinzenal']||15;return(new Date()-new Date(t.lastConfirm.ts))<dias*86400000;}
+function isQz(t){if(!t.lastConfirm)return false;var dias={'quinzenal':15,'mensal':30,'anual':365}[t.cicloConf||'mensal']||15;return(new Date()-new Date(t.lastConfirm.ts))<dias*86400000;}
 // Data em que a última confirmação venceu (ficou pendente de novo). Retorna null se a ferramenta nunca foi confirmada.
 function calcVencConf(t){
   if(!t.lastConfirm||!t.lastConfirm.ts)return null;
-  var dias={'quinzenal':15,'mensal':30,'anual':365}[t.cicloConf||'quinzenal']||15;
+  var dias={'quinzenal':15,'mensal':30,'anual':365}[t.cicloConf||'mensal']||15;
   return new Date(new Date(t.lastConfirm.ts).getTime()+dias*86400000);
 }
 // Ferramentas Inoperantes ou Furtadas não precisam de confirmação de local/posse
@@ -909,7 +909,7 @@ function saveTols(){
         lastConfirm:t.lastConfirm,hist:t.hist.slice(0,30),dataCal:t.dataCal,dataManut:t.dataManut,diasProxManut:t.diasProxManut,
         certCal:t.certCal,laboratorio:t.laboratorio,diasProxCal:t.diasProxCal,
         ferramenta:t.ferramenta,marca:t.marca,modelo:t.modelo,serie:t.serie,valor:t.valor,
-        disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prevCorretiva:t.prevCorretiva||'',cicloConf:t.cicloConf||'quinzenal',
+        disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prevCorretiva:t.prevCorretiva||'',cicloConf:t.cicloConf||'mensal',
         notaFiscal:t.notaFiscal||'',notaFiscalNome:t.notaFiscalNome||'',
         responsavelPendente:t.responsavelPendente||null,localPendente:t.localPendente||null,siglaLocalPendente:t.siglaLocalPendente||null,cidadePendente:t.cidadePendente||null,estadoPendente:t.estadoPendente||null,motivoPendente:t.motivoPendente||null,pendenteDesde:t.pendenteDesde||null};
     });
@@ -998,7 +998,7 @@ async function dbSaveTool(t){
     marca:t.marca,modelo:t.modelo,serie:t.serie,status:t.status,local:t.local,
     sigla_local:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,
     setor:t.setor,valor:t.valor,cert_cal:t.certCal,laboratorio:t.laboratorio,
-    data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',ciclo_conf:t.cicloConf||'quinzenal',nota_fiscal_url:t.notaFiscalUrl||'',nota_fiscal_path:t.notaFiscalPath||'',nota_fiscal_nome:t.notaFiscalNome||'',obs:t.obs||'',
+    data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',ciclo_conf:t.cicloConf||'mensal',nota_fiscal_url:t.notaFiscalUrl||'',nota_fiscal_path:t.notaFiscalPath||'',nota_fiscal_nome:t.notaFiscalNome||'',obs:t.obs||'',
     last_confirm:t.lastConfirm||null,
     responsavel_pendente:t.responsavelPendente||null,local_pendente:t.localPendente||null,sigla_local_pendente:t.siglaLocalPendente||null,cidade_pendente:t.cidadePendente||null,estado_pendente:t.estadoPendente||null,motivo_pendente:t.motivoPendente||null,pendente_desde:t.pendenteDesde||null});
 }
@@ -1007,7 +1007,7 @@ function toolToRow(t){
     marca:t.marca,modelo:t.modelo,serie:t.serie,status:t.status,local:t.local,
     sigla_local:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,
     setor:t.setor,valor:t.valor,cert_cal:t.certCal,laboratorio:t.laboratorio,
-    data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',ciclo_conf:t.cicloConf||'quinzenal',nota_fiscal_url:t.notaFiscalUrl||'',nota_fiscal_path:t.notaFiscalPath||'',nota_fiscal_nome:t.notaFiscalNome||'',obs:t.obs||'',
+    data_cal:t.dataCal,dias_prox_cal:String(t.diasProxCal||'-'),data_manut:t.dataManut||'',dias_prox_manut:String(t.diasProxManut||'-'),disponibilidade:t.disponibilidade||'Liberada',corretiva:t.corretiva||'',prev_corretiva:t.prevCorretiva||'',ciclo_conf:t.cicloConf||'mensal',nota_fiscal_url:t.notaFiscalUrl||'',nota_fiscal_path:t.notaFiscalPath||'',nota_fiscal_nome:t.notaFiscalNome||'',obs:t.obs||'',
     last_confirm:t.lastConfirm||null,
     responsavel_pendente:t.responsavelPendente||null,local_pendente:t.localPendente||null,sigla_local_pendente:t.siglaLocalPendente||null,cidade_pendente:t.cidadePendente||null,estado_pendente:t.estadoPendente||null,motivo_pendente:t.motivoPendente||null,pendente_desde:t.pendenteDesde||null};
 }
@@ -1095,7 +1095,7 @@ async function dbLoad(){
         var t={_id:row.id,_mod:false,hist:[],
           patrimonio:'',ferramenta:'',marca:'',modelo:'',serie:'',
           status:'OK',local:'',siglaLocal:'',cidade:'',estado:'',responsavel:'',
-          setor:'',valor:'',certCal:'',laboratorio:'',dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',disponibilidade:'Liberada',corretiva:'',prevCorretiva:'',cicloConf:'quinzenal',obs:'',lastConfirm:null,
+          setor:'',valor:'',certCal:'',laboratorio:'',dataCal:'',diasProxCal:'-',dataManut:'',diasProxManut:'-',disponibilidade:'Liberada',corretiva:'',prevCorretiva:'',cicloConf:'mensal',obs:'',lastConfirm:null,
           responsavelPendente:null,localPendente:null,siglaLocalPendente:null,cidadePendente:null,estadoPendente:null,motivoPendente:null,pendenteDesde:null};
         Object.keys(map).forEach(function(k){if(row[k]!==null&&row[k]!==undefined)t[map[k]]=row[k];});
         if(t.serie)t.serie=t.serie.toString().replace(/\.0$/,'');
@@ -1464,7 +1464,7 @@ function renderTable(){
         if(t.laboratorio)tip+='<div class="td-tip-row"><span class="td-tip-lbl">Laboratório<\/span><span class="td-tip-val">'+t.laboratorio+'<\/span><\/div>';
         if(t.certCal)tip+='<div class="td-tip-row"><span class="td-tip-lbl">Cert. Cal.<\/span><span class="td-tip-val" style="font-family:monospace">'+t.certCal+'<\/span><\/div>';
         if(t.valor&&parseFloat(t.valor)>0){var vf=parseFloat(t.valor).toLocaleString('pt-BR',{minimumFractionDigits:2});tip+='<div class="td-tip-row"><span class="td-tip-lbl">Valor<\/span><span class="td-tip-val">R$ '+vf+'<\/span><\/div>';}
-        if(t.cicloConf&&t.cicloConf!=='quinzenal')tip+='<div class="td-tip-row"><span class="td-tip-lbl">Confirmação<\/span><span class="td-tip-val">'+t.cicloConf+'<\/span><\/div>';
+        if(t.cicloConf&&t.cicloConf!=='mensal')tip+='<div class="td-tip-row"><span class="td-tip-lbl">Confirmação<\/span><span class="td-tip-val">'+t.cicloConf+'<\/span><\/div>';
         tip+='<\/div>';
         var hasExtra=t.obs||t.corretiva||t.laboratorio||t.certCal||(t.valor&&parseFloat(t.valor)>0);
         var dot=hasExtra?'<span style="font-size:9px;color:var(--or);margin-left:4px">●<\/span>':'';
@@ -2771,7 +2771,7 @@ function openUpd(id){
   h+='<div class="mf-row"><div class="mf"><label>Data Cal.<\/label><input id="uDcal" value="'+(t.dataCal||'')+'"/><\/div><div class="mf"><label>Dias próx. cal.<\/label><input id="uDias" type="number" value="'+(t.diasProxCal==='-'?'':t.diasProxCal||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Data Manutenção<\/label><input id="uDman" value="'+(t.dataManut||'')+'"/><\/div><div class="mf"><label>Dias próx. manut.<\/label><input id="uDman2" type="number" value="'+(t.diasProxManut==='-'?'':t.diasProxManut||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Manutenção corretiva<\/label><select id="uCorr"><option value="">—<\/option><option'+(t.corretiva==="Precisa de reparo"?" selected":"")+'>Precisa de reparo<\/option><option'+(t.corretiva==="Em manutenção"?" selected":"")+'>Em manutenção<\/option><\/select><\/div><div class="mf"><label>Previsão de retorno<\/label><input id="uPrevCorr" value="'+(t.prevCorretiva||'')+'" placeholder="Ex: 10 dias"/><\/div><\/div>';
-  h+='<div class="mf-row"><div class="mf"><label>Ciclo de confirmação<\/label><select id="uCiclo"><option value="quinzenal"'+((!t.cicloConf||t.cicloConf==="quinzenal")?" selected":"")+'>Quinzenal (15 dias)<\/option><option value="mensal"'+(t.cicloConf==="mensal"?" selected":"")+'>Mensal (30 dias)<\/option><option value="anual"'+(t.cicloConf==="anual"?" selected":"")+'>Anual (365 dias)<\/option><\/select><\/div><div class="mf"><label>Valor (R$)<\/label><input id="uVal" value="'+fmtMoneyMasked(t.valor)+'" oninput="maskMoney(this)"/><\/div><\/div>';
+  h+='<div class="mf-row"><div class="mf"><label>Ciclo de confirmação<\/label><select id="uCiclo"><option value="quinzenal"'+(t.cicloConf==="quinzenal"?" selected":"")+'>Quinzenal (15 dias)<\/option><option value="mensal"'+((!t.cicloConf||t.cicloConf==="mensal")?" selected":"")+'>Mensal (30 dias)<\/option><option value="anual"'+(t.cicloConf==="anual"?" selected":"")+'>Anual (365 dias)<\/option><\/select><\/div><div class="mf"><label>Valor (R$)<\/label><input id="uVal" value="'+fmtMoneyMasked(t.valor)+'" oninput="maskMoney(this)"/><\/div><\/div>';
 
   h+='<div class="mf"><label>Nota Fiscal <span style="font-size:10px;color:var(--tx3)">(opcional)<\/span><\/label>'+((t.notaFiscalUrl||t.notaFiscal)?'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:var(--tx2)">📎 '+(t.notaFiscalNome||'nota_fiscal.pdf')+'<\/span><button type="button" class="bs ok" style="font-size:11px;padding:3px 8px" onclick="openNF('+t._id+')">Ver<\/button><button type="button" class="bs rd" style="font-size:11px;padding:3px 8px" onclick="removeNF('+t._id+')">Remover<\/button><\/div>':'<input id="uNF" type="file" accept="application/pdf"/>')+'<\/div>';
   h+='<div class="mf"><label>Observação<\/label><textarea id="uObs">'+(t.obs||'')+'<\/textarea><\/div>';
