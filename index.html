@@ -286,6 +286,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
             <option>PMO</option>
             <option>CSC</option>
             <option>Engenharia do Proprietário</option>
+            <option>Ambiental</option>
           </select>
         </div>
         <button class="lp-btn" onclick="doLogin()">Entrar →</button>
@@ -1771,7 +1772,7 @@ function openAddUser(){
   var h='<div class="mh"><div><div class="mtt">👤 Novo Usuário</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
   h+='<div class="mf"><label>Nome completo</label><input id="uuNome" placeholder="Ex: João Silva"/></div>';
   h+='<div class="mf"><label>E-mail corporativo</label><input id="uuEmail" type="email" placeholder="joao.silva@solargrid.com.br"/></div>';
-  h+='<div class="mf"><label>Setor</label><select id="uuSetor"><option value="">Selecione…</option><option>Comissionamento</option><option>Construção</option><option>O&M</option><option>PMO</option><option>CSC</option><option>Engenharia do Proprietário</option></select></div>';
+  h+='<div class="mf"><label>Setor</label><select id="uuSetor"><option value="">Selecione…</option><option>Comissionamento</option><option>Construção</option><option>O&M</option><option>PMO</option><option>CSC</option><option>Engenharia do Proprietário</option><option>Ambiental</option></select></div>';
   h+='<div class="mf"><label>Nível de acesso</label><select id="uuNivel"><option value="">Selecione…</option><option>Admin</option><option>Coordenador</option><option>Supervisor</option><option>Comum</option></select></div>';
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button><button class="b-sv" onclick="saveNewUser()">Salvar</button></div>';
   document.getElementById('mbody').innerHTML=h;
@@ -1800,7 +1801,7 @@ function editUser(i){
   var h='<div class="mh"><div><div class="mtt">✏️ Editar Usuário</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
   h+='<div class="mf"><label>Nome completo</label><input id="uuNome" value="'+u.nome+'"/></div>';
   h+='<div class="mf"><label>E-mail corporativo</label><input id="uuEmail" type="email" value="'+u.email+'"/></div>';
-  h+='<div class="mf"><label>Setor</label><select id="uuSetor"><option value="">Selecione…</option><option'+(u.setor==='Comissionamento'?' selected':'')+'>Comissionamento</option><option'+(u.setor==='Construção'?' selected':'')+'>Construção</option><option'+(u.setor==='O&M'?' selected':'')+'>O&M</option><option'+(u.setor==='PMO'?' selected':'')+'>PMO</option><option'+(u.setor==='CSC'?' selected':'')+'>CSC</option><option'+(u.setor==='Engenharia do Proprietário'?' selected':'')+'>Engenharia do Proprietário</option></select></div>';
+  h+='<div class="mf"><label>Setor</label><select id="uuSetor"><option value="">Selecione…</option><option'+(u.setor==='Comissionamento'?' selected':'')+'>Comissionamento</option><option'+(u.setor==='Construção'?' selected':'')+'>Construção</option><option'+(u.setor==='O&M'?' selected':'')+'>O&M</option><option'+(u.setor==='PMO'?' selected':'')+'>PMO</option><option'+(u.setor==='CSC'?' selected':'')+'>CSC</option><option'+(u.setor==='Engenharia do Proprietário'?' selected':'')+'>Engenharia do Proprietário</option><option'+(u.setor==='Ambiental'?' selected':'')+'>Ambiental</option></select></div>';
   h+='<div class="mf"><label>Nível de acesso</label><select id="uuNivel"><option value="">Selecione…</option><option'+(u.nivel==='Admin'?' selected':'')+'>Admin</option><option'+(u.nivel==='Coordenador'?' selected':'')+'>Coordenador</option><option'+(u.nivel==='Supervisor'?' selected':'')+'>Supervisor</option><option'+(u.nivel==='Comum'?' selected':'')+'>Comum</option></select></div>';
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button><button class="b-sv" onclick="saveEditUser('+i+')">Salvar</button></div>';
   document.getElementById('mbody').innerHTML=h;
@@ -2777,7 +2778,7 @@ async function delLocalPadrao(id,nome){
   refreshLocalSelect();
   showToast('Local removido da lista.',true);
 }
-var SETORES_PADRAO=['Comissionamento','Construção','O&M','PMO','CSC','Engenharia do Proprietário'];
+var SETORES_PADRAO=['Comissionamento','Construção','O&M','PMO','CSC','Engenharia do Proprietário','Ambiental'];
 function getSetoresConhecidos(){
   // Junta a lista de departamento com todos os códigos que já existem de fato nas ferramentas
   // (ex: OPE, OEM, COM, EP, AMB), para que nenhum setor real fique de fora dos filtros/modais.
