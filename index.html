@@ -516,6 +516,16 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         <p style="font-size:12px;color:var(--tx3);margin-top:3px">Quem está confirmando os locais das ferramentas e o que ainda falta confirmar</p>
       </div>
       <div id="confMetrics" class="mcs" style="margin-bottom:18px"></div>
+      <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;margin-bottom:22px">
+        <h3 style="font-size:14px;font-weight:700;color:var(--nv);margin-bottom:4px">📅 Consulta retroativa</h3>
+        <p style="font-size:11px;color:var(--tx3);margin-bottom:10px">Quantas ferramentas ainda estavam com confirmação pendente em uma data passada.</p>
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px">
+          <div class="mf" style="margin:0"><label style="font-size:11px">Data</label><input type="date" id="retroData" style="padding:6px 10px;border:1.5px solid var(--bd);border-radius:8px;font-size:12px"/></div>
+          <div class="mf" style="margin:0"><label style="font-size:11px">Ciclo considerado nessa data</label><select id="retroCiclo" style="padding:6px 10px;border:1.5px solid var(--bd);border-radius:8px;font-size:12px"><option value="15">Quinzenal (15 dias)</option><option value="30">Mensal (30 dias)</option><option value="365">Anual (365 dias)</option></select></div>
+          <button class="btn-nv" onclick="calcRetroativo()" style="font-size:12px;padding:8px 14px">Calcular</button>
+        </div>
+        <div id="retroResult" style="margin-top:12px"></div>
+      </div>
       <div class="srch" style="max-width:320px;margin-bottom:18px">
         <span class="srch-ico">🔍</span>
         <input type="text" id="confBusca" placeholder="Buscar por nome ou local…" oninput="filterConfirmacoes(this.value)"/>
@@ -2126,7 +2136,7 @@ function showTab(id,btn){
   if(id==='tabHist')loadHistGeral();
   if(id==='tabAcessos'){var ab=document.querySelector('#tabAcessos input');if(ab)ab.value='';acessosSearch='';loadAcessos();}
   if(id==='tabTermos')loadTermosSB();
-  if(id==='tabConfirm'){CONF_Q='';CONF_EMAIL='';var cb=document.getElementById('confBusca');if(cb)cb.value='';var ceb=document.getElementById('confEmailBusca');if(ceb)ceb.value='';renderConfirmacoes();}
+  if(id==='tabConfirm'){CONF_Q='';CONF_EMAIL='';var cb=document.getElementById('confBusca');if(cb)cb.value='';var ceb=document.getElementById('confEmailBusca');if(ceb)ceb.value='';renderConfirmacoes();var rd=document.getElementById('retroData');if(rd&&!rd.value){var d=new Date();var dow=d.getDay();var diff=(dow<4)?(dow+3):(dow-4);if(diff===0)diff=7;d.setDate(d.getDate()-diff);rd.value=d.toISOString().slice(0,10);}}
   if(id==='tabCalVenc'){var cvb=document.getElementById('calVencBusca');if(cvb)cvb.value='';renderCalVenc();}
   setTimeout(updateHScrollBar,50);
 }
@@ -2263,6 +2273,55 @@ function parseBRDateTime(s){
   var m=String(s||'').match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
   if(!m)return new Date(0);
   return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]),parseInt(m[4]),parseInt(m[5]));
+}
+// Igual à anterior, mas também aceita o formato com vírgula que vem do toLocaleString('pt-BR')
+// usado nos itens de histórico carregados do Supabase (ex: "20/08/2026, 08:50:00").
+function parseAnyBRDateTime(s){
+  var m=String(s||'').match(/(\d{2})\/(\d{2})\/(\d{4}),?\s*(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if(!m)return null;
+  return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]),parseInt(m[4]),parseInt(m[5]),m[6]?parseInt(m[6]):0);
+}
+// Retroativo: quantas ferramentas ainda estavam pendentes de confirmação numa data passada.
+// Aproximação: usa o status/local/responsável ATUAIS de cada ferramenta (assumindo que não mudaram
+// desde a data escolhida) e reconstrói a última confirmação a partir do histórico salvo.
+function calcRetroativo(){
+  var dataStr=gv('retroData');
+  var elR=document.getElementById('retroResult');
+  if(!dataStr){showToast('Escolha uma data',false);return;}
+  var ciclo=parseInt(gv('retroCiclo'))||15;
+  var alvo=new Date(dataStr+'T23:59:59');
+  var pendentes=[];
+  tools.forEach(function(t){
+    if(t.status!=='OK'&&t.status!=='Inoperante'&&t.status!=='Atenção')return;
+    var ultimaConf=null;
+    (t.hist||[]).forEach(function(h){
+      if(!h.msg)return;
+      if(h.msg.indexOf('✅ Confirmado')!==0&&h.msg.indexOf('🔄 Pendente')!==0)return;
+      var hts=parseAnyBRDateTime(h.t);
+      if(!hts||hts.getTime()>alvo.getTime())return;
+      if(!ultimaConf||hts.getTime()>ultimaConf.getTime())ultimaConf=hts;
+    });
+    var diasDesde=ultimaConf?((alvo.getTime()-ultimaConf.getTime())/86400000):Infinity;
+    if(diasDesde>=ciclo)pendentes.push({t:t,ultimaConf:ultimaConf});
+  });
+  if(!pendentes.length){
+    elR.innerHTML='<div style="font-size:12px;color:var(--tx3)">Nenhuma ferramenta pendente encontrada para essa data (considerando os dados disponíveis).</div>';
+    return;
+  }
+  pendentes.sort(function(a,b){
+    var av=a.ultimaConf?a.ultimaConf.getTime():-Infinity,bv=b.ultimaConf?b.ultimaConf.getTime():-Infinity;
+    return av-bv;
+  });
+  var linhas=pendentes.map(function(p){
+    return '<tr><td style="padding:7px 10px">'+p.t.patrimonio+' — '+p.t.ferramenta+'</td>'+
+      '<td style="padding:7px 10px">'+(p.t.siglaLocal||'—')+'</td>'+
+      '<td style="padding:7px 10px">'+(p.t.responsavel||'—')+'</td>'+
+      '<td style="padding:7px 10px;font-size:11px;color:var(--tx3)">'+(p.ultimaConf?fmt(p.ultimaConf):'nunca confirmado')+'</td></tr>';
+  }).join('');
+  elR.innerHTML='<div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:8px">⏳ '+pendentes.length+' ferramenta'+(pendentes.length!==1?'s':'')+' ainda sem confirmar em '+new Date(dataStr+'T12:00:00').toLocaleDateString('pt-BR')+'</div>'+
+    '<div style="overflow-x:auto;border:1px solid var(--bd);border-radius:10px;max-height:340px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
+    '<thead style="position:sticky;top:0"><tr style="background:var(--nv);color:#fff"><th style="padding:7px 10px;text-align:left">Ferramenta</th><th style="padding:7px 10px;text-align:left">Local</th><th style="padding:7px 10px;text-align:left">Responsável</th><th style="padding:7px 10px;text-align:left">Última confirmação</th></tr></thead>'+
+    '<tbody>'+linhas+'</tbody></table></div>';
 }
 function verFerramentasConfirmadas(i){
   var d=CONF_RANKING_ITEMS[i];
