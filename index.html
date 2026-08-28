@@ -1479,7 +1479,7 @@ function renderTable(){
     var calTxt=t.dataCal?'<br><span style="font-size:9px;color:var(--tx3)">'+fmtDateCal(t.dataCal)+'<\/span>':'';
     if(t.certCal)calTxt+='<br><span style="font-size:9px;color:var(--tx3);font-family:monospace">'+t.certCal+'<\/span>';
     var val=t.valor&&parseFloat(t.valor)>0?'R$\u00A0'+parseFloat(t.valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—';
-    var confBadge=isQz(t)?'<span class="badge b-gr" style="font-size:10px">✓ Conf.<\/span>':'<span class="badge b-am" style="font-size:10px">Pendente<\/span>';
+    var confBadge=!precisaConfirmar(t)?'<span class="badge b-gy" style="font-size:10px">— N/A<\/span>':(isQz(t)?'<span class="badge b-gr" style="font-size:10px">✓ Conf.<\/span>':'<span class="badge b-am" style="font-size:10px">Pendente<\/span>');
     rows+='<tr>'+
       '<td><span class="td-pat">'+t.patrimonio+'<\/span><\/td>'+
       (function(){
@@ -1518,7 +1518,7 @@ function renderTable(){
       '<td style="font-size:11px;color:var(--nv);font-weight:600">'+val+'<\/td>'+
       '<td>'+confBadge+'<\/td>'+
       '<td><div class="ab">'+
-        '<button class="bs ok" onclick="openConf('+t._id+')">📍<\/button>'+
+        (precisaConfirmar(t)?'<button class="bs ok" onclick="openConf('+t._id+')">📍<\/button>':'')+
         '<button class="bs gh" onclick="openHist('+t._id+')">Hist.<\/button>'+
         (CU&&CU.role==='Admin'?'<button class="bs pr" onclick="openUpd('+t._id+')">Editar<\/button>':'')+
         
