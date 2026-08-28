@@ -380,6 +380,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
           <button id="epBtn" class="btn-or" onclick="exportPDF()" style="display:none;font-size:11px;padding:6px 11px">📄 PDF</button>
           <button class="btn-nv" onclick="exportXLSX()" style="font-size:11px;padding:6px 12px">📊 CSV</button>
           <button class="btn-nv" id="btnBackup" onclick="exportBackupCompleto()" style="font-size:11px;padding:6px 12px;display:none" title="Baixa uma cópia completa de tudo: ferramentas, histórico, termos, usuários e certificados">💾 Backup Completo</button>
+          <button class="btn-nv" id="btnOcultas" onclick="openOcultasModal()" style="font-size:11px;padding:6px 12px;display:none" title="Ferramentas marcadas como Furtado não aparecem na tabela principal — abre e edita/corrige o status daqui">🔒 Furtadas <span id="ocultasCount"></span></button>
           <button class="btn-or" onclick="openAdd()" style="font-size:11px;padding:6px 14px;font-weight:700;display:none" id="btnNova">+ Nova</button>
         </div>
       </div>
@@ -1635,6 +1636,13 @@ function renderAll(){
   if(btnNU)btnNU.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
   var btnBkp=document.getElementById('btnBackup');
   if(btnBkp)btnBkp.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
+  var btnOc=document.getElementById('btnOcultas');
+  if(btnOc){
+    btnOc.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
+    var nOc=tools.filter(function(t){return t.status==='Furtado';}).length;
+    var ocCountEl=document.getElementById('ocultasCount');
+    if(ocCountEl)ocCountEl.textContent=nOc>0?'('+nOc+')':'';
+  }
   // show/hide Usuarios tab for Admin only
   var tabUserBtn=document.querySelector('[onclick*="tabUsers"]');
   if(tabUserBtn)tabUserBtn.style.display=(CU&&CU.role==='Admin')?'':'none';
@@ -3026,6 +3034,23 @@ function sanitizeForExcel(row){
     }
   });
   return out;
+}
+// ── FERRAMENTAS OCULTAS (status Furtado, que somem da tabela principal) ──
+// Dá pra achar e corrigir aqui uma ferramenta que foi marcada como Furtado sem querer.
+function openOcultasModal(){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores.',false);return;}
+  var lista=tools.filter(function(t){return t.status==='Furtado';})
+    .sort(function(a,b){return(a.patrimonio||'').localeCompare(b.patrimonio||'');});
+  var linhas=lista.length?lista.map(function(t){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd);font-size:12px">'+
+      '<span><strong>'+t.patrimonio+'<\/strong> — '+t.ferramenta+'<br><span style="font-size:10px;color:var(--tx3)">'+(t.siglaLocal||'—')+' · '+(t.responsavel||'—')+'<\/span><\/span>'+
+      '<button class="bs pr" onclick="openUpd('+t._id+')">Editar<\/button>'+
+    '<\/div>';
+  }).join(''):'<div class="empty" style="padding:1.5rem">Nenhuma ferramenta marcada como Furtado no momento.<\/div>';
+  var h='<div class="mh"><div><div class="mtt">🔒 Ferramentas marcadas como Furtado<\/div><div class="msub">Não aparecem na tabela principal — clique em Editar para corrigir o status<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>'+
+    linhas+
+    '<div class="mb-btns"><button class="b-cn" onclick="closeM()">Fechar<\/button><\/div>';
+  showM(h);
 }
 async function exportBackupCompleto(){
   if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem gerar o backup completo.',false);return;}
