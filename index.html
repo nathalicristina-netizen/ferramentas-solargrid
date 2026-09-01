@@ -2646,17 +2646,15 @@ function renderConfirmacoes(){
       return pend[r].some(function(t){return(t.siglaLocal||'').toLowerCase().indexOf(CONF_Q)>=0;});
     });
   }
-  // Filtro por e-mail: acha o(s) usuário(s) com esse e-mail e mostra só as pendências dessa pessoa, já expandida
+  // Filtro por e-mail: casa direto contra o campo responsável (que às vezes já É um e-mail,
+  // por causa das transferências aceitas) e também contra o nome de usuários com esse e-mail.
   var emailAtivo=false;
   if(CONF_EMAIL){
     emailAtivo=true;
     var nomesEmail=users.filter(function(u){return u.email&&u.email.toLowerCase().indexOf(CONF_EMAIL)>=0;}).map(function(u){return u.nome.toLowerCase();});
-    if(!nomesEmail.length){
-      elP.innerHTML='<div style="text-align:center;padding:24px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">Nenhum usuário cadastrado com esse e-mail.</div>';
-      return;
-    }
     respPend=respPend.filter(function(r){
       var rl=r.toLowerCase();
+      if(rl.indexOf(CONF_EMAIL)>=0)return true;
       return nomesEmail.some(function(n){return rl.indexOf(n)>=0||n.indexOf(rl)>=0;});
     });
   }
