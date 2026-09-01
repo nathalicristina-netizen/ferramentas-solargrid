@@ -608,6 +608,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         </div>
       </div>
       <div id="histGeralList"><div style="text-align:center;padding:40px;color:var(--tx3)">Carregando histórico…</div></div>
+      <div class="pag" id="histPag" style="margin-top:10px"></div>
     </div>
   </div>
 
@@ -626,6 +627,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       </div>
       <div id="acessosCount" style="font-size:12px;color:var(--tx3);margin-bottom:10px"></div>
       <div id="acessosList"><div style="text-align:center;padding:40px;color:var(--tx3)">Carregando acessos…</div></div>
+      <div class="pag" id="acessosPag" style="margin-top:10px"></div>
     </div>
   </div>
 
@@ -1989,8 +1991,9 @@ async function delCert(idx){
 // ===== HISTÓRICO GERAL =====
 var histGeralData = [];
 var histGeralSearch = '';
+var histGeralPage = 1;
 
-function searchHistGeral(v){histGeralSearch=v.toLowerCase().trim();renderHistGeral();}
+function searchHistGeral(v){histGeralSearch=v.toLowerCase().trim();histGeralPage=1;renderHistGeral();}
 
 async function loadHistGeral(){
   var el=document.getElementById('histGeralList');
@@ -2000,10 +2003,29 @@ async function loadHistGeral(){
     var r=await sb.from('historico').select('*').order('created_at',{ascending:false}).limit(1000);
     if(r.error)throw r.error;
     histGeralData=r.data||[];
+    histGeralPage=1;
     renderHistGeral();
   }catch(e){
     el.innerHTML='<div style="text-align:center;padding:40px;color:var(--rd)">Erro ao carregar histórico.</div>';
   }
+}
+
+function goHistPg(p){histGeralPage=p;renderHistGeral();window.scrollTo({top:0,behavior:'smooth'});}
+function renderHistPag(tot,cur,pages){
+  var el=document.getElementById('histPag');if(!el)return;
+  if(pages<=1){el.innerHTML='';el.style.display='none';return;}
+  var o='<span class="pag-info">'+tot+' · pág '+cur+'/'+pages+'<\/span>';
+  o+='<button class="pg-btn" onclick="goHistPg(1)" '+(cur===1?'disabled':'')+'>«<\/button>';
+  o+='<button class="pg-btn" onclick="goHistPg('+(cur-1)+')" '+(cur===1?'disabled':'')+'>‹<\/button>';
+  var s=Math.max(1,cur-2),e=Math.min(pages,cur+2);
+  for(var i=s;i<=e;i++)o+='<button class="pg-btn'+(i===cur?' on':'')+'" onclick="goHistPg('+i+')">'+i+'<\/button>';
+  o+='<button class="pg-btn" onclick="goHistPg('+(cur+1)+')" '+(cur===pages?'disabled':'')+'>›<\/button>';
+  o+='<button class="pg-btn" onclick="goHistPg('+pages+')" '+(cur===pages?'disabled':'')+'>»<\/button>';
+  var jp='<span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--tx3)">Ir: <select onchange="goHistPg(parseInt(this.value))">';
+  for(var i=1;i<=pages;i++)jp+='<option value="'+i+'"'+(i===cur?' selected':'')+'>'+i+'<\/option>';
+  jp+='<\/select><\/span>';
+  o+=jp;
+  el.innerHTML=o;el.style.display='flex';
 }
 
 function renderHistGeral(){
@@ -2022,10 +2044,17 @@ function renderHistGeral(){
   }
   if(!list.length){
     el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">Nenhuma movimentação encontrada.</div>';
+    renderHistPag(0,1,1);
     return;
   }
+  var HIST_PAGE_SIZE=50;
+  var pages=Math.max(1,Math.ceil(list.length/HIST_PAGE_SIZE));
+  if(histGeralPage>pages)histGeralPage=pages;
+  if(histGeralPage<1)histGeralPage=1;
+  var startIdx=(histGeralPage-1)*HIST_PAGE_SIZE;
+  var pageList=list.slice(startIdx,startIdx+HIST_PAGE_SIZE);
   var isAdm=CU&&CU.role==='Admin';
-  var rows=list.map(function(h){
+  var rows=pageList.map(function(h){
     var t=tools.find(function(x){return x._id===h.ferramenta_id;});
     var pat=t?'<span style="font-family:monospace;font-size:11px;color:var(--nv);font-weight:700">'+t.patrimonio+'</span>':'<span style="color:var(--tx3);font-size:11px">—</span>';
     var nome=t?'<span style="font-size:12px;color:var(--tx2)">'+t.ferramenta+'</span>':'';
@@ -2051,7 +2080,8 @@ function renderHistGeral(){
       (isAdm?'<th style="text-align:center;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Excluir</th>':'')+
     '</tr></thead>'+
     '<tbody>'+rows+'</tbody></table>'+
-    '<div style="font-size:11px;color:var(--tx3);text-align:right;margin-top:8px">Exibindo '+list.length+' registro(s)</div>';
+    '<div style="font-size:11px;color:var(--tx3);text-align:right;margin-top:8px">Exibindo '+(startIdx+1)+'–'+(startIdx+pageList.length)+' de '+list.length+' registro(s)</div>';
+  renderHistPag(list.length,histGeralPage,pages);
 }
 
 async function delHistGeral(hid){
@@ -2071,7 +2101,8 @@ async function delHistGeral(hid){
 // ── HISTÓRICO DE ACESSOS (Admin) ──
 var acessosData=[];
 var acessosSearch='';
-function searchAcessos(v){acessosSearch=v.toLowerCase().trim();renderAcessos();}
+var acessosPage=1;
+function searchAcessos(v){acessosSearch=v.toLowerCase().trim();acessosPage=1;renderAcessos();}
 async function loadAcessos(){
   var el=document.getElementById('acessosList');
   if(!el)return;
@@ -2081,6 +2112,7 @@ async function loadAcessos(){
     var r=await sb.from('acessos').select('*').order('created_at',{ascending:false}).limit(1000);
     if(r.error)throw r.error;
     acessosData=r.data||[];
+    acessosPage=1;
     renderAcessos();
   }catch(e){
     el.innerHTML='<div style="text-align:center;padding:40px;color:var(--rd)">Erro ao carregar acessos.</div>';
@@ -2103,6 +2135,23 @@ function parseUA(ua){
   else if(/Linux/.test(ua))os='Linux';
   return browser+(os?' · '+os:'');
 }
+function goAcessosPg(p){acessosPage=p;renderAcessos();window.scrollTo({top:0,behavior:'smooth'});}
+function renderAcessosPag(tot,cur,pages){
+  var el=document.getElementById('acessosPag');if(!el)return;
+  if(pages<=1){el.innerHTML='';el.style.display='none';return;}
+  var o='<span class="pag-info">'+tot+' · pág '+cur+'/'+pages+'<\/span>';
+  o+='<button class="pg-btn" onclick="goAcessosPg(1)" '+(cur===1?'disabled':'')+'>«<\/button>';
+  o+='<button class="pg-btn" onclick="goAcessosPg('+(cur-1)+')" '+(cur===1?'disabled':'')+'>‹<\/button>';
+  var s=Math.max(1,cur-2),e=Math.min(pages,cur+2);
+  for(var i=s;i<=e;i++)o+='<button class="pg-btn'+(i===cur?' on':'')+'" onclick="goAcessosPg('+i+')">'+i+'<\/button>';
+  o+='<button class="pg-btn" onclick="goAcessosPg('+(cur+1)+')" '+(cur===pages?'disabled':'')+'>›<\/button>';
+  o+='<button class="pg-btn" onclick="goAcessosPg('+pages+')" '+(cur===pages?'disabled':'')+'>»<\/button>';
+  var jp='<span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--tx3)">Ir: <select onchange="goAcessosPg(parseInt(this.value))">';
+  for(var i=1;i<=pages;i++)jp+='<option value="'+i+'"'+(i===cur?' selected':'')+'>'+i+'<\/option>';
+  jp+='<\/select><\/span>';
+  o+=jp;
+  el.innerHTML=o;el.style.display='flex';
+}
 function renderAcessos(){
   var el=document.getElementById('acessosList');var elCount=document.getElementById('acessosCount');
   if(!el)return;
@@ -2115,9 +2164,16 @@ function renderAcessos(){
   if(elCount)elCount.textContent=list.length+' acesso'+(list.length!==1?'s':'')+' registrado'+(list.length!==1?'s':'')+' (últimos 1000)';
   if(!list.length){
     el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">Nenhum acesso encontrado.</div>';
+    renderAcessosPag(0,1,1);
     return;
   }
-  var rows=list.map(function(a){
+  var ACESSOS_PAGE_SIZE=50;
+  var pages=Math.max(1,Math.ceil(list.length/ACESSOS_PAGE_SIZE));
+  if(acessosPage>pages)acessosPage=pages;
+  if(acessosPage<1)acessosPage=1;
+  var startIdx=(acessosPage-1)*ACESSOS_PAGE_SIZE;
+  var pageList=list.slice(startIdx,startIdx+ACESSOS_PAGE_SIZE);
+  var rows=pageList.map(function(a){
     return '<tr style="border-bottom:1px solid var(--bd)">'+
       '<td style="padding:9px 10px;white-space:nowrap;font-size:11px;color:var(--tx3)">'+(a.created_at?fmt(a.created_at):'—')+'</td>'+
       '<td style="padding:9px 10px;font-size:12px;font-weight:600">'+(a.nome||'—')+'</td>'+
@@ -2137,6 +2193,7 @@ function renderAcessos(){
       '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Dispositivo</th>'+
     '</tr></thead>'+
     '<tbody>'+rows+'</tbody></table></div>';
+  renderAcessosPag(list.length,acessosPage,pages);
 }
 
 function showTab(id,btn){
@@ -2147,7 +2204,7 @@ function showTab(id,btn){
   if(id==='tabUsers')renderUsers();
   if(id==='tabCert')renderCerts();
   if(id==='tabHist')loadHistGeral();
-  if(id==='tabAcessos'){var ab=document.querySelector('#tabAcessos input');if(ab)ab.value='';acessosSearch='';loadAcessos();}
+  if(id==='tabAcessos'){var ab=document.querySelector('#tabAcessos input');if(ab)ab.value='';acessosSearch='';acessosPage=1;loadAcessos();}
   if(id==='tabTermos')loadTermosSB();
   if(id==='tabConfirm'){CONF_Q='';CONF_EMAIL='';var cb=document.getElementById('confBusca');if(cb)cb.value='';var ceb=document.getElementById('confEmailBusca');if(ceb)ceb.value='';renderConfirmacoes();}
   if(id==='tabCalVenc'){var cvb=document.getElementById('calVencBusca');if(cvb)cvb.value='';renderCalVenc();}
