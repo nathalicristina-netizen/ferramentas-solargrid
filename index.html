@@ -268,7 +268,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
       <span class="lp-sub">Gestão de Ferramentas</span>
       <div class="lp-box">
         <h2>Bem-vindo 👋</h2>
-        <p>Acesse com seu nome, e-mail e setor.</p>
+        <p>Acesse com seu nome, e-mail, setor e senha.</p>
         <div class="lp-f">
           <label>Nome e sobrenome</label>
           <input id="lN" type="text" placeholder="Ex: João Silva" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('lEmail').focus()"/>
@@ -279,7 +279,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         </div>
         <div class="lp-f">
           <label>Setor</label>
-          <select id="lSetor">
+          <select id="lSetor" onchange="document.getElementById('lSenha').focus()">
             <option value="">Selecione…</option>
             <option>Comissionamento</option>
             <option>Construção</option>
@@ -289,6 +289,10 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
             <option>Engenharia do Proprietário</option>
             <option>Ambiental</option>
           </select>
+        </div>
+        <div class="lp-f">
+          <label>Senha</label>
+          <input id="lSenha" type="password" placeholder="Sua senha" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()"/>
         </div>
         <button class="lp-btn" onclick="doLogin()">Entrar →</button>
         <div class="lp-err" id="lErr"></div>
@@ -1147,10 +1151,19 @@ async function dbLoad(){
 }
 
 // ── LOGIN ──
-function doLogin(){
+// Hash simples (SHA-256) para não guardar a senha em texto puro no banco.
+// Aviso: como este app roda só no navegador (sem servidor), isso é uma trava a mais
+// contra acesso casual — não é o mesmo nível de segurança de um login com backend.
+async function hashSenha(s){
+  var enc=new TextEncoder().encode(s);
+  var buf=await crypto.subtle.digest('SHA-256',enc);
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+async function doLogin(){
   var name=document.getElementById('lN').value.trim();
   var email=document.getElementById('lEmail').value.trim();
   var setor=document.getElementById('lSetor').value.trim();
+  var senha=document.getElementById('lSenha').value;
   var err=document.getElementById('lErr');
   if(!name||name.split(' ').filter(Boolean).length<2){err.style.display='block';err.textContent='Informe nome e sobrenome.';return;}
   if(!email||!email.includes('@')){err.style.display='block';err.textContent='Informe um e-mail válido.';return;}
@@ -1158,6 +1171,11 @@ function doLogin(){
   // validate against registered users
   var match=users.find(function(u){return u.email.toLowerCase()===email.toLowerCase();});
   if(!match){err.style.display='block';err.textContent='Acesso não autorizado. Solicite o cadastro ao administrador.';return;}
+  if(match.senha){
+    if(!senha){err.style.display='block';err.textContent='Informe sua senha.';return;}
+    var hash=await hashSenha(senha);
+    if(hash!==match.senha){err.style.display='block';err.textContent='Senha incorreta.';return;}
+  }
   err.style.display='none';
   var parts=name.split(' ').filter(Boolean);
   var initials=(parts[0][0]+(parts[parts.length-1][0])).toUpperCase();
@@ -1190,6 +1208,7 @@ function doLogout(){
   document.getElementById('lN').value='';
   document.getElementById('lEmail').value='';
   document.getElementById('lSetor').value='';
+  document.getElementById('lSenha').value='';
   document.querySelectorAll('.nav-tab').forEach(function(b,i){b.classList.toggle('on',i===0);});
   document.querySelectorAll('.tab-content').forEach(function(e,i){e.classList.toggle('on',i===0);});
 }
@@ -1720,7 +1739,7 @@ function saveUsers(){
 async function saveUserSB(u){
   if(!sb)return;
   try{
-    var row={nome:u.nome,email:u.email,setor:u.setor,nivel:u.nivel||'Comum'};
+    var row={nome:u.nome,email:u.email,setor:u.setor,nivel:u.nivel||'Comum',senha:u.senha||null};
     if(u.sbId){
       await sb.from('usuários').update(row).eq('id',u.sbId);
     } else {
@@ -1741,8 +1760,8 @@ async function loadUsersFB(){
     if(r.data&&r.data.length){
       r.data.forEach(function(row){
         var ex=users.find(function(u){return u.email.toLowerCase()===row.email.toLowerCase();});
-        if(!ex){users.push({nome:row.nome,email:row.email,setor:row.setor,nivel:row.nivel||'Comum',sbId:row.id});}
-        else{ex.sbId=row.id;ex.nivel=row.nivel||ex.nivel;ex.setor=row.setor||ex.setor;}
+        if(!ex){users.push({nome:row.nome,email:row.email,setor:row.setor,nivel:row.nivel||'Comum',senha:row.senha||'',sbId:row.id});}
+        else{ex.sbId=row.id;ex.nivel=row.nivel||ex.nivel;ex.setor=row.setor||ex.setor;ex.senha=row.senha||ex.senha;}
       });
       saveUsers();
     }
@@ -1787,23 +1806,27 @@ function openAddUser(){
   h+='<div class="mf"><label>E-mail corporativo</label><input id="uuEmail" type="email" placeholder="joao.silva@solargrid.com.br"/></div>';
   h+='<div class="mf"><label>Setor</label><select id="uuSetor"><option value="">Selecione…</option><option>Comissionamento</option><option>Construção</option><option>O&M</option><option>PMO</option><option>CSC</option><option>Engenharia do Proprietário</option><option>Ambiental</option></select></div>';
   h+='<div class="mf"><label>Nível de acesso</label><select id="uuNivel"><option value="">Selecione…</option><option>Admin</option><option>Coordenador</option><option>Supervisor</option><option>Comum</option></select></div>';
+  h+='<div class="mf"><label>Senha</label><input id="uuSenha" type="text" placeholder="Defina a senha desse usuário"/></div>';
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button><button class="b-sv" onclick="saveNewUser()">Salvar</button></div>';
   document.getElementById('mbody').innerHTML=h;
   document.getElementById('mo').style.display='flex';
   document.getElementById('uuNome').focus();
 }
 
-function saveNewUser(){
+async function saveNewUser(){
   var nome=document.getElementById('uuNome').value.trim();
   var email=document.getElementById('uuEmail').value.trim();
   var setor=document.getElementById('uuSetor').value;
   var nivel=document.getElementById('uuNivel').value;
+  var senha=document.getElementById('uuSenha').value;
   if(!nome||nome.split(' ').filter(Boolean).length<2){showToast('Informe nome e sobrenome',false);return;}
   if(!email||!email.includes('@')){showToast('Informe um e-mail válido',false);return;}
   if(!setor){showToast('Selecione o setor',false);return;}
   if(!nivel){showToast('Selecione o nível de acesso',false);return;}
+  if(!senha||senha.length<4){showToast('Defina uma senha com pelo menos 4 caracteres',false);return;}
   if(users.find(function(u){return u.email.toLowerCase()===email.toLowerCase();})){showToast('E-mail já cadastrado',false);return;}
-  var nu={nome:nome,email:email,setor:setor,nivel:nivel};
+  var senhaHash=await hashSenha(senha);
+  var nu={nome:nome,email:email,setor:setor,nivel:nivel,senha:senhaHash};
   users.push(nu);
   saveUsers();saveUserSB(nu);closeM();renderUsers();
   showToast('Usuário cadastrado com sucesso!',true);
@@ -1816,12 +1839,13 @@ function editUser(i){
   h+='<div class="mf"><label>E-mail corporativo</label><input id="uuEmail" type="email" value="'+u.email+'"/></div>';
   h+='<div class="mf"><label>Setor</label><select id="uuSetor"><option value="">Selecione…</option><option'+(u.setor==='Comissionamento'?' selected':'')+'>Comissionamento</option><option'+(u.setor==='Construção'?' selected':'')+'>Construção</option><option'+(u.setor==='O&M'?' selected':'')+'>O&M</option><option'+(u.setor==='PMO'?' selected':'')+'>PMO</option><option'+(u.setor==='CSC'?' selected':'')+'>CSC</option><option'+(u.setor==='Engenharia do Proprietário'?' selected':'')+'>Engenharia do Proprietário</option><option'+(u.setor==='Ambiental'?' selected':'')+'>Ambiental</option></select></div>';
   h+='<div class="mf"><label>Nível de acesso</label><select id="uuNivel"><option value="">Selecione…</option><option'+(u.nivel==='Admin'?' selected':'')+'>Admin</option><option'+(u.nivel==='Coordenador'?' selected':'')+'>Coordenador</option><option'+(u.nivel==='Supervisor'?' selected':'')+'>Supervisor</option><option'+(u.nivel==='Comum'?' selected':'')+'>Comum</option></select></div>';
+  h+='<div class="mf"><label>Senha<\/label><input id="uuSenha" type="text" placeholder="'+(u.senha?'Deixe em branco para manter a senha atual':'Ainda sem senha definida — deixe em branco pra não exigir senha')+'"/></div>';
   h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button><button class="b-sv" onclick="saveEditUser('+i+')">Salvar</button></div>';
   document.getElementById('mbody').innerHTML=h;
   document.getElementById('mo').style.display='flex';
 }
 
-function saveEditUser(i){
+async function saveEditUser(i){
   var nome=document.getElementById('uuNome').value.trim();
   var email=document.getElementById('uuEmail').value.trim();
   var setor=document.getElementById('uuSetor').value;
@@ -1832,8 +1856,14 @@ function saveEditUser(i){
   if(dup>=0){showToast('E-mail já cadastrado para outro usuário',false);return;}
   var nivel=document.getElementById('uuNivel').value;
   if(!nivel){showToast('Selecione o nível de acesso',false);return;}
+  var senhaDigitada=document.getElementById('uuSenha').value;
+  var senhaHash=users[i].senha;
+  if(senhaDigitada){
+    if(senhaDigitada.length<4){showToast('A senha precisa ter pelo menos 4 caracteres',false);return;}
+    senhaHash=await hashSenha(senhaDigitada);
+  }
   var sbId=users[i].sbId;
-  users[i]={nome:nome,email:email,setor:setor,nivel:nivel,sbId:sbId};
+  users[i]={nome:nome,email:email,setor:setor,nivel:nivel,senha:senhaHash,sbId:sbId};
   saveUsers();saveUserSB(users[i]);closeM();renderUsers();
   showToast('Usuário atualizado!',true);
 }
@@ -3082,6 +3112,7 @@ async function exportBackupCompleto(){
     var wb=XLSX.utils.book_new();
     res.forEach(function(r,i){
       var dados=((r&&r.data)||[]).map(sanitizeForExcel);
+      if(nomes[i]==='Usuarios')dados=dados.map(function(u){var c={};Object.keys(u).forEach(function(k){if(k!=='senha')c[k]=u[k];});return c;}); // nunca exporta o hash de senha
       var ws=dados.length?XLSX.utils.json_to_sheet(dados):XLSX.utils.aoa_to_sheet([['(sem dados)']]);
       XLSX.utils.book_append_sheet(wb,ws,nomes[i]);
     });
@@ -4031,8 +4062,8 @@ document.addEventListener('DOMContentLoaded',function(){
       if(r.data&&r.data.length){
         r.data.forEach(function(row){
           var ex=users.find(function(u){return u.email.toLowerCase()===row.email.toLowerCase();});
-          if(!ex){users.push({nome:row.nome,email:row.email,setor:row.setor,nivel:row.nivel||'Comum',sbId:row.id});}
-          else{ex.sbId=row.id;}
+          if(!ex){users.push({nome:row.nome,email:row.email,setor:row.setor,nivel:row.nivel||'Comum',senha:row.senha||'',sbId:row.id});}
+          else{ex.sbId=row.id;ex.senha=row.senha||ex.senha;}
         });
         try{localStorage.setItem('sg_users',JSON.stringify(users));}catch(e){}
       }
