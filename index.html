@@ -340,6 +340,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
             <span class="u-role" id="tSetor"></span>
           </div>
         </div>
+        <button class="btn-out" onclick="openTrocarSenha()" title="Trocar minha senha">🔑</button>
         <button class="btn-out" onclick="doLogout()">Sair</button>
       </div>
     </div>
@@ -1271,6 +1272,39 @@ function doLogout(){
   resetLoginSenhaUI();
   document.querySelectorAll('.nav-tab').forEach(function(b,i){b.classList.toggle('on',i===0);});
   document.querySelectorAll('.tab-content').forEach(function(e,i){e.classList.toggle('on',i===0);});
+}
+
+// ── TROCAR A PRÓPRIA SENHA (self-service, qualquer usuário logado) ──
+function openTrocarSenha(){
+  if(!CU)return;
+  var meuUsuario=users.find(function(u){return u.email.toLowerCase()===CU.email.toLowerCase();});
+  var temSenha=meuUsuario&&meuUsuario.senha;
+  var h='<div class="mh"><div><div class="mtt">🔑 Trocar minha senha</div><div class="msub">'+CU.name+'</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
+  if(temSenha)h+='<div class="mf"><label>Senha atual</label><input id="tsAtual" type="password" placeholder="Sua senha atual"/></div>';
+  h+='<div class="mf"><label>Nova senha</label><input id="tsNova" type="password" placeholder="Mínimo 4 caracteres"/></div>';
+  h+='<div class="mf"><label>Confirmar nova senha</label><input id="tsConfirma" type="password" placeholder="Repita a nova senha"/></div>';
+  h+='<div class="mb-btns"><button class="b-cn" onclick="closeM()">Cancelar</button><button class="b-sv" onclick="salvarTrocaSenha()">Salvar</button></div>';
+  showM(h);
+}
+async function salvarTrocaSenha(){
+  var meuUsuario=users.find(function(u){return u.email.toLowerCase()===CU.email.toLowerCase();});
+  if(!meuUsuario){showToast('Usuário não encontrado.',false);return;}
+  var atualEl=document.getElementById('tsAtual');
+  if(meuUsuario.senha){
+    var atual=atualEl?atualEl.value:'';
+    if(!atual){showToast('Informe sua senha atual.',false);return;}
+    var hashAtual=await hashSenha(atual);
+    if(hashAtual!==meuUsuario.senha){showToast('Senha atual incorreta.',false);return;}
+  }
+  var nova=document.getElementById('tsNova').value;
+  var confirma=document.getElementById('tsConfirma').value;
+  if(!nova||nova.length<4){showToast('A nova senha precisa ter pelo menos 4 caracteres.',false);return;}
+  if(nova!==confirma){showToast('As senhas não conferem.',false);return;}
+  meuUsuario.senha=await hashSenha(nova);
+  saveUsers();
+  await saveUserSB(meuUsuario);
+  closeM();
+  showToast('Senha alterada com sucesso!',true);
 }
 
 // ── BADGES ──
