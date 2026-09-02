@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
 <title>SolarGrid — Gestão de Ferramentas</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1873,13 +1876,16 @@ function renderUsers(){
   var rows=users.map(function(u,i){
     var nivelColor={'Admin':'#1B3A6B','Coordenador':'#15803d','Supervisor':'#c2410c','Comum':'#6B7280'}[u.nivel]||'#6B7280';
     var nivelBg={'Admin':'#EEF2FF','Coordenador':'#F0FDF4','Supervisor':'#FFF7ED','Comum':'#F9FAFB'}[u.nivel]||'#F9FAFB';
+    var senhaBadge=u.senha?'<span style="color:#15803d;font-size:11px" title="Já criou a senha">🔒 Definida</span>':'<span style="color:var(--tx3);font-size:11px" title="Ainda não criou a senha — vai passar pelo primeiro acesso no próximo login">— Nenhuma</span>';
     return '<tr>'+
       '<td style="font-weight:600;color:var(--nv)">'+u.nome+'</td>'+
       '<td style="font-size:12px;color:var(--tx2)">'+u.email+'</td>'+
       '<td><span style="background:var(--bg3);border:1px solid var(--bd);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:600">'+u.setor+'</span></td>'+
       '<td><span style="background:'+nivelBg+';color:'+nivelColor+';border:1px solid '+nivelColor+'40;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700">'+(u.nivel||'—')+'</span></td>'+
-      '<td style="text-align:right">'+
+      '<td>'+senhaBadge+'</td>'+
+      '<td style="text-align:right;white-space:nowrap">'+
         '<button class="bs pr" onclick="editUser('+i+')" style="font-size:11px;padding:4px 10px">Editar</button> '+
+        (CU&&CU.role==='Admin'&&u.senha?'<button onclick="resetSenhaUsuario('+i+')" style="font-size:11px;padding:4px 8px;border-radius:var(--rs);cursor:pointer;font-family:var(--fb);background:#FFF7ED;border:1px solid rgba(232,106,0,.25);color:#c2410c" title="Apaga a senha dela — no próximo login ela cria uma nova">🔄 Resetar senha</button> ':'')+
         (CU&&CU.role==='Admin'?'<button class="bs rd" onclick="delUser('+i+')" style="font-size:11px;padding:4px 8px">✕</button>':'')+
       '</td>'+
     '</tr>';
@@ -1890,9 +1896,21 @@ function renderUsers(){
       '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">E-mail</th>'+
       '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Setor</th>'+
       '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Nível</th>'+
+      '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em">Senha</th>'+
       '<th></th>'+
     '</tr></thead>'+
     '<tbody>'+rows+'</tbody></table>';
+}
+
+async function resetSenhaUsuario(i){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores.',false);return;}
+  var u=users[i];if(!u)return;
+  if(!confirm('Resetar a senha de '+u.nome+'?\n\nNo próximo login, ela vai precisar criar uma senha nova (como no primeiro acesso).\n\nContinuar?'))return;
+  u.senha='';
+  saveUsers();
+  await saveUserSB(u);
+  renderUsers();
+  showToast('Senha de '+u.nome+' resetada. Ela cria uma nova no próximo login.',true);
 }
 
 async function forcarLogoutTodos(){
@@ -4210,6 +4228,21 @@ document.addEventListener('DOMContentLoaded',async function(){
   var tUso=document.getElementById('tUso');
   if(tUso)tUso.addEventListener('input',function(){var e=document.getElementById('tUsoP');if(e)e.textContent=this.value||'___';});
   buildTerm();
+
+  // Verifica periodicamente (mesmo com a aba já aberta) se um admin forçou logout de todos.
+  // A checagem em loadSession() só roda quando a página é carregada/recarregada; isso aqui
+  // cobre quem deixa a aba aberta sem dar F5.
+  async function checkForcedLogoutLoop(){
+    if(!CU)return;
+    if(await checkForcedLogout(CU._loginTs)){
+      showToast('Sua sessão foi encerrada por um administrador. Faça login novamente.',false);
+      setTimeout(function(){doLogout();},800);
+    }
+  }
+  setInterval(checkForcedLogoutLoop,120000); // a cada 2 minutos
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='visible')checkForcedLogoutLoop();
+  });
 });
 
 </script>
