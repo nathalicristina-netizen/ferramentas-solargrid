@@ -275,7 +275,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
         </div>
         <div class="lp-f">
           <label>E-mail corporativo</label>
-          <input id="lEmail" type="email" placeholder="Ex: joao.silva@solargrid.com.br" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('lSetor').focus()"/>
+          <input id="lEmail" type="email" placeholder="Ex: joao.silva@solargrid.com.br" autocomplete="off" oninput="resetLoginSenhaUI()" onkeydown="if(event.key==='Enter')document.getElementById('lSetor').focus()"/>
         </div>
         <div class="lp-f">
           <label>Setor</label>
@@ -290,11 +290,22 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
             <option>Ambiental</option>
           </select>
         </div>
-        <div class="lp-f">
+        <div class="lp-f" id="lSenhaWrap">
           <label>Senha</label>
           <input id="lSenha" type="password" placeholder="Sua senha" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()"/>
         </div>
-        <button class="lp-btn" onclick="doLogin()">Entrar →</button>
+        <div id="lPrimeiroAcesso" style="display:none">
+          <p style="color:var(--tx3);font-size:12px;margin:-4px 0 10px">Primeiro acesso — crie sua senha:</p>
+          <div class="lp-f">
+            <label>Nova senha</label>
+            <input id="lSenhaNova" type="password" placeholder="Mínimo 4 caracteres" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('lSenhaConfirma').focus()"/>
+          </div>
+          <div class="lp-f">
+            <label>Confirmar senha</label>
+            <input id="lSenhaConfirma" type="password" placeholder="Repita a senha" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()"/>
+          </div>
+        </div>
+        <button class="lp-btn" id="lBtnEntrar" onclick="doLogin()">Entrar →</button>
         <div class="lp-err" id="lErr"></div>
       </div>
     </div>
@@ -514,7 +525,10 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
           <h2 style="font-size:17px;font-weight:700;color:var(--nv)">👥 Usuários Cadastrados</h2>
           <p style="font-size:12px;color:var(--tx3);margin-top:3px">Gerencie as pessoas que acessam a plataforma</p>
         </div>
-        <button class="btn-or" onclick="openAddUser()" style="font-size:12px;padding:7px 16px;display:none" id="btnNovoUser">+ Novo usuário</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn-nv" onclick="forcarLogoutTodos()" style="font-size:12px;padding:7px 14px;display:none" id="btnForcarLogout" title="Encerra a sessão de todo mundo — na próxima vez que abrirem o sistema, precisam logar de novo (e quem não tem senha ainda, cria uma na hora)">🔒 Forçar logout de todos</button>
+          <button class="btn-or" onclick="openAddUser()" style="font-size:12px;padding:7px 16px;display:none" id="btnNovoUser">+ Novo usuário</button>
+        </div>
       </div>
       <div id="userList"></div>
     </div>
@@ -956,10 +970,25 @@ function loadTols(){
     });
   }catch(e){}
 }
-function loadSession(){
+async function checkForcedLogout(loginTs){
+  if(!sb)return false;
+  try{
+    var r=await sb.from('app_config').select('value').eq('key','force_logout_after').maybeSingle();
+    if(!r.data||!r.data.value)return false;
+    var forcedAt=new Date(r.data.value).getTime();
+    if(!loginTs||loginTs<forcedAt)return true;
+    return false;
+  }catch(e){return false;}
+}
+async function loadSession(){
   try{
     var raw=localStorage.getItem('sg_s');if(!raw)return false;
     CU=JSON.parse(raw);if(!CU||!CU.name)return false;
+    if(await checkForcedLogout(CU._loginTs)){
+      try{sessionStorage.clear();localStorage.removeItem('sg_s');}catch(e){}
+      CU=null;
+      return false;
+    }
     // Não aplica loadTols aqui: o dbLoad vai trazer a verdade do banco logo em seguida
     showApp();
     var tab=CU._tab||'tabFerr';
@@ -1160,6 +1189,15 @@ async function hashSenha(s){
   var buf=await crypto.subtle.digest('SHA-256',enc);
   return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
 }
+var LOGIN_MODO_CRIAR_SENHA=false;
+function resetLoginSenhaUI(){
+  LOGIN_MODO_CRIAR_SENHA=false;
+  var wrap=document.getElementById('lSenhaWrap');if(wrap)wrap.style.display='block';
+  var pa=document.getElementById('lPrimeiroAcesso');if(pa)pa.style.display='none';
+  var btn=document.getElementById('lBtnEntrar');if(btn)btn.textContent='Entrar →';
+  var sn=document.getElementById('lSenhaNova');if(sn)sn.value='';
+  var sc=document.getElementById('lSenhaConfirma');if(sc)sc.value='';
+}
 async function doLogin(){
   var name=document.getElementById('lN').value.trim();
   var email=document.getElementById('lEmail').value.trim();
@@ -1172,7 +1210,27 @@ async function doLogin(){
   // validate against registered users
   var match=users.find(function(u){return u.email.toLowerCase()===email.toLowerCase();});
   if(!match){err.style.display='block';err.textContent='Acesso não autorizado. Solicite o cadastro ao administrador.';return;}
-  if(match.senha){
+
+  if(LOGIN_MODO_CRIAR_SENHA){
+    // Pessoa já viu o passo de "primeiro acesso" — agora está criando a senha dela mesma.
+    var nova=document.getElementById('lSenhaNova').value;
+    var confirma=document.getElementById('lSenhaConfirma').value;
+    if(!nova||nova.length<4){err.style.display='block';err.textContent='A senha precisa ter pelo menos 4 caracteres.';return;}
+    if(nova!==confirma){err.style.display='block';err.textContent='As senhas não conferem.';return;}
+    match.senha=await hashSenha(nova);
+    saveUsers();
+    await saveUserSB(match);
+    resetLoginSenhaUI();
+  }else if(!match.senha){
+    // Primeiro acesso dessa pessoa: em vez de entrar, pede pra ela criar a própria senha.
+    LOGIN_MODO_CRIAR_SENHA=true;
+    document.getElementById('lSenhaWrap').style.display='none';
+    document.getElementById('lPrimeiroAcesso').style.display='block';
+    document.getElementById('lBtnEntrar').textContent='Criar senha e entrar →';
+    err.style.display='none';
+    var sn=document.getElementById('lSenhaNova');if(sn)sn.focus();
+    return;
+  }else{
     if(!senha){err.style.display='block';err.textContent='Informe sua senha.';return;}
     var hash=await hashSenha(senha);
     if(hash!==match.senha){err.style.display='block';err.textContent='Senha incorreta.';return;}
@@ -1180,7 +1238,7 @@ async function doLogin(){
   err.style.display='none';
   var parts=name.split(' ').filter(Boolean);
   var initials=(parts[0][0]+(parts[parts.length-1][0])).toUpperCase();
-  CU={name:match.nome,email:match.email,setor:match.setor,initials:initials,role:match.nivel||'Comum'};
+  CU={name:match.nome,email:match.email,setor:match.setor,initials:initials,role:match.nivel||'Comum',_loginTs:Date.now()};
   SHOW_LOGIN_ALERT=true;
   logAcesso();
   saveSession();showApp();renderAll();dbLoad();
@@ -1210,6 +1268,7 @@ function doLogout(){
   document.getElementById('lEmail').value='';
   document.getElementById('lSetor').value='';
   document.getElementById('lSenha').value='';
+  resetLoginSenhaUI();
   document.querySelectorAll('.nav-tab').forEach(function(b,i){b.classList.toggle('on',i===0);});
   document.querySelectorAll('.tab-content').forEach(function(e,i){e.classList.toggle('on',i===0);});
 }
@@ -1659,6 +1718,8 @@ function renderAll(){
   if(btnN)btnN.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
   var btnNU=document.getElementById('btnNovoUser');
   if(btnNU)btnNU.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
+  var btnFL=document.getElementById('btnForcarLogout');
+  if(btnFL)btnFL.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
   var btnBkp=document.getElementById('btnBackup');
   if(btnBkp)btnBkp.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
   var btnOc=document.getElementById('btnOcultas');
@@ -1800,6 +1861,17 @@ function renderUsers(){
     '<tbody>'+rows+'</tbody></table>';
 }
 
+async function forcarLogoutTodos(){
+  if(!CU||CU.role!=='Admin'){showToast('Apenas administradores.',false);return;}
+  if(!sb){showToast('Sem conexão com o banco.',false);return;}
+  if(!confirm('Isso vai encerrar a sessão de TODOS os usuários (inclusive a sua).\n\nNa próxima vez que cada um abrir o sistema, vai precisar logar de novo — e quem ainda não tem senha, cria uma na hora.\n\nContinuar?'))return;
+  try{
+    var r=await sb.from('app_config').upsert({key:'force_logout_after',value:new Date().toISOString()});
+    if(r.error){showToast('Erro: '+r.error.message,false);return;}
+    showToast('Pronto! Todo mundo vai precisar logar de novo.',true);
+    setTimeout(function(){doLogout();},1200);
+  }catch(e){showToast('Erro ao forçar logout.',false);}
+}
 function openAddUser(){
   if(!CU||CU.role!=='Admin'){showToast('Apenas administradores podem cadastrar usuários.',false);return;}
   var h='<div class="mh"><div><div class="mtt">👤 Novo Usuário</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
@@ -4075,7 +4147,7 @@ function showToast(msg,ok){
 }
 
 // ── INIT ──
-document.addEventListener('DOMContentLoaded',function(){
+document.addEventListener('DOMContentLoaded',async function(){
   // load users from Supabase before login validation
   if(sb){
     var loginBtn=document.querySelector('.lp-btn');
@@ -4100,7 +4172,7 @@ document.addEventListener('DOMContentLoaded',function(){
   // check for tokens in URL
   processarAssinaturaRemetente();
   processarAceite();
-  if(!loadSession()){/* stay on login */}
+  if(!(await loadSession())){/* stay on login */}
   var tUso=document.getElementById('tUso');
   if(tUso)tUso.addEventListener('input',function(){var e=document.getElementById('tUsoP');if(e)e.textContent=this.value||'___';});
   buildTerm();
