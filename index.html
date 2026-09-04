@@ -785,6 +785,7 @@ function openStatusPicker(id){
   var t=tools.find(function(x){return x._id===id;});
   if(!t)return;
   var opts=['OK','Inoperante','Atenção','Furtado','Procurar','Descartado','Reciclagem'];
+  if(CU.role!=='Admin')opts=opts.filter(function(s){return s!=='Procurar';}); // só Admin pode marcar como Procurar
   var h='<div class="mh"><div><div class="mtt">🔄 Alterar Status</div><div class="msub">'+t.ferramenta+' · '+t.patrimonio+'</div></div><button class="mcb" onclick="closeM()">✕</button></div>';
   h+='<div style="padding:6px 4px">';
   h+='<div style="display:flex;flex-direction:column;gap:8px">';
@@ -802,6 +803,9 @@ function openStatusPicker(id){
 async function setToolStatus(id,novoStatus){
   if(!CU||(CU.role!=='Admin'&&CU.role!=='Coordenador'&&CU.role!=='Supervisor')){
     showToast('Sem permissão para alterar o status.',false);return;
+  }
+  if(novoStatus==='Procurar'&&CU.role!=='Admin'){
+    showToast('Apenas administradores podem marcar uma ferramenta como Procurar.',false);return;
   }
   var t=tools.find(function(x){return x._id===id;});
   if(!t)return;
