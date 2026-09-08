@@ -432,7 +432,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
               <th><div class="th-wrap" onclick="sortBy('siglaLocal')">Local<button class="th-flt-btn" id="fltBtn-siglaLocal" onclick="event.stopPropagation();openColFlt('siglaLocal',this)" title="Filtrar">▾</button><div class="col-flt-panel" id="fltPanel-siglaLocal"></div></div></th>
               <th><div class="th-wrap" onclick="sortBy('responsavel')">Responsável<button class="th-flt-btn" id="fltBtn-responsavel" onclick="event.stopPropagation();openColFlt('responsavel',this)" title="Filtrar">▾</button><div class="col-flt-panel" id="fltPanel-responsavel"></div></div></th>
               <th onclick="sortBy('valor')">Valor</th>
-              <th>Confirmação</th>
+              <th><div class="th-wrap">Confirmação<button class="th-flt-btn" id="fltBtn-confirmacao" onclick="event.stopPropagation();openColFlt('confirmacao',this)" title="Filtrar">▾</button><div class="col-flt-panel" id="fltPanel-confirmacao"></div></div></th>
               <th style="cursor:default">Ações</th>
             </tr></thead>
             <tbody id="tbody"></tbody>
@@ -1338,7 +1338,7 @@ function openColFlt(col,btn){
   // Build unique sorted values from all tools (not just filtered)
   var vals={};
   tools.forEach(function(t){
-    var v=(t[col]||'').toString().trim()||'(vazio)';
+    var v=getColValue(t,col);
     vals[v]=(vals[v]||0)+1;
   });
   var sorted=Object.keys(vals).sort(function(a,b){return a.localeCompare(b,'pt-BR');});
@@ -1457,6 +1457,15 @@ document.addEventListener('click',function(e){
 });
 
 // ── METRICS ──
+// Algumas colunas não são um campo direto da ferramenta — são calculadas (ex: status de confirmação).
+// Esse mapa permite que o mesmo sistema de filtro (▾) funcione para elas também.
+var COL_VALUE_GETTERS={
+  confirmacao:function(t){return!precisaConfirmar(t)?'N/A':(isQz(t)?'Confirmada':'Pendente');}
+};
+function getColValue(t,col){
+  if(COL_VALUE_GETTERS[col])return COL_VALUE_GETTERS[col](t);
+  return(t[col]||'').toString().trim()||'(vazio)';
+}
 function getFilteredBase(){
   var list=tools.slice();
   if(SF)list=list.filter(function(t){return t.setor===SF;});
@@ -1469,8 +1478,7 @@ function getFilteredBase(){
     var s=COL_FILTERS[col];
     if(!s)return;
     list=list.filter(function(t){
-      var v=(t[col]||'').toString().trim()||'(vazio)';
-      return s.has(v);
+      return s.has(getColValue(t,col));
     });
   });
   return list;
