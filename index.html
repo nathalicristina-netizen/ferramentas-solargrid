@@ -669,6 +669,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
           <input type="text" id="termoBusca" placeholder="Buscar por código, remetente, destinatário ou ferramenta…" oninput="filtrarTermos(this.value)" style="width:100%"/>
         </div>
       </div>
+      <div id="termosResumo" style="margin-bottom:14px"></div>
       <div id="termosList"></div>
     </div>
   </div>
@@ -3427,16 +3428,39 @@ async function loadTermosSB(){
     if(r.error)throw r.error;
     if(!r.data.length){
       _termosCache=[];
+      var resEl=document.getElementById('termosResumo');if(resEl)resEl.innerHTML='';
       el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3);font-size:13px">Nenhum termo salvo ainda.</div>';
       return;
     }
     _termosCache=r.data;
+    renderTermosResumo(_termosCache);
     var busca=document.getElementById('termoBusca');
     if(busca&&busca.value.trim()){filtrarTermos(busca.value);}
     else{renderTermosCards(_termosCache,el);}
   }catch(e){
     el.innerHTML='<div style="text-align:center;padding:40px;color:var(--rd)">Erro ao carregar termos.</div>';
   }
+}
+function renderTermosResumo(lista){
+  var el=document.getElementById('termosResumo');
+  if(!el)return;
+  var aguardandoRem=0,aguardandoDest=0;
+  lista.forEach(function(t){
+    var remStatus=t.remetente_status||'assinado';
+    var aceiteStatus=t.aceite_status||'pendente';
+    if(remStatus==='pendente')aguardandoRem++;
+    else if(aceiteStatus==='pendente')aguardandoDest++;
+  });
+  var totalPendentes=aguardandoRem+aguardandoDest;
+  if(!totalPendentes){
+    el.innerHTML='<div style="background:#F0FDF4;border:1px solid #86efac;border-radius:10px;padding:10px 16px;font-size:12px;color:#15803d;font-weight:600">🎉 Nenhum termo pendente de assinatura — tudo concluído!</div>';
+    return;
+  }
+  el.innerHTML='<div style="background:#FFF7ED;border:1px solid #fdba74;border-radius:10px;padding:10px 16px;font-size:12px;color:#7c2d12;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center">'+
+    '<strong>⏳ '+totalPendentes+' termo'+(totalPendentes!==1?'s':'')+' pendente'+(totalPendentes!==1?'s':'')+' de assinatura:</strong>'+
+    (aguardandoRem?'<span>🖊️ '+aguardandoRem+' aguardando o <strong>remetente</strong></span>':'')+
+    (aguardandoDest?'<span>🔗 '+aguardandoDest+' aguardando o <strong>destinatário</strong></span>':'')+
+    '</div>';
 }
 
 function renderTermosCards(lista,el){
