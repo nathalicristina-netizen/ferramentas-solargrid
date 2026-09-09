@@ -901,6 +901,8 @@ async function acceptTransfer(id){
   t.local=t.localPendente;t.siglaLocal=t.siglaLocalPendente;
   t.responsavel=t.responsavelPendente;
   t.cidade=t.cidadePendente;t.estado=t.estadoPendente;
+  var novoSetor=getSetorParaLocal(t.siglaLocal);
+  if(novoSetor)t.setor=novoSetor;
   var motivo=t.motivoPendente;
   t.responsavelPendente=null;t.localPendente=null;t.siglaLocalPendente=null;t.cidadePendente=null;t.estadoPendente=null;t.motivoPendente=null;t.pendenteDesde=null;
   var msg='✅ Aceito por '+(CU?CU.name:'')+': '+de+'→'+para+(motivo?' · '+motivo:'');
@@ -1127,6 +1129,7 @@ async function dbLoad(){
   await loadUsersFB();
   await loadCertsFB();
   await loadLocaisPadrao();
+  await loadMapaLocalSetor();
   showBanner('connecting','Conectando…');
   try{
     // Busca TODAS as ferramentas em blocos (o Supabase limita cada select a 1000 linhas)
@@ -2923,6 +2926,39 @@ async function loadLocaisPadrao(){
 }
 function nomesLocaisPadrao(){return LOCAIS_PADRAO.map(function(x){return x.nome;});}
 
+// ── MAPA LOCAL → SETOR (auto-preenche o setor quando o local muda) ──
+var MAPA_LOCAL_SETOR={}; // {"CGO":"O&M", "Escritório Rio":"CSC", ...}
+async function loadMapaLocalSetor(){
+  if(!sb)return;
+  try{
+    var r=await sb.from('mapa_local_setor').select('*');
+    if(r.error){console.warn('loadMapaLocalSetor:',r.error.message);return;}
+    MAPA_LOCAL_SETOR={};
+    (r.data||[]).forEach(function(x){MAPA_LOCAL_SETOR[x.local]=x.setor;});
+  }catch(e){console.warn('loadMapaLocalSetor exc:',e);}
+}
+// Busca o setor correspondente a um local, tolerando diferença de maiúsculas/espaços
+function getSetorParaLocal(local){
+  if(!local)return null;
+  if(MAPA_LOCAL_SETOR[local])return MAPA_LOCAL_SETOR[local];
+  var ll=local.toLowerCase().trim();
+  for(var k in MAPA_LOCAL_SETOR){
+    if(k.toLowerCase().trim()===ll)return MAPA_LOCAL_SETOR[k];
+  }
+  return null;
+}
+// Aplica o setor correspondente num <select> de setor, se o local tiver mapeamento conhecido
+function aplicarSetorPorLocal(local,selectId){
+  var setor=getSetorParaLocal(local);
+  if(!setor)return;
+  var sel=document.getElementById(selectId);
+  if(!sel)return;
+  // garante que a opção exista no dropdown antes de selecionar
+  var existe=Array.prototype.some.call(sel.options,function(o){return o.value===setor||o.text===setor;});
+  if(!existe){var op=document.createElement('option');op.text=setor;op.value=setor;sel.add(op);}
+  sel.value=setor;
+}
+
 function buildLocalOptions(currentVal, inputId){
   var lista=nomesLocaisPadrao();
   var opts='<option value="">Selecione o local...</option>';
@@ -3011,6 +3047,7 @@ function buildSetorOptions(currentVal){
 
 function fillLocalInfo(sigla){
   if(!sigla)return;
+  aplicarSetorPorLocal(sigla,'uSek');
   var m=tools.find(function(x){return(x.siglaLocal===sigla||x.local===sigla)&&x.cidade&&x.cidade!=='—';});
   if(!m)return;
   var c=document.getElementById('uCid'),e=document.getElementById('uEst');
@@ -3153,6 +3190,7 @@ function fmtMoneyMasked(v){
 }
 function fillLocalInfoAdd(sigla){
   if(!sigla||sigla.length<2)return;
+  aplicarSetorPorLocal(sigla,'aSek');
   var m=tools.find(function(x){return(x.siglaLocal===sigla||x.local===sigla)&&x.cidade&&x.cidade!=='—';});
   if(!m)return;
   var c=document.getElementById('aCid'),e=document.getElementById('aEst');
