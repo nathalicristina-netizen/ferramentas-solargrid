@@ -3410,9 +3410,13 @@ function gerarCodigoTermo(remetente, destino, sequencial){
 }
 
 var _termosCache=[]; // cache para filtro local
+var _termosListaAtual=[]; // lista atualmente exibida (após busca), para paginação
+var termosPage=1;
+var TERMOS_PG=10;
 
 function filtrarTermos(q){
   var el=document.getElementById('termosList');if(!el)return;
+  termosPage=1;
   if(!q||!q.trim()){renderTermosCards(_termosCache,el);return;}
   var ql=q.toLowerCase();
   var filtrados=_termosCache.filter(function(t){
@@ -3441,6 +3445,7 @@ async function loadTermosSB(){
       return;
     }
     _termosCache=r.data;
+    termosPage=1;
     renderTermosResumo(_termosCache);
     var busca=document.getElementById('termoBusca');
     if(busca&&busca.value.trim()){filtrarTermos(busca.value);}
@@ -3472,8 +3477,15 @@ function renderTermosResumo(lista){
 }
 
 function renderTermosCards(lista,el){
+  _termosListaAtual=lista;
   if(!lista.length){el.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3);font-size:13px">Nenhum termo encontrado.</div>';return;}
-  var cards=lista.map(function(t){
+  var totalPages=Math.max(1,Math.ceil(lista.length/TERMOS_PG));
+  if(termosPage>totalPages)termosPage=totalPages;
+  if(termosPage<1)termosPage=1;
+  var start=(termosPage-1)*TERMOS_PG;
+  var pagina=lista.slice(start,start+TERMOS_PG);
+  var contagem='<div style="font-size:12px;color:var(--tx3);margin-bottom:10px">'+lista.length+' termo'+(lista.length!==1?'s':'')+' salvo'+(lista.length!==1?'s':'')+' — mostrando '+(start+1)+'–'+Math.min(start+TERMOS_PG,lista.length)+'</div>';
+  var cards=pagina.map(function(t){
       var ferrs=[];try{ferrs=JSON.parse(t.ferramentas||'[]');}catch(e){}
       var remStatus=t.remetente_status||'assinado'; // termos antigos já estão assinados
       var aceiteStatus=t.aceite_status||'pendente';
@@ -3524,7 +3536,23 @@ function renderTermosCards(lista,el){
         '</div>'+
       '</div>';
     }).join('');
-  el.innerHTML=cards;
+  el.innerHTML=contagem+cards+buildTermosPaginacao(totalPages);
+}
+function buildTermosPaginacao(totalPages){
+  if(totalPages<=1)return'';
+  var h='<div style="display:flex;justify-content:center;align-items:center;gap:6px;margin-top:14px;flex-wrap:wrap">';
+  h+='<button onclick="goToTermosPage('+(termosPage-1)+')" '+(termosPage<=1?'disabled':'')+' style="padding:5px 10px;border:1px solid var(--bd);border-radius:6px;background:'+(termosPage<=1?'var(--bg3)':'#fff')+';font-size:12px;cursor:'+(termosPage<=1?'default':'pointer')+'">‹ Anterior</button>';
+  for(var p=1;p<=totalPages;p++){
+    h+='<button onclick="goToTermosPage('+p+')" style="padding:5px 10px;border:1px solid '+(p===termosPage?'var(--nv)':'var(--bd)')+';border-radius:6px;background:'+(p===termosPage?'var(--nv)':'#fff')+';color:'+(p===termosPage?'#fff':'var(--tx2)')+';font-size:12px;font-weight:'+(p===termosPage?'700':'400')+';cursor:pointer;min-width:30px">'+p+'</button>';
+  }
+  h+='<button onclick="goToTermosPage('+(termosPage+1)+')" '+(termosPage>=totalPages?'disabled':'')+' style="padding:5px 10px;border:1px solid var(--bd);border-radius:6px;background:'+(termosPage>=totalPages?'var(--bg3)':'#fff')+';font-size:12px;cursor:'+(termosPage>=totalPages?'default':'pointer')+'">Próxima ›</button>';
+  h+='</div>';
+  return h;
+}
+function goToTermosPage(p){
+  var el=document.getElementById('termosList');if(!el)return;
+  termosPage=p;
+  renderTermosCards(_termosListaAtual,el);
 }
 
 function copyLink(link,quem){
