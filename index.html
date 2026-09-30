@@ -3330,7 +3330,7 @@ function exportXLSX(){
   var CRLF=String.fromCharCode(13,10);
   var hdr=['Patrimônio','Ferramenta','Marca','Modelo','Série','Status','Local','Responsável','Cidade','Estado','Setor','Valor','Data Cal','Cert Cal','Lab','Dias Prox Cal','OBS'];
   var csv=[hdr].concat(list.map(function(t){
-    return[t.patrimonio,t.ferramenta,t.marca,t.modelo,t.serie,t.status,t.siglaLocal,t.responsavel,t.cidade,t.estado,t.setor,t.valor,t.dataCal,t.certCal,t.laboratorio,t.diasProxCal,t.obs];
+    return[t.patrimonio,t.ferramenta,t.marca,t.modelo,t.serie,t.status,t.siglaLocal,t.responsavel,t.cidade,t.estado,t.setor,(t.valor!==null&&t.valor!==undefined&&t.valor!==''?'R$ '+fmtMoneyMasked(t.valor):''),t.dataCal,t.certCal,t.laboratorio,t.diasProxCal,t.obs];
   })).map(function(r){return r.map(function(c){var s=String(c||'').replace(/\r?\n/g,' ');if(s.indexOf(';')>=0||s.indexOf('"')>=0)s='"'+s.replace(/"/g,'""')+'"';return s;}).join(';');}).join(CRLF);
   var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   var url=URL.createObjectURL(blob);
