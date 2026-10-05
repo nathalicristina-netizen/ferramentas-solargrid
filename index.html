@@ -2435,8 +2435,8 @@ function showTab(id,btn){
 function openConf(id){
   var t=tools.find(function(x){return x._id===id;});
   var done=isQz(t);
-  var h='<div class="mh"><div><div class="mtt">📍 Confirmação Quinzenal<\/div><div class="msub">'+t.ferramenta+' · '+t.patrimonio+'<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>';
-  h+='<div class="cfm-box"><strong>'+t.siglaLocal+'<\/strong>'+(t.cidade?' — '+t.cidade:'')+'<br>Resp: '+(t.responsavel||'—')+'<br><span class="badge '+(done?'b-gr':'b-am')+'" style="margin-top:6px;display:inline-flex">'+(done?'✓ Confirmado esta quinzena':'Aguardando confirmação')+'<\/span><\/div>';
+  var h='<div class="mh"><div><div class="mtt">📍 Confirmação<\/div><div class="msub">'+t.ferramenta+' · '+t.patrimonio+'<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>';
+  h+='<div class="cfm-box"><strong>'+t.siglaLocal+'<\/strong>'+(t.cidade?' — '+t.cidade:'')+'<br>Resp: '+(t.responsavel||'—')+'<br><span class="badge '+(done?'b-gr':'b-am')+'" style="margin-top:6px;display:inline-flex">'+(done?'✓ Confirmado':'Aguardando confirmação')+'<\/span><\/div>';
   h+='<div class="mf"><label>Mesmo local?<\/label><select id="cSame" onchange="document.getElementById(\'cNL\').style.display=this.value===\'nao\'?\'block\':\'none\'"><option value="">Selecione…<\/option><option value="sim">✅ Sim<\/option><option value="nao">🔄 Não — mudou<\/option><\/select><\/div>';
   h+='<div id="cNL" style="display:none"><div class="mf"><label>Novo local<\/label><select id="cLoc" onchange="prevCity(this.value)">'+(buildLocalOptions(t.siglaLocal,'cLoc'))+'<\/select><\/div>';
   h+='<div class="mf"><label>Novo responsável (e-mail)<\/label><select id="cRes">'+buildResponsavelOptions(t.responsavel)+'<\/select><div style="font-size:10px;color:var(--tx3);margin-top:4px">A troca só passa a valer depois que essa pessoa aceitar (login dela).<\/div><\/div>';
