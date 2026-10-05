@@ -891,12 +891,11 @@ function openTransferModal(){
     '<\/div>';
   }).join(''):'<div class="empty" style="padding:1.5rem">Nenhuma transferência pendente.<\/div>';
   var h='<div class="mh"><div><div class="mtt">📦 Transferências pendentes<\/div><div class="msub">Ferramentas aguardando seu aceite<\/div><\/div><button class="mcb" onclick="closeM()">✕<\/button><\/div>'+linhas+
+    (pend.length>1?'<div class="mb-btns" style="margin-bottom:6px"><button class="b-grn" style="width:100%" onclick="acceptAllTransfers()">✓✓ Aceitar todas ('+pend.length+')<\/button><\/div>':'')+
     '<div class="mb-btns"><button class="b-cn" onclick="closeM()">Fechar<\/button><\/div>';
   showM(h);
 }
-async function acceptTransfer(id){
-  var t=tools.find(function(x){return String(x._id)===String(id);});
-  if(!t||!t.responsavelPendente)return;
+async function acceptTransferCore(t){
   var de=t.siglaLocal,para=t.siglaLocalPendente;
   t.local=t.localPendente;t.siglaLocal=t.siglaLocalPendente;
   t.responsavel=t.responsavelPendente;
@@ -911,8 +910,23 @@ async function acceptTransfer(id){
   dbSaveTool(t);
   var histDbId=await dbSaveHist(t._id,msg,CU?CU.name:'');
   if(histDbId)histEntry.dbId=histDbId;
-  closeM();renderAll();checkTransferAlert();
+}
+async function acceptTransfer(id){
+  var t=tools.find(function(x){return String(x._id)===String(id);});
+  if(!t||!t.responsavelPendente)return;
+  await acceptTransferCore(t);
+  renderAll();checkTransferAlert();
   showToast('Transferência aceita.',true);
+  // mantém a lista aberta se ainda houver outras pendentes
+  if(getPendingTransfersForEmail(CU?CU.email:'').length>0)openTransferModal();else closeM();
+}
+async function acceptAllTransfers(){
+  var pend=getPendingTransfersForEmail(CU?CU.email:'');
+  if(!pend.length)return;
+  if(!confirm('Aceitar todas as '+pend.length+' transferência'+(pend.length!==1?'s':'')+' pendente'+(pend.length!==1?'s':'')+'?'))return;
+  for(var i=0;i<pend.length;i++){await acceptTransferCore(pend[i]);}
+  closeM();renderAll();checkTransferAlert();
+  showToast(pend.length+' transferência'+(pend.length!==1?'s aceitas':' aceita')+'.',true);
 }
 async function rejectTransfer(id){
   var t=tools.find(function(x){return String(x._id)===String(id);});
