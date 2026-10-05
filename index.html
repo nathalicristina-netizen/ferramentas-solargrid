@@ -840,11 +840,21 @@ function calSt(t){
   var d=isNaN(parseFloat(t.diasProxCal))||t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);
   if(isNaN(d))return'sem';if(d<0)return'v';if(d<=60)return'p';return'ok';
 }
-function isQz(t){if(!t.lastConfirm)return false;var dias={'quinzenal':15,'mensal':30,'anual':365}[t.cicloConf||'mensal']||15;return(new Date()-new Date(t.lastConfirm.ts))<dias*86400000;}
+// Locais com ciclo de confirmação fixo de 3 em 3 meses (regra por local, vale para tudo: pendências, cobrança, badge, alertas)
+var LOCAIS_CICLO_TRIMESTRAL=['escritorio rio'];
+function _normLocal(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+function isLocalTrimestral(t){
+  var a=_normLocal(t.siglaLocal),b=_normLocal(t.local);
+  return LOCAIS_CICLO_TRIMESTRAL.some(function(l){return a===l||b===l;});
+}
+// Ciclo efetivo: o local manda (Escritório Rio = trimestral); fora isso vale o ciclo cadastrado na ferramenta
+function getCicloEfetivo(t){return isLocalTrimestral(t)?'trimestral':(t.cicloConf||'mensal');}
+function getCicloDias(t){return({'quinzenal':15,'mensal':30,'trimestral':90,'anual':365})[getCicloEfetivo(t)]||15;}
+function isQz(t){if(!t.lastConfirm)return false;return(new Date()-new Date(t.lastConfirm.ts))<getCicloDias(t)*86400000;}
 // Data em que a última confirmação venceu (ficou pendente de novo). Retorna null se a ferramenta nunca foi confirmada.
 function calcVencConf(t){
   if(!t.lastConfirm||!t.lastConfirm.ts)return null;
-  var dias={'quinzenal':15,'mensal':30,'anual':365}[t.cicloConf||'mensal']||15;
+  var dias=getCicloDias(t);
   return new Date(new Date(t.lastConfirm.ts).getTime()+dias*86400000);
 }
 // Ferramentas Inoperantes ou Furtadas não precisam de confirmação de local/posse
@@ -1641,7 +1651,7 @@ function renderTable(){
         if(t.laboratorio)tip+='<div class="td-tip-row"><span class="td-tip-lbl">Laboratório<\/span><span class="td-tip-val">'+t.laboratorio+'<\/span><\/div>';
         if(t.certCal)tip+='<div class="td-tip-row"><span class="td-tip-lbl">Cert. Cal.<\/span><span class="td-tip-val" style="font-family:monospace">'+t.certCal+'<\/span><\/div>';
         if(t.valor&&parseFloat(t.valor)>0){var vf=parseFloat(t.valor).toLocaleString('pt-BR',{minimumFractionDigits:2});tip+='<div class="td-tip-row"><span class="td-tip-lbl">Valor<\/span><span class="td-tip-val">R$ '+vf+'<\/span><\/div>';}
-        if(t.cicloConf&&t.cicloConf!=='mensal')tip+='<div class="td-tip-row"><span class="td-tip-lbl">Confirmação<\/span><span class="td-tip-val">'+t.cicloConf+'<\/span><\/div>';
+        if(getCicloEfetivo(t)!=='mensal')tip+='<div class="td-tip-row"><span class="td-tip-lbl">Confirmação<\/span><span class="td-tip-val">'+getCicloEfetivo(t)+'<\/span><\/div>';
         tip+='<\/div>';
         var hasExtra=t.obs||t.corretiva||t.laboratorio||t.certCal||(t.valor&&parseFloat(t.valor)>0);
         var dot=hasExtra?'<span style="font-size:9px;color:var(--or);margin-left:4px">●<\/span>':'';
@@ -3113,7 +3123,7 @@ function openUpd(id){
   h+='<div class="mf-row"><div class="mf"><label>Data Cal.<\/label><input id="uDcal" value="'+(t.dataCal||'')+'"/><\/div><div class="mf"><label>Dias próx. cal.<\/label><input id="uDias" type="number" value="'+(t.diasProxCal==='-'?'':t.diasProxCal||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Data Manutenção<\/label><input id="uDman" value="'+(t.dataManut||'')+'"/><\/div><div class="mf"><label>Dias próx. manut.<\/label><input id="uDman2" type="number" value="'+(t.diasProxManut==='-'?'':t.diasProxManut||'')+'"/><\/div><\/div>';
   h+='<div class="mf-row"><div class="mf"><label>Manutenção corretiva<\/label><select id="uCorr"><option value="">—<\/option><option'+(t.corretiva==="Precisa de reparo"?" selected":"")+'>Precisa de reparo<\/option><option'+(t.corretiva==="Em manutenção"?" selected":"")+'>Em manutenção<\/option><\/select><\/div><div class="mf"><label>Previsão de retorno<\/label><input id="uPrevCorr" value="'+(t.prevCorretiva||'')+'" placeholder="Ex: 10 dias"/><\/div><\/div>';
-  h+='<div class="mf-row"><div class="mf"><label>Ciclo de confirmação<\/label><select id="uCiclo"><option value="quinzenal"'+(t.cicloConf==="quinzenal"?" selected":"")+'>Quinzenal (15 dias)<\/option><option value="mensal"'+((!t.cicloConf||t.cicloConf==="mensal")?" selected":"")+'>Mensal (30 dias)<\/option><option value="anual"'+(t.cicloConf==="anual"?" selected":"")+'>Anual (365 dias)<\/option><\/select><\/div><div class="mf"><label>Valor (R$)<\/label><input id="uVal" value="'+fmtMoneyMasked(t.valor)+'" oninput="maskMoney(this)"/><\/div><\/div>';
+  h+='<div class="mf-row"><div class="mf"><label>Ciclo de confirmação'+(isLocalTrimestral(t)?' <span style="font-weight:400;color:var(--tx3)">(Escritório Rio: sempre trimestral)<\/span>':'')+'<\/label><select id="uCiclo"><option value="quinzenal"'+(t.cicloConf==="quinzenal"?" selected":"")+'>Quinzenal (15 dias)<\/option><option value="mensal"'+((!t.cicloConf||t.cicloConf==="mensal")?" selected":"")+'>Mensal (30 dias)<\/option><option value="trimestral"'+(t.cicloConf==="trimestral"?" selected":"")+'>Trimestral (90 dias)<\/option><option value="anual"'+(t.cicloConf==="anual"?" selected":"")+'>Anual (365 dias)<\/option><\/select><\/div><div class="mf"><label>Valor (R$)<\/label><input id="uVal" value="'+fmtMoneyMasked(t.valor)+'" oninput="maskMoney(this)"/><\/div><\/div>';
 
   h+='<div class="mf"><label>Nota Fiscal <span style="font-size:10px;color:var(--tx3)">(opcional)<\/span><\/label>'+((t.notaFiscalUrl||t.notaFiscal)?'<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:var(--tx2)">📎 '+(t.notaFiscalNome||'nota_fiscal.pdf')+'<\/span><button type="button" class="bs ok" style="font-size:11px;padding:3px 8px" onclick="openNF('+t._id+')">Ver<\/button><button type="button" class="bs rd" style="font-size:11px;padding:3px 8px" onclick="removeNF('+t._id+')">Remover<\/button><\/div>':'<input id="uNF" type="file" accept="application/pdf"/>')+'<\/div>';
   h+='<div class="mf"><label>Observação<\/label><textarea id="uObs">'+(t.obs||'')+'<\/textarea><\/div>';
