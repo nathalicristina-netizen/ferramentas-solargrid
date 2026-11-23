@@ -25,6 +25,69 @@
 }
 html,body{height:100%;margin:0;padding:0;font-family:var(--fb);background:var(--bg1);color:var(--tx1)}
 
+/* DASHBOARD */
+.dsh{--d-bg:#0d0f12;--d-card:#15181d;--d-bd:#262b32;--d-tx:#e9ecf1;--d-mut:#8b93a1;--d-or:#f26b21;background:var(--d-bg);color:var(--d-tx);border-radius:14px;padding:20px;max-width:1200px;margin:0 auto;font-family:var(--fb)}
+.dsh *{box-sizing:border-box}
+.dsh-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.dsh-brand{font-size:22px;font-weight:800;color:#fff;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.dsh-brand span{font-size:17px;font-weight:600;color:#e9ecf1}
+.dsh-brand::first-letter{color:var(--d-or)}
+.dsh-meta{font-size:12px;color:var(--d-mut);margin-top:6px;line-height:1.6}
+.dsh-meta b{color:#fff}
+.dsh-btn{background:var(--d-card);color:var(--d-tx);border:1px solid var(--d-bd);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.dsh-btn:hover{border-color:var(--d-or)}
+.dsh-btn.ghost{align-self:end}
+.dsh-btn:disabled{opacity:.6;cursor:wait}
+.dsh-tabs{display:flex;gap:4px;border-bottom:1px solid var(--d-bd);margin-bottom:14px;overflow-x:auto}
+.dsh-tab{background:none;border:0;border-bottom:3px solid transparent;color:var(--d-mut);padding:10px 14px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}
+.dsh-tab.on{color:#fff;border-bottom-color:var(--d-or)}
+.dsh-tab em{font-style:normal;background:#2a2f37;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:4px}
+.dsh-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;align-items:end}
+.dsh-filters label{display:flex;flex-direction:column;gap:5px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--d-mut)}
+.dsh select,.dsh input[type=search]{background:#0f1216;color:var(--d-tx);border:1px solid var(--d-bd);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;width:100%;text-transform:none;letter-spacing:0;font-weight:400}
+.dsh-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:14px}
+.dsh-kpi{background:var(--d-card);border:1px solid var(--d-bd);border-left:4px solid var(--c);border-radius:10px;padding:14px 16px}
+.dsh-kpi .l{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--d-mut)}
+.dsh-kpi .v{font-size:30px;font-weight:800;color:#fff;margin:4px 0}
+.dsh-kpi .s{font-size:12px;color:var(--d-mut)}
+.dsh-kpi .s b{color:#fff}
+.dsh-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.dsh-card{background:var(--d-card);border:1px solid var(--d-bd);border-radius:12px;padding:16px;margin-bottom:12px}
+.dsh-card h3{margin:0;font-size:15px;font-weight:700;color:#fff}
+.dsh-card .hint{font-size:11px;color:var(--d-mut);margin:2px 0 10px}
+.dsh-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.dsh-seg{display:flex;gap:4px}
+.dsh-seg button{background:#0f1216;color:var(--d-mut);border:1px solid var(--d-bd);border-radius:7px;padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.dsh-seg button.on{background:var(--d-or);border-color:var(--d-or);color:#fff}
+.dsh-list{max-height:460px;overflow-y:auto;padding-right:6px}
+.dsh-row{display:grid;grid-template-columns:minmax(120px,1.4fr) minmax(70px,1fr) auto minmax(70px,auto);align-items:center;gap:10px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:13px}
+.dsh-row:hover{background:#1b1f25}
+.dsh-row.on{background:#2a1d14;outline:1px solid var(--d-or)}
+.dsh-row .n{font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsh-row .bar{height:9px;background:#1d2127;border-radius:5px;overflow:hidden}
+.dsh-row .bar i{display:block;height:100%;background:var(--d-or);border-radius:5px}
+.dsh-row b{color:#fff;text-align:right;min-width:28px}
+.dsh-row .m{color:var(--d-mut);font-size:12px;text-align:right}
+.dsh-donutwrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center}
+.dsh-donut{width:190px;height:190px;flex:none}
+.dsh-donut .big{fill:#fff;font-size:30px;font-weight:800}
+.dsh-donut .sm{fill:#8b93a1;font-size:11px}
+.dsh-leg{flex:1;min-width:200px}
+.dsh-lr{display:grid;grid-template-columns:12px 1fr auto 52px;gap:8px;align-items:center;padding:5px 6px;border-radius:7px;font-size:13px;cursor:pointer}
+.dsh-lr:hover{background:#1b1f25}
+.dsh-lr.on{background:#2a1d14;outline:1px solid var(--d-or)}
+.dsh-lr i{width:10px;height:10px;border-radius:50%}
+.dsh-lr b{color:#fff}
+.dsh-lr em{font-style:normal;color:var(--d-mut);font-size:12px;text-align:right}
+.dsh-tbl{overflow:auto;max-height:520px}
+.dsh-tbl table{width:100%;border-collapse:collapse;font-size:13px}
+.dsh-tbl th{position:sticky;top:0;background:var(--d-card);text-align:left;color:var(--d-mut);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:8px;border-bottom:1px solid var(--d-bd)}
+.dsh-tbl td{padding:8px;border-bottom:1px solid #1d2127;color:#dfe3e8}
+.dsh-tbl td.neg{color:#ff7a72;font-weight:700}
+.dsh-tbl td.warn{color:#e5a93b;font-weight:700}
+.dsh-empty{padding:24px;text-align:center;color:var(--d-mut);font-size:13px}
+.dsh-foot{text-align:center;color:var(--d-mut);font-size:12px;margin-top:18px}
+
 /* SCREENS */
 .screen{display:none}
 .screen.active{display:flex;flex-direction:column;min-height:100vh}
@@ -540,9 +603,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
 
   <!-- TAB DASHBOARD -->
   <div id="tabDash" class="tab-content">
-    <div style="padding:16px">
-      <iframe title="Dashboard SolarGrid" width="100%" height="720" src="https://app.powerbi.com/view?r=eyJrIjoiNzI1YjVkMDctOTkxMi00ODFjLThjMzQtMWJhMGRkODI0MDBjIiwidCI6ImZjNGNmNzlkLTgwYTctNDJlOC1iYWI3LWI4ODUyNzVmN2ZjMSJ9" frameborder="0" allowFullScreen="true" style="border-radius:10px;border:1px solid var(--bd)"></iframe>
-    </div>
+    <div style="padding:16px"><div id="dshRoot"></div></div>
   </div>
 
   <!-- TAB CONFIRMAÇÕES -->
@@ -1796,6 +1857,7 @@ function updateHScrollBar(){
   });
 })();
 function renderAll(){
+  var _td=document.getElementById('tabDash');if(_td&&_td.classList.contains('on'))dshRender();
   renderTable();populateLocalFlt();populateRespFlt();populateSetorFlt();renderUsers();renderCerts();
   var btnN=document.getElementById('btnNova');
   if(btnN)btnN.style.display=(CU&&CU.role==='Admin')?'inline-flex':'none';
@@ -2433,8 +2495,219 @@ function showTab(id,btn){
   if(id==='tabAcessos'){var ab=document.querySelector('#tabAcessos input');if(ab)ab.value='';acessosSearch='';acessosPage=1;loadAcessos();}
   if(id==='tabTermos')loadTermosSB();
   if(id==='tabConfirm'){CONF_Q='';CONF_EMAIL='';var cb=document.getElementById('confBusca');if(cb)cb.value='';var ceb=document.getElementById('confEmailBusca');if(ceb)ceb.value='';renderConfirmacoes();}
+  if(id==='tabDash')dshRender();
   if(id==='tabCalVenc'){var cvb=document.getElementById('calVencBusca');if(cvb)cvb.value='';renderCalVenc();}
   setTimeout(updateHScrollBar,50);
+}
+
+// ── DASHBOARD (substitui o Power BI; lê as ferramentas já carregadas do Supabase) ──
+var DSH={tab:'geral',f:{status:'',setor:'',estado:'',local:'',resp:'',ferr:'',q:''},rank:'qtd',cal:'venc'};
+var DSH_COR={'OK':'#3fb97f','Atenção':'#e5a93b','Inoperante':'#e5534b','Procurar':'#a78bfa','Furtado':'#9f1d1d','Descartado':'#6b7280','Reciclagem':'#2dd4bf'};
+var DSH_INATIVOS=['Descartado','Reciclagem','Furtado'];
+function dshEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
+function dshVal(t){var n=parseFloat(String(t.valor==null?'':t.valor).replace(',','.'));return isNaN(n)?0:n;}
+function dshMoney(v){
+  if(v>=1e6)return'R$ '+(v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1})+' mi';
+  if(v>=1e4)return'R$ '+(v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:1})+' mil';
+  return'R$ '+Math.round(v).toLocaleString('pt-BR');
+}
+function dshNum(n){return Number(n||0).toLocaleString('pt-BR');}
+function dshPct(a,b){return b?(a/b*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'0%';}
+function dshCap(s){return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase();}
+function dshRespNome(r){
+  var e=String(r==null?'':r).trim();
+  if(!e||e==='—'||e==='-')return'Sem responsável';
+  if(e.toLowerCase()==='csc@solargrid.com.br')return'CSC (estoque central)';
+  if(e.indexOf('@')<0)return e;
+  var u=(typeof users!=='undefined'?users:[]).find(function(x){return(x.email||'').toLowerCase()===e.toLowerCase();});
+  if(u&&u.nome)return u.nome;
+  return e.split('@')[0].split(/[.\-_]/).filter(Boolean).map(dshCap).join(' ')||e;
+}
+function dshLocal(t){var l=(t.siglaLocal||t.local||'').trim();return l&&l!=='—'?l:'Sem local';}
+function dshAtiva(t){return DSH_INATIVOS.indexOf(t.status)<0;}
+function dshDias(t){
+  var d=isNaN(parseFloat(t.diasProxCal))||t.dataCal?calcDiasProxCal(t):parseFloat(t.diasProxCal);
+  return isNaN(d)?null:d;
+}
+function dshProxData(t){
+  var d=dshDias(t);if(d===null)return'—';
+  var h=new Date();h.setHours(0,0,0,0);h.setDate(h.getDate()+d);
+  return h.toLocaleDateString('pt-BR');
+}
+function dshLista(){
+  var f=DSH.f,q=(f.q||'').toLowerCase().trim();
+  return tools.filter(function(t){
+    if(f.status&&t.status!==f.status)return false;
+    if(f.setor&&(t.setor||'Sem setor')!==f.setor)return false;
+    if(f.estado&&(t.estado||'—')!==f.estado)return false;
+    if(f.local&&dshLocal(t)!==f.local)return false;
+    if(f.resp&&dshRespNome(t.responsavel)!==f.resp)return false;
+    if(f.ferr&&(t.ferramenta||'Sem nome')!==f.ferr)return false;
+    if(q&&[t.patrimonio,t.serie,t.marca,t.modelo,t.ferramenta].join(' ').toLowerCase().indexOf(q)<0)return false;
+    return true;
+  });
+}
+function dshGroup(list,keyFn){
+  var m={};
+  list.forEach(function(t){var k=keyFn(t);var o=m[k]||(m[k]={nome:k,qtd:0,val:0});o.qtd++;o.val+=dshVal(t);});
+  return Object.keys(m).map(function(k){return m[k];});
+}
+function dshOpts(label,key,vals){
+  var cur=DSH.f[key];
+  var h='<option value="">'+label+'<\/option>';
+  vals.forEach(function(v){h+='<option value="'+dshEsc(v)+'"'+(v===cur?' selected':'')+'>'+dshEsc(v)+'<\/option>';});
+  return h;
+}
+function dshUniq(fn){
+  var s={};tools.forEach(function(t){var v=fn(t);if(v)s[v]=1;});
+  return Object.keys(s).sort(function(a,b){return a.localeCompare(b,'pt-BR');});
+}
+function dshRender(){
+  var root=document.getElementById('dshRoot');if(!root)return;
+  var f=DSH.f;
+  var ativas=tools.filter(dshAtiva);
+  var venc=ativas.filter(function(t){return calSt(t)==='v';}).length;
+  var agora=new Date();
+  var tabs=[['geral','Visão geral'],['locais','Locais e responsáveis'],['cal','Calibração'],['valores','Valores']];
+  var h='<div class="dsh-top"><div><div class="dsh-brand">SolarGrid<span>Controle de Ferramentas<\/span><\/div>'+
+    '<div class="dsh-meta">Base: <b>'+agora.toLocaleDateString('pt-BR')+'<\/b> · <b>'+dshNum(tools.length)+'<\/b> registros<br>Calibração calculada em <b>'+agora.toLocaleDateString('pt-BR')+'<\/b><\/div><\/div>'+
+    '<button class="dsh-btn" onclick="dshRefresh(this)">Atualizar dados<\/button><\/div>';
+  h+='<div class="dsh-tabs">'+tabs.map(function(t){
+    return'<button class="dsh-tab'+(DSH.tab===t[0]?' on':'')+'" onclick="dshTab(\''+t[0]+'\')">'+t[1]+(t[0]==='cal'?' <em>'+venc+'<\/em>':'')+'<\/button>';
+  }).join('')+'<\/div>';
+  h+='<div class="dsh-filters">'+
+    '<label>Status<select onchange="dshSet(\'status\',this.value)">'+dshOpts('Todos','status',dshUniq(function(t){return t.status;}))+'<\/select><\/label>'+
+    '<label>Setor<select onchange="dshSet(\'setor\',this.value)">'+dshOpts('Todos','setor',dshUniq(function(t){return t.setor||'Sem setor';}))+'<\/select><\/label>'+
+    '<label>Estado<select onchange="dshSet(\'estado\',this.value)">'+dshOpts('Todos','estado',dshUniq(function(t){return t.estado&&t.estado!=='—'?t.estado:'';}))+'<\/select><\/label>'+
+    '<label>Local<select onchange="dshSet(\'local\',this.value)">'+dshOpts('Todos','local',dshUniq(dshLocal))+'<\/select><\/label>'+
+    '<label>Responsável<select onchange="dshSet(\'resp\',this.value)">'+dshOpts('Todos','resp',dshUniq(function(t){return dshRespNome(t.responsavel);}))+'<\/select><\/label>'+
+    '<label>Ferramenta<select onchange="dshSet(\'ferr\',this.value)">'+dshOpts('Todas','ferr',dshUniq(function(t){return t.ferramenta||'Sem nome';}))+'<\/select><\/label>'+
+    '<label class="dsh-q">Buscar<input type="search" placeholder="Patrimônio, série, marca…" value="'+dshEsc(f.q)+'" oninput="dshBusca(this.value)"/><\/label>'+
+    '<button class="dsh-btn ghost" onclick="dshClear()">Limpar filtros<\/button><\/div>';
+  h+='<div id="dshBody"><\/div>';
+  root.innerHTML='<div class="dsh">'+h+'<div class="dsh-foot">SolarGrid · CSC Backoffice · Controle de Ferramentas e Patrimônio<\/div><\/div>';
+  dshBody();
+}
+function dshBody(){
+  var el=document.getElementById('dshBody');if(!el)return;
+  var list=dshLista();
+  el.innerHTML=DSH.tab==='locais'?dshLocais(list):DSH.tab==='cal'?dshCalib(list):DSH.tab==='valores'?dshValores(list):dshGeral(list);
+}
+function dshTab(t){DSH.tab=t;dshRender();}
+function dshSet(k,v){DSH.f[k]=v;dshRender();}
+function dshPick(k,enc){var v=decodeURIComponent(enc);DSH.f[k]=DSH.f[k]===v?'':v;dshRender();}
+var _dshT=null;
+function dshBusca(v){DSH.f.q=v;clearTimeout(_dshT);_dshT=setTimeout(dshBody,200);}
+function dshClear(){DSH.f={status:'',setor:'',estado:'',local:'',resp:'',ferr:'',q:''};dshRender();}
+async function dshRefresh(btn){
+  if(btn){btn.disabled=true;btn.textContent='Atualizando…';}
+  try{await dbLoad();}catch(e){}
+  dshRender();
+}
+function dshCard(cor,lbl,val,sub){
+  return'<div class="dsh-kpi" style="--c:'+cor+'"><div class="l">'+lbl+'<\/div><div class="v">'+val+'<\/div><div class="s">'+sub+'<\/div><\/div>';
+}
+function dshRank(items,mode,key,sel,empty){
+  if(!items.length)return'<div class="dsh-empty">'+(empty||'Nada para mostrar com esses filtros.')+'<\/div>';
+  var sorted=items.slice().sort(function(a,b){return mode==='val'?(b.val-a.val||b.qtd-a.qtd):(b.qtd-a.qtd||b.val-a.val);});
+  var max=Math.max.apply(null,sorted.map(function(i){return mode==='val'?i.val:i.qtd;}))||1;
+  return'<div class="dsh-list">'+sorted.map(function(i){
+    var w=Math.max(2,Math.round((mode==='val'?i.val:i.qtd)/max*100));
+    return'<div class="dsh-row'+(sel===i.nome?' on':'')+'" onclick="dshPick(\''+key+'\',\''+encodeURIComponent(i.nome)+'\')">'+
+      '<span class="n" title="'+dshEsc(i.nome)+'">'+dshEsc(i.nome)+'<\/span><span class="bar"><i style="width:'+w+'%"><\/i><\/span>'+
+      '<b>'+dshNum(i.qtd)+'<\/b><span class="m">'+dshMoney(i.val)+'<\/span><\/div>';
+  }).join('')+'<\/div>';
+}
+function dshDonut(list){
+  var g=dshGroup(list,function(t){return t.status||'Sem status';}).sort(function(a,b){return b.qtd-a.qtd;});
+  var tot=list.length,R=70,C=2*Math.PI*R,off=0;
+  var segs=g.map(function(s){
+    var len=tot?s.qtd/tot*C:0;
+    var el='<circle r="'+R+'" cx="90" cy="90" fill="none" stroke="'+(DSH_COR[s.nome]||'#64748b')+'" stroke-width="22" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 90 90)"><\/circle>';
+    off+=len;return el;
+  }).join('');
+  var svg='<svg viewBox="0 0 180 180" class="dsh-donut"><circle r="'+R+'" cx="90" cy="90" fill="none" stroke="#1d2127" stroke-width="22"><\/circle>'+segs+
+    '<text x="90" y="88" text-anchor="middle" class="big">'+dshNum(tot)+'<\/text><text x="90" y="108" text-anchor="middle" class="sm">ferramentas<\/text><\/svg>';
+  var leg='<div class="dsh-leg">'+g.map(function(s){
+    return'<div class="dsh-lr'+(DSH.f.status===s.nome?' on':'')+'" onclick="dshPick(\'status\',\''+encodeURIComponent(s.nome)+'\')"><i style="background:'+(DSH_COR[s.nome]||'#64748b')+'"><\/i><span>'+dshEsc(s.nome)+'<\/span><b>'+dshNum(s.qtd)+'<\/b><em>'+dshPct(s.qtd,tot)+'<\/em><\/div>';
+  }).join('')+'<\/div>';
+  return'<div class="dsh-donutwrap">'+svg+leg+'<\/div>';
+}
+function dshGeral(list){
+  var ativas=list.filter(dshAtiva);
+  var oper=ativas.filter(function(t){return t.status==='OK'||t.status==='Atenção';}).length;
+  var inop=list.filter(function(t){return t.status==='Inoperante';}).length;
+  var proc=list.filter(function(t){return t.status==='Procurar';}).length;
+  var venc=ativas.filter(function(t){return calSt(t)==='v';}).length;
+  var v30=ativas.filter(function(t){var d=dshDias(t);return d!==null&&d>=0&&d<=30;}).length;
+  var h='<div class="dsh-kpis">'+
+    dshCard('#3fb97f','Em operação',dshNum(oper),'<b>'+dshPct(oper,ativas.length)+'<\/b> da carteira')+
+    dshCard('#e5534b','Pendentes',dshNum(inop+proc),'<b>'+dshNum(inop)+'<\/b> inoperantes · <b>'+dshNum(proc)+'<\/b> a procurar')+
+    dshCard('#e5a93b','Calibração vencida',dshNum(venc),'<b>'+dshNum(v30)+'<\/b> vencem em 30 dias')+'<\/div>';
+  var setores=dshGroup(list,function(t){return t.setor||'Sem setor';});
+  var ferr=dshGroup(list,function(t){return t.ferramenta||'Sem nome';});
+  h+='<div class="dsh-grid">'+
+    '<div class="dsh-card"><h3>Status<\/h3><div class="hint">clique para filtrar<\/div>'+dshDonut(list)+'<\/div>'+
+    '<div class="dsh-card"><h3>Valor por setor<\/h3><div class="hint">clique para filtrar<\/div>'+dshRank(setores,'val','setor',DSH.f.setor)+'<\/div><\/div>';
+  h+='<div class="dsh-card"><div class="dsh-hd"><h3>Quantidade e valor por ferramenta<\/h3><div class="dsh-seg">'+
+    '<button class="'+(DSH.rank==='qtd'?'on':'')+'" onclick="DSH.rank=\'qtd\';dshBody()">Por quantidade<\/button>'+
+    '<button class="'+(DSH.rank==='val'?'on':'')+'" onclick="DSH.rank=\'val\';dshBody()">Por valor<\/button><\/div><\/div>'+
+    dshRank(ferr,DSH.rank,'ferr',DSH.f.ferr)+'<\/div>';
+  return h;
+}
+function dshLocais(list){
+  var locais=dshGroup(list,dshLocal),resp=dshGroup(list,function(t){return dshRespNome(t.responsavel);});
+  var est=list.filter(function(t){return dshLocal(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')==='escritorio rio';});
+  var estVal=est.reduce(function(s,t){return s+dshVal(t);},0);
+  var outros=list.length-est.length,outVal=list.reduce(function(s,t){return s+dshVal(t);},0)-estVal;
+  var h='<div class="dsh-kpis">'+
+    dshCard('#f26b21','Locais com ferramentas',dshNum(locais.length),'<b>'+dshNum(resp.length)+'<\/b> responsáveis')+
+    dshCard('#3b82f6','No Escritório Rio',dshNum(est.length),'<b>'+dshPct(est.length,list.length)+'<\/b> · '+dshMoney(estVal))+
+    dshCard('#3fb97f','Nas usinas e clusters',dshNum(outros),'<b>'+dshPct(outros,list.length)+'<\/b> · '+dshMoney(outVal))+'<\/div>';
+  h+='<div class="dsh-card"><h3>Ferramentas por local<\/h3><div class="hint">'+dshNum(locais.length)+' locais · clique para filtrar<\/div>'+dshRank(locais,'qtd','local',DSH.f.local)+'<\/div>';
+  h+='<div class="dsh-card"><h3>Responsáveis pela guarda<\/h3><div class="hint">'+dshNum(resp.length)+' responsáveis · clique para filtrar<\/div>'+dshRank(resp,'qtd','resp',DSH.f.resp)+'<\/div>';
+  return h;
+}
+function dshCalib(list){
+  var ativas=list.filter(dshAtiva).filter(function(t){return dshDias(t)!==null;});
+  var venc=ativas.filter(function(t){return dshDias(t)<0;});
+  var d30=ativas.filter(function(t){var d=dshDias(t);return d>=0&&d<=30;});
+  var d60=ativas.filter(function(t){var d=dshDias(t);return d>30&&d<=60;});
+  var ok=ativas.filter(function(t){return dshDias(t)>60;});
+  var sets={venc:venc,d30:d30,d60:d60,ok:ok};
+  var cur=sets[DSH.cal]||venc;
+  var h='<div class="dsh-kpis four">'+
+    dshCard('#e5534b','Vencidas',dshNum(venc.length),'passaram do prazo')+
+    dshCard('#e5a93b','Vencem em 30 dias',dshNum(d30.length),'atenção imediata')+
+    dshCard('#f26b21','Vencem em 31–60 dias',dshNum(d60.length),'planejar')+
+    dshCard('#3fb97f','Em dia',dshNum(ok.length),'mais de 60 dias')+'<\/div>';
+  var chips=[['venc','Vencidas'],['d30','30 dias'],['d60','31–60 dias'],['ok','Em dia']];
+  var rows=cur.slice().sort(function(a,b){return dshDias(a)-dshDias(b);});
+  h+='<div class="dsh-card"><div class="dsh-hd"><h3>Calibração<\/h3><div class="dsh-seg">'+chips.map(function(c){
+    return'<button class="'+(DSH.cal===c[0]?'on':'')+'" onclick="DSH.cal=\''+c[0]+'\';dshBody()">'+c[1]+'<\/button>';}).join('')+'<\/div><\/div>';
+  h+=rows.length?'<div class="dsh-tbl"><table><thead><tr><th>Patrimônio<\/th><th>Ferramenta<\/th><th>Local<\/th><th>Responsável<\/th><th>Vencimento<\/th><th>Dias<\/th><\/tr><\/thead><tbody>'+
+    rows.map(function(t){var d=dshDias(t);
+      return'<tr><td>'+dshEsc(t.patrimonio)+'<\/td><td>'+dshEsc(t.ferramenta)+'<\/td><td>'+dshEsc(dshLocal(t))+'<\/td><td>'+dshEsc(dshRespNome(t.responsavel))+'<\/td><td>'+dshProxData(t)+'<\/td><td class="'+(d<0?'neg':d<=30?'warn':'')+'">'+d+'<\/td><\/tr>';
+    }).join('')+'<\/tbody><\/table><\/div>':'<div class="dsh-empty">Nenhuma ferramenta nessa faixa.<\/div>';
+  return h+'<\/div>';
+}
+function dshValores(list){
+  var tot=list.reduce(function(s,t){return s+dshVal(t);},0);
+  var comVal=list.filter(function(t){return dshVal(t)>0;});
+  var semVal=list.length-comVal.length;
+  var h='<div class="dsh-kpis">'+
+    dshCard('#f26b21','Valor total',dshMoney(tot),'<b>'+dshNum(list.length)+'<\/b> ferramentas')+
+    dshCard('#3b82f6','Valor médio',dshMoney(comVal.length?tot/comVal.length:0),'por ferramenta com valor')+
+    dshCard('#e5a93b','Sem valor cadastrado',dshNum(semVal),'<b>'+dshPct(semVal,list.length)+'<\/b> da base')+'<\/div>';
+  var st=dshGroup(list,function(t){return t.status||'Sem status';});
+  var se=dshGroup(list,function(t){return t.setor||'Sem setor';});
+  h+='<div class="dsh-grid"><div class="dsh-card"><h3>Valor por status<\/h3>'+dshRank(st,'val','status',DSH.f.status)+'<\/div>'+
+    '<div class="dsh-card"><h3>Valor por setor<\/h3>'+dshRank(se,'val','setor',DSH.f.setor)+'<\/div><\/div>';
+  var top=list.slice().sort(function(a,b){return dshVal(b)-dshVal(a);}).slice(0,20);
+  h+='<div class="dsh-card"><h3>20 itens de maior valor<\/h3><div class="dsh-tbl"><table><thead><tr><th>Patrimônio<\/th><th>Ferramenta<\/th><th>Local<\/th><th>Status<\/th><th>Valor<\/th><\/tr><\/thead><tbody>'+
+    top.map(function(t){return'<tr><td>'+dshEsc(t.patrimonio)+'<\/td><td>'+dshEsc(t.ferramenta)+'<\/td><td>'+dshEsc(dshLocal(t))+'<\/td><td>'+dshEsc(t.status)+'<\/td><td>'+dshMoney(dshVal(t))+'<\/td><\/tr>';}).join('')+
+    '<\/tbody><\/table><\/div><\/div>';
+  return h;
 }
 
 // ── CONFIRMAÇÃO ──
