@@ -88,6 +88,57 @@ html,body{height:100%;margin:0;padding:0;font-family:var(--fb);background:var(--
 .dsh-empty{padding:24px;text-align:center;color:var(--d-mut);font-size:13px}
 .dsh-foot{text-align:center;color:var(--d-mut);font-size:12px;margin-top:18px}
 
+/* CONFIRMAÇÕES (nova) */
+.cf-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.cf-kpi{background:var(--bg2);border:1px solid var(--bd);border-left:4px solid var(--c);border-radius:10px;padding:10px 14px;display:flex;align-items:baseline;gap:8px}
+.cf-kpi b{font-size:22px;color:var(--tx1)}
+.cf-kpi span{font-size:12px;color:var(--tx2)}
+.cf-kpi.rd{--c:var(--rd)}.cf-kpi.gr{--c:var(--gr)}.cf-kpi.am{--c:var(--am)}
+.cf-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.cf-seg{display:inline-flex;background:var(--bg2);border:1px solid var(--bd);border-radius:9px;padding:3px}
+.cf-seg button{border:0;background:none;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:600;color:var(--tx2);cursor:pointer;font-family:var(--fb)}
+.cf-seg button.on{background:var(--nv);color:#fff}
+.cf-srch{max-width:340px}
+.cf-empty{text-align:center;padding:34px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)}
+.cf-grp{background:var(--bg2);border:1px solid var(--bd);border-radius:10px;margin-bottom:8px;overflow:hidden}
+.cf-gh{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;flex-wrap:wrap}
+.cf-gh:hover{background:var(--bg3)}
+.cf-caret{color:var(--tx3);font-size:11px;width:10px}
+.cf-gn{display:flex;flex-direction:column;min-width:0;flex:1}
+.cf-gn b{color:var(--nv);font-size:14px}
+.cf-em{font-size:11px;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cf-cnt{font-size:11px;font-weight:700;color:var(--rd);background:var(--rd-bg);padding:3px 9px;border-radius:20px;white-space:nowrap}
+.cf-cnt.ok{color:#15803d;background:var(--gr-bg)}
+.cf-gacts{display:flex;gap:6px;flex-wrap:wrap}
+.cf-mini{background:#fff;border:1px solid var(--bd);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--nv);cursor:pointer;white-space:nowrap;font-family:var(--fb)}
+.cf-mini:hover{border-color:var(--nv)}
+.cf-mini.grn{background:var(--gr);border-color:var(--gr);color:#fff}
+.cf-body{border-top:1px solid var(--bd)}
+.cf-row{display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--bd)}
+.cf-row:last-child{border-bottom:0}
+.cf-row.done{background:#fafcff}
+.cf-row.done .cf-t{color:var(--tx2)}
+.cf-chk{width:16px;height:16px;cursor:pointer;flex:none;accent-color:var(--gr)}
+.cf-chk-ph{width:16px;flex:none;color:var(--gr);font-weight:700;text-align:center;font-size:13px}
+.cf-info{flex:1;min-width:0}
+.cf-t{font-size:13px;color:var(--tx1);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cf-s{font-size:11px;color:var(--tx3);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cf-tag{font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px}
+.cf-tag.rd{color:var(--rd);background:var(--rd-bg)}.cf-tag.gr{color:#15803d;background:var(--gr-bg)}.cf-tag.am{color:var(--am-tx);background:var(--am-bg)}
+.cf-acts{display:flex;gap:6px;flex:none}
+.cf-ok{background:var(--gr);color:#fff;border:0;border-radius:7px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--fb)}
+.cf-ok:hover{filter:brightness(.95)}
+.cf-mv{background:#fff;color:var(--tx2);border:1px solid var(--bd);border-radius:7px;padding:7px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:var(--fb)}
+.cf-mv:hover{border-color:var(--or);color:var(--or)}
+.cf-selbar{position:sticky;bottom:14px;margin-top:12px;background:var(--nv);color:#fff;border-radius:10px;padding:10px 14px;align-items:center;gap:10px;box-shadow:0 6px 20px rgba(0,0,0,.2);font-size:13px;font-weight:600}
+.cf-selbar span{flex:1}
+@media(max-width:640px){
+  .cf-kpis{grid-template-columns:1fr}
+  .cf-row{flex-wrap:wrap}
+  .cf-acts{width:100%;padding-left:28px}
+  .cf-acts button{flex:1}
+}
+
 /* SCREENS */
 .screen{display:none}
 .screen.active{display:flex;flex-direction:column;min-height:100vh}
@@ -608,28 +659,12 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
 
   <!-- TAB CONFIRMAÇÕES -->
   <div id="tabConfirm" class="tab-content">
-    <div style="max-width:1100px;margin:0 auto;padding:20px 16px">
-      <div style="margin-bottom:16px">
-        <h2 style="font-size:17px;font-weight:700;color:var(--nv)">📍 Controle de Confirmações</h2>
-        <p style="font-size:12px;color:var(--tx3);margin-top:3px">Quem está confirmando os locais das ferramentas e o que ainda falta confirmar</p>
+    <div style="max-width:1000px;margin:0 auto;padding:20px 16px">
+      <div style="margin-bottom:14px">
+        <h2 style="font-size:17px;font-weight:700;color:var(--nv)">📍 Confirmações</h2>
+        <p style="font-size:12px;color:var(--tx3);margin-top:3px">Confirme aqui mesmo se cada ferramenta continua no mesmo lugar. Se mudou, clique em "Mudou de lugar".</p>
       </div>
-      <div id="confMetrics" class="mcs" style="margin-bottom:18px"></div>
-      <div class="srch" style="max-width:320px;margin-bottom:18px">
-        <span class="srch-ico">🔍</span>
-        <input type="text" id="confBusca" placeholder="Buscar por nome ou local…" oninput="filterConfirmacoes(this.value)"/>
-      </div>
-      <h3 style="font-size:14px;font-weight:700;color:var(--nv);margin-bottom:10px">🔺 Ranking de pendências por pessoa</h3>
-      <div id="pendRanking" style="margin-bottom:26px"></div>
-      <h3 style="font-size:14px;font-weight:700;color:var(--nv);margin-bottom:10px">🏆 Ranking de confirmações por pessoa</h3>
-      <div id="confRanking" style="margin-bottom:26px"></div>
-      <div id="confPendSection">
-        <h3 style="font-size:14px;font-weight:700;color:var(--nv);margin-bottom:10px">⏳ Pendências por responsável</h3>
-        <div class="srch" style="max-width:320px;margin-bottom:14px">
-          <span class="srch-ico">📧</span>
-          <input type="text" id="confEmailBusca" placeholder="Buscar pelo e-mail do responsável…" oninput="filterConfEmail(this.value)"/>
-        </div>
-        <div id="confPendentes"></div>
-      </div>
+      <div id="cfRoot"></div>
     </div>
   </div>
 
@@ -750,7 +785,7 @@ tbody td{padding:9px 11px;font-size:13px;vertical-align:top}
   <div id="undoConfBanner" style="display:none;position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
     background:#1E3A5F;color:#fff;padding:10px 12px 10px 16px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);
     z-index:400;align-items:center;gap:12px;font-size:13px">
-    <span>✅ Confirmado!</span>
+    <span id="undoConfTxt">✅ Confirmado!</span>
     <button onclick="undoLastConfirm()" style="background:var(--or);color:#fff;border:0;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">↩️ Desfazer</button>
   </div>
 
@@ -1919,18 +1954,9 @@ function checkPendingAlert(){
 function dismissPendAlert(){var b=document.getElementById('pendAlertBanner');if(b)b.style.display='none';}
 function goToMyPendencias(){
   dismissPendAlert();
+  CF.view='minhas';CF.sit='pend';CF.q='';CF.open={};CF.sel={};
   var btn=document.getElementById('tabConfirmBtn');
   showTab('tabConfirm',btn);
-  if(!CU)return;
-  if(CU.role==='Admin'){
-    var ceb=document.getElementById('confEmailBusca');
-    if(ceb)ceb.value=CU.email;
-    filterConfEmail(CU.email);
-  }else{
-    var cb=document.getElementById('confBusca');
-    if(cb)cb.value=CU.name;
-    filterConfirmacoes(CU.name);
-  }
 }
 function setF(btn,f){document.querySelectorAll('.ft').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');AF=f;page=1;renderTable();saveSession();}
 function setFMc(f){AF=f;page=1;document.querySelectorAll('.ft').forEach(function(b){var t=b.getAttribute('data-f');b.classList.toggle('on',t===f);});renderTable();saveSession();}
@@ -2494,7 +2520,7 @@ function showTab(id,btn){
   if(id==='tabHist')loadHistGeral();
   if(id==='tabAcessos'){var ab=document.querySelector('#tabAcessos input');if(ab)ab.value='';acessosSearch='';acessosPage=1;loadAcessos();}
   if(id==='tabTermos')loadTermosSB();
-  if(id==='tabConfirm'){CONF_Q='';CONF_EMAIL='';var cb=document.getElementById('confBusca');if(cb)cb.value='';var ceb=document.getElementById('confEmailBusca');if(ceb)ceb.value='';renderConfirmacoes();}
+  if(id==='tabConfirm')renderConfirmacoes();
   if(id==='tabDash')dshRender();
   if(id==='tabCalVenc'){var cvb=document.getElementById('calVencBusca');if(cvb)cvb.value='';renderCalVenc();}
   setTimeout(updateHScrollBar,50);
@@ -2787,6 +2813,7 @@ var UNDO_CONF=null;
 function showUndoConfToast(toolId,prev,histEntry,histDbId){
   if(UNDO_CONF&&UNDO_CONF.timeoutId)clearTimeout(UNDO_CONF.timeoutId);
   UNDO_CONF={toolId:toolId,prev:prev,histEntry:histEntry,histDbId:histDbId};
+  var _tx=document.getElementById('undoConfTxt');if(_tx)_tx.textContent='✅ Confirmado!';
   var b=document.getElementById('undoConfBanner');
   if(!b)return;
   b.style.display='flex';
@@ -2797,6 +2824,17 @@ function showUndoConfToast(toolId,prev,histEntry,histDbId){
 }
 function undoLastConfirm(){
   if(!UNDO_CONF)return;
+  if(UNDO_CONF.batch){
+    var bb=document.getElementById('undoConfBanner');if(bb)bb.style.display='none';
+    if(UNDO_CONF.timeoutId)clearTimeout(UNDO_CONF.timeoutId);
+    var n=UNDO_CONF.batch.length;
+    UNDO_CONF.batch.forEach(cfDesfazerUm);
+    UNDO_CONF=null;
+    var tx=document.getElementById('undoConfTxt');if(tx)tx.textContent='✅ Confirmado!';
+    renderAll();checkTransferAlert();
+    showToast(n+' confirmações desfeitas.',true);
+    return;
+  }
   var t=tools.find(function(x){return x._id===UNDO_CONF.toolId;});
   var b=document.getElementById('undoConfBanner');
   if(b)b.style.display='none';
@@ -2969,172 +3007,207 @@ function renderCalVenc(){
       '<th style="padding:9px 10px">Status<\/th>'+
     '<\/tr><\/thead><tbody>'+rows+'<\/tbody><\/table><\/div>';
 }
-function renderConfirmacoes(){
-  var elM=document.getElementById('confMetrics');
-  var elPR=document.getElementById('pendRanking');
-  var elR=document.getElementById('confRanking');
-  var elP=document.getElementById('confPendentes');
-  if(!elM||!elPR||!elR||!elP)return;
-
-  var pendSection=document.getElementById('confPendSection');
-  var isAdmin=CU&&CU.role==='Admin';
-  if(pendSection)pendSection.style.display=isAdmin?'block':'none';
-
-  var confirmadas=0,pendentes=0;
-  tools.forEach(function(t){
-    if(!precisaConfirmar(t))return;
-    if(isQz(t))confirmadas++;else pendentes++;
-  });
-
-  elM.innerHTML=
-    '<div class="mc" style="cursor:default;background:#F0FDF4;border-color:#86efac"><span class="mc-ico">✅</span><div class="mc-val" style="color:#14532d">'+confirmadas+'</div><div class="mc-lbl" style="color:#15803d">CONFIRMADAS</div></div>'+
-    '<div class="mc" style="cursor:default;background:#FFF7ED;border-color:#fdba74"><span class="mc-ico">⏳</span><div class="mc-val" style="color:#7c2d12">'+pendentes+'</div><div class="mc-lbl" style="color:#c2410c">AINDA NÃO CONFIRMADAS</div></div>';
-
-  // Pendências por pessoa (calculado primeiro para alimentar o ranking de pendências e a lista detalhada abaixo)
-  var pend={};
-  tools.forEach(function(t){
-    if(!precisaConfirmar(t))return;
-    if(isQz(t))return;
-    var r=(t.responsavel||'—').trim()||'—';
-    if(!pend[r])pend[r]=[];
-    pend[r].push(t);
-  });
-
-  var nomesPend=Object.keys(pend);
-  if(CONF_Q){
-    nomesPend=nomesPend.filter(function(n){
-      if(n.toLowerCase().indexOf(CONF_Q)>=0)return true;
-      return pend[n].some(function(t){return(t.siglaLocal||'').toLowerCase().indexOf(CONF_Q)>=0;});
-    });
-  }
-  if(!nomesPend.length){
-    elPR.innerHTML='<div style="text-align:center;padding:30px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'+(CONF_Q?'Nenhum resultado para essa busca.':'🎉 Nenhuma pendência! Tudo confirmado.')+'</div>';
-  }else{
-    nomesPend.sort(function(a,b){return pend[b].length-pend[a].length;});
-    PEND_RANKING_ITEMS=[];
-    var rowsPR=nomesPend.map(function(n,i){
-      var lista=pend[n];
-      var itens=lista.map(function(t){return{patrimonio:t.patrimonio,ferramenta:t.ferramenta,local:t.siglaLocal||'—',venc:calcVencConf(t)};});
-      PEND_RANKING_ITEMS[i]={nome:n,itens:itens};
-      var nuncaConf=itens.some(function(it){return!it.venc;});
-      var maisAntiga=itens.reduce(function(min,it){
-        if(!it.venc)return min; // "nunca confirmado" é tratado à parte
-        return(!min||new Date(it.venc)<new Date(min))?it.venc:min;
-      },null);
-      var vencColuna=nuncaConf?'<span style="color:#dc2626;font-weight:600">nunca confirmado</span>':(maisAntiga?fmt(maisAntiga):'—');
-      return '<tr>'+
-        '<td style="padding:9px 12px;font-weight:600">'+n+'</td>'+
-        '<td style="padding:9px 12px;text-align:center;font-weight:700;color:#dc2626">'+lista.length+'</td>'+
-        '<td style="padding:9px 12px;text-align:center;font-size:11px">'+vencColuna+'</td>'+
-        '<td style="padding:9px 12px;text-align:center"><button onclick="verFerramentasPendentes('+i+')" style="background:#fff;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;color:var(--nv);cursor:pointer">🔍 Ver<\/button><\/td>'+
-        '</tr>';
-    }).join('');
-    elPR.innerHTML='<div style="overflow-x:auto;border:1px solid var(--bd);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
-      '<thead><tr style="background:var(--nv);color:#fff"><th style="padding:9px 12px;text-align:left">Responsável</th><th style="padding:9px 12px">Pendências</th><th style="padding:9px 12px">Vencida há mais tempo</th><th style="padding:9px 12px">Ferramentas</th></tr></thead>'+
-      '<tbody>'+rowsPR+'</tbody></table></div>';
-  }
-
-  // Ranking por pessoa (quem efetivamente confirmou), com os locais e as ferramentas que essa pessoa confirmou
-  var porPessoa={};
-  tools.forEach(function(t){
-    (t.hist||[]).forEach(function(h){
-      if(h.user&&isConfirmMsg(h.msg)){
-        if(!porPessoa[h.user])porPessoa[h.user]={count:0,lastTs:null,locais:{},itens:[]};
-        porPessoa[h.user].count++;
-        porPessoa[h.user].itens.push({patrimonio:t.patrimonio,ferramenta:t.ferramenta,local:t.siglaLocal||'—',data:h.t});
-        if(t.siglaLocal)porPessoa[h.user].locais[t.siglaLocal]=1;
-      }
-    });
-    if(t.lastConfirm&&t.lastConfirm.user){
-      var u=t.lastConfirm.user;
-      if(!porPessoa[u])porPessoa[u]={count:0,lastTs:null,locais:{},itens:[]};
-      if(!porPessoa[u].lastTs||new Date(t.lastConfirm.ts)>new Date(porPessoa[u].lastTs))porPessoa[u].lastTs=t.lastConfirm.ts;
-      if(t.siglaLocal)porPessoa[u].locais[t.siglaLocal]=1;
-    }
-  });
-
-  var nomes=Object.keys(porPessoa);
-  if(CONF_Q){
-    nomes=nomes.filter(function(n){
-      if(n.toLowerCase().indexOf(CONF_Q)>=0)return true;
-      return Object.keys(porPessoa[n].locais).some(function(l){return l.toLowerCase().indexOf(CONF_Q)>=0;});
-    });
-  }
-  if(!nomes.length){
-    elR.innerHTML='<div style="text-align:center;padding:30px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'+(CONF_Q?'Nenhum resultado para essa busca.':'Ainda não há confirmações registradas.')+'</div>';
-  }else{
-    nomes.sort(function(a,b){return porPessoa[b].count-porPessoa[a].count;});
-    CONF_RANKING_ITEMS=[];
-    var rows=nomes.map(function(n,i){
-      var d=porPessoa[n];
-      var last=d.lastTs?fmt(d.lastTs):'—';
-      CONF_RANKING_ITEMS[i]={nome:n,itens:d.itens};
-      return '<tr>'+
-        '<td style="padding:9px 12px;font-weight:600">'+n+'</td>'+
-        '<td style="padding:9px 12px;text-align:center;font-weight:700;color:var(--nv)">'+d.count+'</td>'+
-        '<td style="padding:9px 12px;text-align:center">'+last+'</td>'+
-        '<td style="padding:9px 12px;text-align:center"><button onclick="verFerramentasConfirmadas('+i+')" style="background:#fff;border:1px solid var(--bd);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;color:var(--nv);cursor:pointer">🔍 Ver<\/button><\/td>'+
-        '</tr>';
-    }).join('');
-    elR.innerHTML='<div style="overflow-x:auto;border:1px solid var(--bd);border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
-      '<thead><tr style="background:var(--nv);color:#fff"><th style="padding:9px 12px;text-align:left">Responsável</th><th style="padding:9px 12px">Confirmações</th><th style="padding:9px 12px">Última confirmação</th><th style="padding:9px 12px">Ferramentas</th></tr></thead>'+
-      '<tbody>'+rows+'</tbody></table></div>';
-  }
-
-  // Pendências agrupadas por responsável (reaproveita o `pend` já calculado acima, para o ranking)
-  var respPend=Object.keys(pend);
-  if(CONF_Q){
-    respPend=respPend.filter(function(r){
-      if(r.toLowerCase().indexOf(CONF_Q)>=0)return true;
-      return pend[r].some(function(t){return(t.siglaLocal||'').toLowerCase().indexOf(CONF_Q)>=0;});
-    });
-  }
-  // Filtro por e-mail: casa direto contra o campo responsável (que às vezes já É um e-mail,
-  // por causa das transferências aceitas) e também contra o nome de usuários com esse e-mail.
-  var emailAtivo=false;
-  if(CONF_EMAIL){
-    emailAtivo=true;
-    var nomesEmail=users.filter(function(u){return u.email&&u.email.toLowerCase().indexOf(CONF_EMAIL)>=0;}).map(function(u){return u.nome.toLowerCase();});
-    respPend=respPend.filter(function(r){
-      var rl=r.toLowerCase();
-      if(rl.indexOf(CONF_EMAIL)>=0)return true;
-      return nomesEmail.some(function(n){return rl.indexOf(n)>=0||n.indexOf(rl)>=0;});
-    });
-  }
-  respPend.sort(function(a,b){return pend[b].length-pend[a].length;});
-  CONF_PEND_MSGS=[];
-  if(!respPend.length){
-    elP.innerHTML='<div style="text-align:center;padding:24px;color:var(--tx3);font-size:13px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'+((CONF_Q||emailAtivo)?'Nenhum resultado para essa busca.':'🎉 Nenhuma pendência! Tudo confirmado.')+'</div>';
-  }else{
-    elP.innerHTML=respPend.map(function(r,i){
-      var lista=pend[r];
-      if(CONF_Q&&r.toLowerCase().indexOf(CONF_Q)<0){
-        lista=lista.filter(function(t){return(t.siglaLocal||'').toLowerCase().indexOf(CONF_Q)>=0;});
-      }
-      var itens=lista.map(function(t){
-        var venc=calcVencConf(t);
-        var vencTxt=venc?('venceu '+fmt(venc)):'nunca confirmado';
-        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:12px">'+
-          '<span><strong>'+t.patrimonio+'</strong> — '+t.ferramenta+'</span>'+
-          '<span style="display:flex;align-items:center;gap:8px">'+stBadge(t.status)+'<span style="color:var(--tx3)">'+(t.siglaLocal||'—')+'</span><span style="color:'+(venc?'#dc2626':'#c2410c')+';font-size:10px;white-space:nowrap">'+vencTxt+'</span></span>'+
-          '</div>';
-      }).join('');
-      CONF_PEND_MSGS[i]='Olá, '+primeiroNomeEmail(r)+'! Tudo bem? Você tem '+lista.length+' ferramenta'+(lista.length!==1?'s':'')+' pendente'+(lista.length!==1?'s':'')+' de confirmação na plataforma de Gestão de Ferramentas. Poderia dar uma olhadinha quando puder? Obrigado! 🙏\n\nhttps://ferramentas-solargrid.vercel.app/';
-      var aberto=emailAtivo; // se veio de busca por e-mail, já mostra aberto
-      return '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 16px;margin-bottom:8px">'+
-        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
-          '<div style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1" onclick="togglePendGrp('+i+')">'+
-            '<span id="pendIco-'+i+'" style="color:var(--tx3);font-size:11px">'+(aberto?'▾':'▸')+'</span>'+
-            '<span style="font-weight:700;color:var(--nv)">'+r+'</span>'+
-            '<span style="font-weight:400;color:var(--tx3);font-size:11px">('+lista.length+' pendente'+(lista.length!==1?'s':'')+')</span>'+
-          '</div>'+
-          '<button onclick="event.stopPropagation();copiarCobranca('+i+')" style="background:#fff;border:1px solid var(--bd);border-radius:7px;padding:4px 10px;font-size:11px;font-weight:600;color:var(--nv);cursor:pointer;white-space:nowrap">📋 Cobrar</button>'+
-        '</div>'+
-        '<div id="pendGrp-'+i+'" style="display:'+(aberto?'block':'none')+';margin-top:8px">'+itens+'</div>'+
-        '</div>';
-    }).join('');
-  }
+// ── ABA CONFIRMAÇÕES (nova): confirma direto por aqui, agrupado por responsável ──
+var CF={view:'minhas',sit:'pend',q:'',open:{},sel:{}};
+function cfPodeVerTodas(){return !!(CU&&CU.role&&CU.role!=='Comum');}
+function cfEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
+function cfIsMinha(t){
+  if(!CU)return false;
+  var r=(t.responsavel||'').toLowerCase().trim();if(!r)return false;
+  var em=(CU.email||'').toLowerCase().trim(),nm=(CU.name||'').toLowerCase().trim();
+  if(em&&r===em)return true;
+  if(nm&&r.indexOf('@')<0&&(r.indexOf(nm)>=0||nm.indexOf(r)>=0))return true;
+  return false;
 }
+function cfRespKey(t){return(t.responsavel||'').toLowerCase().trim()||'—';}
+function cfRespNome(r){
+  var e=String(r==null?'':r).trim();
+  if(!e||e==='—'||e==='-')return'Sem responsável';
+  if(e.toLowerCase()==='csc@solargrid.com.br')return'CSC (estoque central)';
+  if(e.indexOf('@')<0)return e;
+  var u=(users||[]).find(function(x){return(x.email||'').toLowerCase()===e.toLowerCase();});
+  if(u&&u.nome)return u.nome;
+  return e.split('@')[0].split(/[.\-_]/).filter(Boolean).map(function(p){return p.charAt(0).toUpperCase()+p.slice(1).toLowerCase();}).join(' ')||e;
+}
+function cfVencTxt(t){
+  var v=calcVencConf(t);
+  if(t.responsavelPendente)return'<span class="cf-tag am">aguardando aceite de '+cfEsc(cfRespNome(t.responsavelPendente))+'<\/span>';
+  if(isQz(t))return'<span class="cf-tag gr">confirmada · próxima até '+fmt(v)+'<\/span>';
+  if(!v)return'<span class="cf-tag rd">nunca confirmada<\/span>';
+  return'<span class="cf-tag rd">venceu '+fmt(v)+'<\/span>';
+}
+function cfLista(){
+  var q=CF.q;
+  return tools.filter(function(t){
+    if(!precisaConfirmar(t))return false;
+    if(CF.view==='minhas'||!cfPodeVerTodas()){if(!cfIsMinha(t))return false;}
+    var pend=!isQz(t);
+    if(CF.sit==='pend'&&!pend)return false;
+    if(CF.sit==='conf'&&pend)return false;
+    if(q){
+      var alvo=[t.patrimonio,t.ferramenta,t.siglaLocal,t.local,t.responsavel,cfRespNome(t.responsavel)].join(' ').toLowerCase();
+      if(alvo.indexOf(q)<0)return false;
+    }
+    return true;
+  });
+}
+function renderConfirmacoes(){
+  var root=document.getElementById('cfRoot');if(!root)return;
+  var podeTodas=cfPodeVerTodas();
+  if(!podeTodas)CF.view='minhas';
+  var base=tools.filter(function(t){return precisaConfirmar(t)&&(CF.view==='todas'?true:cfIsMinha(t));});
+  var nPend=base.filter(function(t){return!isQz(t);}).length;
+  var nConf=base.length-nPend;
+  var nNunca=base.filter(function(t){return!t.lastConfirm;}).length;
+  var list=cfLista();
+  // agrupa por responsável
+  var g={};
+  list.forEach(function(t){var k=cfRespKey(t);(g[k]=g[k]||[]).push(t);});
+  var keys=Object.keys(g).sort(function(a,b){
+    var pa=g[a].filter(function(t){return!isQz(t);}).length,pb=g[b].filter(function(t){return!isQz(t);}).length;
+    return pb-pa||a.localeCompare(b,'pt-BR');
+  });
+  // limpa seleção de itens que sumiram
+  var vis={};list.forEach(function(t){vis[t._id]=1;});
+  Object.keys(CF.sel).forEach(function(id){if(!vis[id])delete CF.sel[id];});
+
+  var h='<div class="cf-kpis">'+
+    '<div class="cf-kpi rd"><b>'+nPend+'<\/b><span>pendente'+(nPend!==1?'s':'')+'<\/span><\/div>'+
+    '<div class="cf-kpi gr"><b>'+nConf+'<\/b><span>confirmada'+(nConf!==1?'s':'')+' no ciclo<\/span><\/div>'+
+    '<div class="cf-kpi am"><b>'+nNunca+'<\/b><span>nunca confirmada'+(nNunca!==1?'s':'')+'<\/span><\/div><\/div>';
+  h+='<div class="cf-bar">';
+  if(podeTodas)h+='<div class="cf-seg"><button class="'+(CF.view==='minhas'?'on':'')+'" onclick="cfSetView(\'minhas\')">Minhas<\/button><button class="'+(CF.view==='todas'?'on':'')+'" onclick="cfSetView(\'todas\')">Todas<\/button><\/div>';
+  h+='<div class="cf-seg"><button class="'+(CF.sit==='pend'?'on':'')+'" onclick="cfSetSit(\'pend\')">Pendentes<\/button><button class="'+(CF.sit==='conf'?'on':'')+'" onclick="cfSetSit(\'conf\')">Confirmadas<\/button><button class="'+(CF.sit==='todas'?'on':'')+'" onclick="cfSetSit(\'todas\')">Todas<\/button><\/div>';
+  h+='<div class="srch cf-srch"><span class="srch-ico">🔍<\/span><input type="text" id="confBusca" placeholder="Buscar pessoa, e-mail, local, patrimônio…" value="'+cfEsc(CF.q)+'" oninput="cfBusca(this.value)"/><\/div><\/div>';
+
+  if(!keys.length){
+    h+='<div class="cf-empty">'+(CF.q?'Nenhum resultado para essa busca.':CF.sit==='pend'?'🎉 Nenhuma pendência'+(CF.view==='minhas'?' sua':'')+'! Tudo confirmado.':'Nenhuma ferramenta aqui.')+'<\/div>';
+  }else{
+    CONF_PEND_MSGS=[];
+    h+=keys.map(function(k,i){
+      var itens=g[k].slice().sort(function(a,b){
+        var pa=isQz(a)?1:0,pb=isQz(b)?1:0;if(pa!==pb)return pa-pb;
+        var va=calcVencConf(a),vb=calcVencConf(b);
+        return(va?va.getTime():-Infinity)-(vb?vb.getTime():-Infinity);
+      });
+      var pend=itens.filter(function(t){return!isQz(t);});
+      var nome=cfRespNome((g[k][0].responsavel||'').trim()||k);
+      var aberto=CF.open[k]!==undefined?CF.open[k]:(keys.length<=3||!!CF.q||CF.view==='minhas');
+      var isAdmin=CU&&CU.role==='Admin';
+      if(isAdmin&&pend.length&&k!=='—'){
+        CONF_PEND_MSGS[i]='Olá, '+primeiroNomeEmail(k)+'! Tudo bem? Você tem '+pend.length+' ferramenta'+(pend.length!==1?'s':'')+' pendente'+(pend.length!==1?'s':'')+' de confirmação na plataforma de Gestão de Ferramentas. Poderia dar uma olhadinha quando puder? Obrigado! 🙏\n\nhttps://ferramentas-solargrid.vercel.app/';
+      }
+      var kEnc=encodeURIComponent(k);
+      var rows=itens.map(function(t){
+        var p=!isQz(t);
+        return'<div class="cf-row'+(p?'':' done')+'">'+
+          (p?'<input type="checkbox" class="cf-chk" '+(CF.sel[t._id]?'checked ':'')+'onchange="cfToggleSel('+t._id+',this.checked)"/>':'<span class="cf-chk-ph">✓<\/span>')+
+          '<div class="cf-info"><div class="cf-t"><strong>'+cfEsc(t.patrimonio)+'<\/strong> · '+cfEsc(t.ferramenta)+' '+stBadge(t.status)+'<\/div>'+
+          '<div class="cf-s">📍 '+cfEsc(t.siglaLocal||t.local||'—')+(t.cidade&&t.cidade!=='—'?' — '+cfEsc(t.cidade):'')+' · '+cfVencTxt(t)+'<\/div><\/div>'+
+          '<div class="cf-acts">'+
+            (p?'<button class="cf-ok" onclick="cfConfirmarUm('+t._id+')">✓ Está aqui<\/button>':'')+
+            '<button class="cf-mv" onclick="cfMudou('+t._id+')">'+(p?'Mudou de lugar':'Mudou?')+'<\/button>'+
+          '<\/div><\/div>';
+      }).join('');
+      return'<div class="cf-grp">'+
+        '<div class="cf-gh" onclick="cfToggleGrp(\''+kEnc+'\',this)">'+
+          '<span class="cf-caret">'+(aberto?'▾':'▸')+'<\/span>'+
+          '<div class="cf-gn"><b>'+cfEsc(nome)+'<\/b>'+(k.indexOf('@')>=0?'<span class="cf-em">'+cfEsc(k)+'<\/span>':'')+'<\/div>'+
+          '<span class="cf-cnt'+(pend.length?'':' ok')+'">'+(pend.length?pend.length+' pendente'+(pend.length!==1?'s':''):'tudo confirmado')+'<\/span>'+
+          '<div class="cf-gacts" onclick="event.stopPropagation()">'+
+            (CONF_PEND_MSGS[i]?'<button class="cf-mini" onclick="copiarCobranca('+i+')">📋 Cobrar<\/button>':'')+
+            (pend.length>1?'<button class="cf-mini grn" onclick="cfConfirmarGrupo(\''+kEnc+'\')">✓ Confirmar todas ('+pend.length+')<\/button>':'')+
+          '<\/div><\/div>'+
+        '<div class="cf-body" style="display:'+(aberto?'block':'none')+'">'+rows+'<\/div><\/div>';
+    }).join('');
+  }
+  var nSel=Object.keys(CF.sel).length;
+  h+='<div class="cf-selbar" style="display:'+(nSel?'flex':'none')+'"><span>'+nSel+' selecionada'+(nSel!==1?'s':'')+'<\/span>'+
+    '<button class="cf-mini" onclick="CF.sel={};renderConfirmacoes()">Limpar<\/button>'+
+    '<button class="cf-mini grn" onclick="cfConfirmarSel()">✓ Confirmar selecionadas<\/button><\/div>';
+  root.innerHTML=h;
+}
+function cfSetView(v){CF.view=v;CF.open={};CF.sel={};renderConfirmacoes();}
+function cfSetSit(v){CF.sit=v;CF.sel={};renderConfirmacoes();}
+var _cfT=null;
+function cfBusca(v){
+  CF.q=(v||'').toLowerCase().trim();
+  clearTimeout(_cfT);
+  _cfT=setTimeout(function(){
+    renderConfirmacoes();
+    var i=document.getElementById('confBusca');if(i){i.focus();var n=i.value.length;i.setSelectionRange(n,n);}
+  },250);
+}
+function cfToggleGrp(kEnc,el){
+  var k=decodeURIComponent(kEnc);
+  var body=el&&el.nextElementSibling;if(!body)return;
+  var abre=body.style.display==='none';
+  body.style.display=abre?'block':'none';
+  var c=el.querySelector('.cf-caret');if(c)c.textContent=abre?'▾':'▸';
+  CF.open[k]=abre;
+}
+function cfToggleSel(id,on){if(on)CF.sel[id]=1;else delete CF.sel[id];
+  var nSel=Object.keys(CF.sel).length;var bar=document.querySelector('.cf-selbar');
+  if(bar){bar.style.display=nSel?'flex':'none';bar.querySelector('span').textContent=nSel+' selecionada'+(nSel!==1?'s':'');}
+}
+// Confirma "mesmo local" (sem abrir modal). Devolve os dados para desfazer.
+async function cfConfirmarCore(t){
+  var prev={local:t.local,siglaLocal:t.siglaLocal,responsavel:t.responsavel,cidade:t.cidade,estado:t.estado,lastConfirm:t.lastConfirm?Object.assign({},t.lastConfirm):null,
+    responsavelPendente:t.responsavelPendente||null,localPendente:t.localPendente||null,siglaLocalPendente:t.siglaLocalPendente||null,cidadePendente:t.cidadePendente||null,estadoPendente:t.estadoPendente||null,motivoPendente:t.motivoPendente||null,pendenteDesde:t.pendenteDesde||null};
+  var msg='✅ Confirmado: '+t.siglaLocal;
+  t.lastConfirm={user:CU.name,ts:ts()};
+  var histEntry={msg:msg,user:CU.name,t:fmt(ts()),dot:'gr'};
+  t.hist.unshift(histEntry);
+  dbSaveTool(t);
+  var histDbId=await dbSaveHist(t._id,msg,CU.name);
+  if(histDbId)histEntry.dbId=histDbId;
+  return{toolId:t._id,prev:prev,histEntry:histEntry,histDbId:histDbId};
+}
+async function cfConfirmarUm(id){
+  var t=tools.find(function(x){return x._id===id;});if(!t)return;
+  var u=await cfConfirmarCore(t);
+  delete CF.sel[id];
+  renderAll();checkTransferAlert();
+  showUndoConfToast(u.toolId,u.prev,u.histEntry,u.histDbId);
+}
+async function cfConfirmarLista(lista){
+  if(!lista.length)return;
+  if(lista.length>1&&!confirm('Confirmar '+lista.length+' ferramentas no mesmo local de hoje?'))return;
+  var batch=[];
+  for(var i=0;i<lista.length;i++){batch.push(await cfConfirmarCore(lista[i]));delete CF.sel[lista[i]._id];}
+  renderAll();checkTransferAlert();
+  if(batch.length===1){var u=batch[0];showUndoConfToast(u.toolId,u.prev,u.histEntry,u.histDbId);}
+  else showUndoConfBatch(batch);
+}
+function cfConfirmarGrupo(kEnc){
+  var k=decodeURIComponent(kEnc);
+  cfConfirmarLista(cfLista().filter(function(t){return cfRespKey(t)===k&&!isQz(t);}));
+}
+function cfConfirmarSel(){
+  cfConfirmarLista(tools.filter(function(t){return CF.sel[t._id]&&!isQz(t);}));
+}
+// "Mudou de lugar": abre o fluxo atual de confirmação já com "Não" marcado
+function cfMudou(id){
+  openConf(id);
+  var s=document.getElementById('cSame');
+  if(s){s.value='nao';var nl=document.getElementById('cNL');if(nl)nl.style.display='block';}
+}
+function showUndoConfBatch(batch){
+  if(UNDO_CONF&&UNDO_CONF.timeoutId)clearTimeout(UNDO_CONF.timeoutId);
+  UNDO_CONF={batch:batch};
+  var b=document.getElementById('undoConfBanner');if(!b)return;
+  var tx=document.getElementById('undoConfTxt');if(tx)tx.textContent='✅ '+batch.length+' ferramentas confirmadas!';
+  b.style.display='flex';
+  UNDO_CONF.timeoutId=setTimeout(function(){b.style.display='none';UNDO_CONF=null;if(tx)tx.textContent='✅ Confirmado!';},10000);
+}
+function cfDesfazerUm(u){
+  var t=tools.find(function(x){return x._id===u.toolId;});if(!t)return;
+  ['local','siglaLocal','responsavel','cidade','estado','lastConfirm','responsavelPendente','localPendente','siglaLocalPendente','cidadePendente','estadoPendente','motivoPendente','pendenteDesde'].forEach(function(f){t[f]=u.prev[f];});
+  var idx=t.hist.indexOf(u.histEntry);if(idx>=0)t.hist.splice(idx,1);
+  dbSaveTool(t);
+  if(u.histDbId)dbDelHistOne(u.histDbId);
+}
+
 function copiarCobranca(i){
   var txt=CONF_PEND_MSGS[i];
   if(!txt)return;
